@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.1.7</title>
+<title>Mileage 3.2.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -168,7 +168,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.1.7</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.2.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -426,6 +426,73 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <button class="btn btn-primary" onclick="saveSetting()">記録する</button>
       </div>
+      <div class="card">
+        <p class="section-title">固有振動数 / バネレート計算</p>
+
+        <div class="accordion-header" onclick="toggleAccordion('accFreqDisp')">
+          <span class="accordion-title">📊 現在の固有振動数</span>
+          <span class="accordion-arrow" id="arrowFreqDisp">▼</span>
+        </div>
+        <div class="accordion-body" id="accFreqDisp">
+          <div class="accordion-inner">
+            <div id="freqCalcDisplay"></div>
+          </div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion('accFreqCalc')">
+          <span class="accordion-title">🔄 バネレートを逆算</span>
+          <span class="accordion-arrow" id="arrowFreqCalc">▼</span>
+        </div>
+        <div class="accordion-body" id="accFreqCalc">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">目標固有振動数からバネレートを逆算</p>
+            <div class="two-col">
+              <div class="form-group">
+                <label class="form-label">目標 フロント (Hz)</label>
+                <input type="number" class="form-input" id="targetFreqF" placeholder="例: 2.5" inputmode="decimal" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">目標 リア (Hz)</label>
+                <input type="number" class="form-input" id="targetFreqR" placeholder="例: 2.3" inputmode="decimal" step="0.1">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="calcFromFreq()">バネレートを逆算</button>
+            <div id="freqCalcResult"></div>
+          </div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion('accFreqCheck')">
+          <span class="accordion-title">📐 固有振動数を確認</span>
+          <span class="accordion-arrow" id="arrowFreqCheck">▼</span>
+        </div>
+        <div class="accordion-body" id="accFreqCheck">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">バネレートを入れて固有振動数を確認</p>
+            <div class="two-col">
+              <div class="form-group">
+                <label class="form-label">バネレート前 (kgf/mm)</label>
+                <input type="number" class="form-input" id="springToFreqF" inputmode="decimal" step="0.5" placeholder="例: 8.0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">バネレート後 (kgf/mm)</label>
+                <input type="number" class="form-input" id="springToFreqR" inputmode="decimal" step="0.5" placeholder="例: 6.0">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="calcSpringToFreq()">固有振動数を確認</button>
+            <div id="springToFreqResult"></div>
+          </div>
+        </div>
+
+        <div class="accordion-header" id="accGroupFreqHeader" onclick="toggleAccordion('accGroupFreq')" style="border-bottom:none;display:none">
+          <span class="accordion-title">👥 グループメンバーの固有振動数</span>
+          <span class="accordion-arrow" id="arrowGroupFreq">▼</span>
+        </div>
+        <div class="accordion-body" id="accGroupFreq">
+          <div class="accordion-inner">
+            <div id="groupFreqDisplay"></div>
+          </div>
+        </div>
+      </div>
       <div style="height:16px"></div>
     </div>
 
@@ -464,41 +531,6 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
       </div>
       <div class="card">
-        <p class="section-title">固有振動数 / バネレート計算</p>
-        <div id="freqCalcDisplay"></div>
-        <div style="margin-top:14px">
-          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">目標固有振動数からバネレートを逆算</p>
-          <div class="two-col">
-            <div class="form-group">
-              <label class="form-label">目標 フロント (Hz)</label>
-              <input type="number" class="form-input" id="targetFreqF" placeholder="例: 2.5" inputmode="decimal" step="0.1">
-            </div>
-            <div class="form-group">
-              <label class="form-label">目標 リア (Hz)</label>
-              <input type="number" class="form-input" id="targetFreqR" placeholder="例: 2.3" inputmode="decimal" step="0.1">
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="calcFromFreq()">バネレートを逆算</button>
-          <div id="freqCalcResult"></div>
-        </div>
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)">
-          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">バネレートを入れて固有振動数を確認</p>
-          <div class="two-col">
-            <div class="form-group">
-              <label class="form-label">バネレート前 (kgf/mm)</label>
-              <input type="number" class="form-input" id="springToFreqF" inputmode="decimal" step="0.5" placeholder="例: 8.0">
-            </div>
-            <div class="form-group">
-              <label class="form-label">バネレート後 (kgf/mm)</label>
-              <input type="number" class="form-input" id="springToFreqR" inputmode="decimal" step="0.5" placeholder="例: 6.0">
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="calcSpringToFreq()">固有振動数を確認</button>
-          <div id="springToFreqResult"></div>
-        </div>
-        <div id="groupFreqDisplay" style="display:none"></div>
-      </div>
-      <div class="card">
         <p class="section-title">通知タイミング</p>
         <div class="form-group">
           <label class="form-label">交換の何日前にアナウンス？</label>
@@ -531,7 +563,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.1.7</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.2.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -925,7 +957,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.1.7';
+const APP_VERSION = '3.2.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1793,9 +1825,14 @@ function deleteSettingFromEdit(){
   const car=!isNaN(ci)?state.cars[ci]:getCar();
   if(!confirm('この記録を削除しますか？'))return;
   const s=car.settings.find(x=>x.id===id);
-  if(s&&s.fbIds){Object.entries(s.fbIds).forEach(([code,fbId])=>fbDelete(`groups/${code}/settings/${fbId}`));}
+  if(s&&s.fbIds){
+    Object.entries(s.fbIds).forEach(([code,fbId])=>{
+      fbDelete(`groups/${code}/settings/${fbId}`);
+      if(state.groupCache[code])state.groupCache[code].settings=state.groupCache[code].settings.filter(x=>x.fbId!==fbId);
+    });
+  }
   car.settings=car.settings.filter(x=>x.id!==id);
-  save();hideModal('editSettingModal');renderHistory();toast('削除しました');
+  save();hideModal('editSettingModal');renderHistory();renderGroupFreq();toast('削除しました');
 }
 
 function deleteRecord(id){
@@ -1994,28 +2031,26 @@ function renderFreqCalc(){
 }
 function renderGroupFreq(){
   const el=document.getElementById('groupFreqDisplay');
-  if(!el||!state.groups.length){if(el)el.style.display='none';return;}
+  const hdr=document.getElementById('accGroupFreqHeader');
+  if(!el||!state.groups.length){if(hdr)hdr.style.display='none';return;}
   let allSettings=[];
   state.groups.forEach(g=>{
     const cache=state.groupCache[g.code];
     if(cache&&cache.settings)cache.settings.forEach(s=>{if((s.freqF||s.freqR)&&s.car)allSettings.push(s);});
   });
-  if(!allSettings.length){el.style.display='none';return;}
-  el.style.display='block';
-  el.innerHTML=`<div style="margin-top:14px">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">グループメンバーの固有振動数</div>
-    ${allSettings.sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,8).map(s=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-        <div>
-          <div style="font-size:12px;color:var(--text)">${s.nick||'--'} <span style="color:var(--text3);font-size:11px">${s.car||''}</span></div>
-          <div style="font-size:11px;color:var(--text3)">${s.course||''} ${s.date||''}</div>
-        </div>
-        <div style="text-align:right">
-          ${s.freqF?`<div style="font-size:12px;font-weight:600;color:#60a5fa">F: ${parseFloat(s.freqF).toFixed(2)} Hz</div>`:''}
-          ${s.freqR?`<div style="font-size:12px;font-weight:600;color:#86efac">R: ${parseFloat(s.freqR).toFixed(2)} Hz</div>`:''}
-        </div>
-      </div>`).join('')}
-  </div>`;
+  if(!allSettings.length){if(hdr)hdr.style.display='none';return;}
+  if(hdr)hdr.style.display='';
+  el.innerHTML=allSettings.sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,8).map(s=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+      <div>
+        <div style="font-size:12px;color:var(--text)">${s.nick||'--'} <span style="color:var(--text3);font-size:11px">${s.car||''}</span></div>
+        <div style="font-size:11px;color:var(--text3)">${s.course||''} ${s.date||''}</div>
+      </div>
+      <div style="text-align:right">
+        ${s.freqF?`<div style="font-size:12px;font-weight:600;color:#60a5fa">F: ${parseFloat(s.freqF).toFixed(2)} Hz</div>`:''}
+        ${s.freqR?`<div style="font-size:12px;font-weight:600;color:#86efac">R: ${parseFloat(s.freqR).toFixed(2)} Hz</div>`:''}
+      </div>
+    </div>`).join('');
 }
 function calcFromFreq(){
   const car=getCar();
@@ -2440,10 +2475,13 @@ function deleteSetting(id){
   const car=getCar();
   const s=car.settings.find(x=>x.id===id);
   if(s&&s.fbIds){
-    Object.entries(s.fbIds).forEach(([code,fbId])=>fbDelete(`groups/${code}/settings/${fbId}`));
+    Object.entries(s.fbIds).forEach(([code,fbId])=>{
+      fbDelete(`groups/${code}/settings/${fbId}`);
+      if(state.groupCache[code])state.groupCache[code].settings=state.groupCache[code].settings.filter(x=>x.fbId!==fbId);
+    });
   }
   car.settings=car.settings.filter(x=>x.id!==id);
-  save();renderHistory();
+  save();renderHistory();renderGroupFreq();
 }
 
 function showUploadModal(code){
