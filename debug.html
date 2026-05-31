@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#f1f5f9;font-family:-apple-system,sans-serif;font-size:13px}
+#info{padding:16px;padding-top:calc(env(safe-area-inset-top,0px) + 16px);line-height:2.2;position:relative;z-index:1}
+
+/* アプリ領域（青） */
+#zone-app{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  border-bottom:3px solid rgba(59,130,246,0.9);
+  pointer-events:none;
+  z-index:9999;
+}
+#label-app{
+  position:fixed;
+  right:4px;
+  background:rgba(59,130,246,0.9);
+  color:#fff;
+  font-size:11px;
+  font-weight:bold;
+  padding:2px 8px;
+  border-radius:4px;
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* ホームバー上端（赤） */
+#zone-homebar{
+  position:fixed;
+  left:0;
+  right:0;
+  border-top:3px solid rgba(239,68,68,0.9);
+  pointer-events:none;
+  z-index:9999;
+}
+#label-homebar{
+  position:fixed;
+  left:4px;
+  background:rgba(239,68,68,0.9);
+  color:#fff;
+  font-size:11px;
+  font-weight:bold;
+  padding:2px 8px;
+  border-radius:4px;
+  pointer-events:none;
+  z-index:9999;
+}
+
+#tap{
+  position:fixed;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+  left:50%;
+  transform:translateX(-50%);
+  background:#1e293b;
+  border:1px solid #3b82f6;
+  color:#3b82f6;
+  padding:12px 24px;
+  border-radius:20px;
+  font-size:14px;
+  z-index:99999;
+  cursor:pointer;
+  white-space:nowrap;
+}
+</style>
+</head>
+<body>
+<div id="info">計測中...</div>
+
+<div id="zone-app"></div>
+<div id="label-app"></div>
+<div id="zone-homebar"></div>
+<div id="label-homebar"></div>
+<div id="zone-homebar-bottom" style="position:fixed;left:0;right:0;border-top:3px solid rgba(34,197,94,0.9);pointer-events:none;z-index:9999;"></div>
+<div id="label-homebar-bottom" style="position:fixed;right:4px;background:rgba(34,197,94,0.9);color:#000;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:4px;pointer-events:none;z-index:9999;"></div>
+
+<button id="tap" onclick="measure()">タップして再計測</button>
+
+<script>
+function measure() {
+  var ih = window.innerHeight;
+  var sh = window.screen.height;
+  var isStandalone = window.navigator.standalone;
+
+  // safe-area-inset-bottomを実測
+  var sabEl = document.createElement('div');
+  sabEl.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;';
+  document.body.appendChild(sabEl);
+  var sab = sabEl.getBoundingClientRect().height;
+  document.body.removeChild(sabEl);
+
+  // safe-area-inset-topを実測
+  var satEl = document.createElement('div');
+  satEl.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden;';
+  document.body.appendChild(satEl);
+  var sat = satEl.getBoundingClientRect().height;
+  document.body.removeChild(satEl);
+
+  // アプリ領域の下端 = innerHeight
+  // ホームバーの上端 = innerHeight - sab（sabがinnerHeight内にある場合）
+  var homebarTop = ih - sab;
+
+  // 青線: innerHeightの位置（アプリ領域の下端）
+  document.getElementById('zone-app').style.top = ih + 'px';
+  document.getElementById('label-app').style.top = (ih - 22) + 'px';
+  document.getElementById('label-app').textContent = '青: innerHeight=' + ih + 'px';
+
+  // 赤線: ホームバー上端
+  document.getElementById('zone-homebar').style.top = homebarTop + 'px';
+  document.getElementById('label-homebar').style.top = (homebarTop + 4) + 'px';
+  document.getElementById('label-homebar').textContent = '赤: ホームバー上端=' + homebarTop + 'px';
+
+  // 緑線: ホームバー下端
+  document.getElementById('zone-homebar-bottom').style.top = (homebarTop + sab) + 'px';
+  document.getElementById('label-homebar-bottom').style.top = (homebarTop + sab + 4) + 'px';
+  document.getElementById('label-homebar-bottom').textContent = '緑: ホームバー下端=' + (homebarTop + sab) + 'px';
+
+  document.getElementById('info').innerHTML = [
+    'standalone: <span style="color:' + (isStandalone?'#22c55e':'#ef4444') + ';font-weight:bold">' + (isStandalone?'YES':'NO') + '</span>',
+    'innerHeight: <span style="color:#3b82f6;font-weight:bold">' + ih + 'px</span>',
+    'screen.height: <span style="color:#94a3b8">' + sh + 'px</span>',
+    'safe-area-top: <span style="color:#94a3b8">' + sat + 'px</span>',
+    'safe-area-bottom: <span style="color:#94a3b8">' + sab + 'px</span>',
+    '🔵 アプリ下端: ' + ih + 'px',
+    '🔴 ホームバー上端: ' + homebarTop + 'px',
+    '🟢 ホームバー下端: ' + (homebarTop + sab) + 'px',
+  ].join('<br>');
+}
+
+measure();
+setInterval(measure, 500);
+</script>
+</body>
+</html>
