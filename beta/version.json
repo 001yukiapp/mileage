@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
+  "version": "3.2.1",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "バネレート計算をセッティングタブに移動・アコーディオン化、グループ履歴削除バグ修正"
+  "notes": "固有振動数表示の更新タイミング修正、全データ削除時のFirebase連携修正"
 }
