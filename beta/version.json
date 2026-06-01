@@ -1,5 +1,5 @@
 {
-  "version": "3.2.3",
+  "version": "3.2.4",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "Firebaseが空のときグループキャッシュを空で上書きするよう修正（古いキャッシュが消えない不具合の修正）"
+  "notes": "Firebase取得をブラウザキャッシュ無効化（削除後も古いデータが表示される不具合の修正）"
 }
