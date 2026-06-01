@@ -1,5 +1,5 @@
 {
-  "version": "3.2.1",
+  "version": "3.2.2",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "固有振動数表示の更新タイミング修正、全データ削除時のFirebase連携修正"
+  "notes": "セッティングタブ表示時にグループキャッシュをFirebaseから再取得、全グループデータの削除ボタン追加"
 }
