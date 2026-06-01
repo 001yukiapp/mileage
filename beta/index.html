@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.3.0</title>
+<title>Mileage 3.3.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.3.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.3.1</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -496,9 +496,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <div class="accordion-body" id="accFreqMeasure">
           <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマートフォンを車内に置き、ボンネットを軽く押して上下に揺らしながら計測します。iOSはセンサー許可が必要です。</p>
-            <button class="btn btn-primary" id="freqMeasureBtn" onclick="startFreqMeasure()">計測開始（10秒）</button>
-            <button class="btn" id="freqMeasureStopBtn" onclick="stopFreqMeasure()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">エンジンルームまたはトランク内など、<b>前軸／後軸にできるだけ近い硬い場所</b>にスマホを<b>しっかり固定</b>し、一定速度で走行してください。計測開始 → 走行を検知 → 安定後に2分間測定します。<br><span style="color:#fbbf24">⚠️ スマホの落下・固定に十分ご注意ください。</span></p>
+            <button class="btn btn-primary" id="freqMeasureBtn" onclick="startFreqMeasure()">計測開始</button>
+            <button class="btn" id="freqMeasureStopBtn" onclick="stopFreqMeasure(false)" style="display:none;background:var(--bg3);color:var(--text)">中止</button>
             <div id="freqMeasureResult" style="margin-top:12px"></div>
           </div>
         </div>
@@ -583,7 +583,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.3.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.3.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -978,7 +978,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.3.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1273,7 +1273,7 @@ function showPage(name){
   if(name==='dashboard')renderDashboard();
   if(name==='history')renderHistory();
   if(name==='odometer'){updateOdomChart();renderOdomHistory();setTodayDates();}
-  if(name==='record')setTodayDates();
+  if(name==='record'){setTodayDates();const pt=document.getElementById('partType').value;document.getElementById('oilFilterGroup').style.display=pt==='oil'?'block':'none';}
   if(name==='settings'){renderSettings();renderGroupList();}
   if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();state.groups.forEach(g=>cacheGroupData(g.code));}
   if(name==='group'){loadGroupCompareOptions();}
@@ -1985,8 +1985,17 @@ async function joinGroup(){
 }
 function leaveGroup(code){
   if(!confirm(`グループ ${code} から退出しますか？`))return;
+  // このグループに共有した自分のセッティングを収集
+  const mine=[];
+  state.cars.forEach(car=>car.settings.forEach(s=>{if(s.fbIds&&s.fbIds[code])mine.push(s);}));
+  if(mine.length>0){
+    if(confirm(`このグループに共有した あなたのセッティング ${mine.length}件 を削除しますか？\n\nはい（OK）＝グループから削除\nいいえ（キャンセル）＝グループに残す`)){
+      mine.forEach(s=>{fbDelete(`groups/${code}/settings/${s.fbIds[code]}`);delete s.fbIds[code];});
+    }
+  }
   state.groups=state.groups.filter(g=>g.code!==code);
-  save();renderGroupList();updateGroupNav();toast('グループから退出しました');
+  if(state.groupCache[code])delete state.groupCache[code];
+  save();renderGroupList();updateGroupNav();renderGroupFreq();toast('グループから退出しました');
 }
 
 // ---- グループキャッシュ ----
@@ -2220,18 +2229,25 @@ async function deleteAllGroupEntry(code,fbId){
   toast('削除しました');
 }
 
-// ---- 固有振動数 実測 ----
-let _fmData=[],_fmTimer=null,_fmActive=false;
+// ---- 固有振動数 実測（走行検知 → 安定1分 → 測定2分）----
+let _fmData=[],_fmActive=false,_fmState='idle',_fmBuffer=[],_fmTimers=[],_fmCountdown=null;
+const FM_DRIVE_THRESHOLD=0.4;   // 走行検知の加速度SD閾値(m/s^2)
+const FM_SETTLE_MS=60000;       // 安定待ち 1分
+const FM_MEASURE_MS=120000;     // 測定 2分
+const FM_TIMEOUT_MS=300000;     // 走行未検知タイムアウト 5分
+function _fmClearTimers(){_fmTimers.forEach(t=>clearTimeout(t));_fmTimers=[];if(_fmCountdown){clearInterval(_fmCountdown);_fmCountdown=null;}}
+function _fmStatus(title,sub){
+  const el=document.getElementById('freqMeasureResult');
+  if(el)el.innerHTML=`<div style="text-align:center;padding:12px"><div style="font-size:14px;color:var(--text);margin-bottom:4px">${title}</div><div style="font-size:12px;color:var(--text3)">${sub||''}</div></div>`;
+}
 function startFreqMeasure(){
-  const btn=document.getElementById('freqMeasureBtn');
-  const stop=document.getElementById('freqMeasureStopBtn');
-  const res=document.getElementById('freqMeasureResult');
   const go=()=>{
-    _fmData=[];_fmActive=true;
-    btn.style.display='none';stop.style.display='';
-    res.innerHTML='<div style="text-align:center;color:var(--text3);font-size:13px;padding:8px">計測中... 車を上下に揺らしてください</div>';
+    _fmActive=true;_fmState='waiting';_fmData=[];_fmBuffer=[];
+    document.getElementById('freqMeasureBtn').style.display='none';
+    document.getElementById('freqMeasureStopBtn').style.display='';
+    _fmStatus('🚗 走行開始を待っています…','一定速度で走り出してください');
     window.addEventListener('devicemotion',_fmHandler);
-    _fmTimer=setTimeout(stopFreqMeasure,10000);
+    _fmTimers.push(setTimeout(()=>{if(_fmState==='waiting')stopFreqMeasure(false,'timeout');},FM_TIMEOUT_MS));
   };
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
     DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else toast('センサーへのアクセスが拒否されました');}).catch(()=>toast('センサーエラー'));
@@ -2244,31 +2260,72 @@ function startFreqMeasure(){
 function _fmHandler(e){
   if(!_fmActive)return;
   const a=e.accelerationIncludingGravity||e.acceleration;
-  if(a)_fmData.push({t:Date.now(),v:a.z??a.y??0});
+  if(!a)return;
+  const v=a.z??a.y??0;
+  const t=Date.now();
+  if(_fmState==='waiting'){
+    _fmBuffer.push({t,v});
+    _fmBuffer=_fmBuffer.filter(d=>t-d.t<2000);
+    if(_fmBuffer.length>=20){
+      const vals=_fmBuffer.map(d=>d.v);
+      const mean=vals.reduce((x,y)=>x+y,0)/vals.length;
+      const sd=Math.sqrt(vals.reduce((s,x)=>s+(x-mean)**2,0)/vals.length);
+      if(sd>FM_DRIVE_THRESHOLD)_fmStartSettling();
+    }
+  }else if(_fmState==='measuring'){
+    _fmData.push({t,v});
+  }
 }
-function stopFreqMeasure(){
-  _fmActive=false;
+function _fmStartSettling(){
+  _fmState='settling';_fmClearTimers();
+  let remain=Math.round(FM_SETTLE_MS/1000);
+  _fmStatus('🛣 走行を検知。安定走行中…','測定開始まで '+remain+' 秒');
+  _fmCountdown=setInterval(()=>{remain--;if(remain>0)_fmStatus('🛣 走行を検知。安定走行中…','測定開始まで '+remain+' 秒');},1000);
+  _fmTimers.push(setTimeout(_fmStartMeasuring,FM_SETTLE_MS));
+}
+function _fmStartMeasuring(){
+  _fmState='measuring';_fmData=[];_fmClearTimers();
+  let remain=Math.round(FM_MEASURE_MS/1000);
+  _fmStatus('📊 測定中…','残り '+remain+' 秒');
+  _fmCountdown=setInterval(()=>{remain--;if(remain>0)_fmStatus('📊 測定中…','残り '+remain+' 秒');},1000);
+  _fmTimers.push(setTimeout(()=>stopFreqMeasure(true),FM_MEASURE_MS));
+}
+function stopFreqMeasure(completed,reason){
+  _fmActive=false;_fmState='idle';
   window.removeEventListener('devicemotion',_fmHandler);
-  if(_fmTimer){clearTimeout(_fmTimer);_fmTimer=null;}
-  const btn=document.getElementById('freqMeasureBtn');
-  const stop=document.getElementById('freqMeasureStopBtn');
+  _fmClearTimers();
+  const btn=document.getElementById('freqMeasureBtn');const stop=document.getElementById('freqMeasureStopBtn');
   if(btn)btn.style.display='';if(stop)stop.style.display='none';
-  _analyzeFreq();
+  const el=document.getElementById('freqMeasureResult');
+  if(reason==='timeout'){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px">走行が検知されませんでした（5分でタイムアウト）。設置・固定を確認して再度お試しください。</div>';return;}
+  if(completed){_analyzeFreq();}
+  else if(el){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px">計測を中止しました。</div>';}
+}
+function _movAvg(arr,win){
+  const out=[];let sum=0;const q=[];
+  for(let i=0;i<arr.length;i++){q.push(arr[i]);sum+=arr[i];if(q.length>win)sum-=q.shift();out.push(sum/q.length);}
+  return out;
 }
 let _fmLastFreq=0;
 function _analyzeFreq(){
   const el=document.getElementById('freqMeasureResult');
-  if(_fmData.length<20){el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分です。10秒間揺らし続けてください。</div>';return;}
-  const vals=_fmData.map(d=>d.v);
-  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
-  const centered=vals.map(v=>v-mean);
-  let crossings=0;
-  for(let i=1;i<centered.length;i++)if(centered[i-1]<0&&centered[i]>=0)crossings++;
+  if(_fmData.length<60){el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分でした。もう一度お試しください。</div>';return;}
   const dur=(_fmData[_fmData.length-1].t-_fmData[0].t)/1000;
+  const fs=_fmData.length/dur; // サンプリングレート推定
+  const raw=_fmData.map(d=>d.v);
+  // バンドパス: ローパス(高周波=エンジン/タイヤ除去) - 長期移動平均(超低周波=車速変化除去)
+  const lpWin=Math.max(2,Math.round(fs/8));     // ~5Hzローパス目安
+  const trendWin=Math.max(lpWin+1,Math.round(fs*1.5));
+  const lp=_movAvg(raw,lpWin);
+  const trend=_movAvg(raw,trendWin);
+  const band=lp.map((x,i)=>x-trend[i]);
+  let crossings=0;
+  for(let i=1;i<band.length;i++)if(band[i-1]<0&&band[i]>=0)crossings++;
   const freq=dur>0?crossings/dur:0;
   _fmLastFreq=freq;
+  const warn=freq>5?'<div style="font-size:11px;color:#fbbf24;margin-top:8px">⚠️ 値が高めです。エンジン等の振動を拾っている可能性があります。設置位置・固定を見直してください。</div>':'';
   el.innerHTML=freq>0?`<div class="calc-result">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">計測結果（上下方向）</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">測定結果（${dur.toFixed(0)}秒・${fs.toFixed(0)}Hzサンプリング）</div>
     <div class="calc-grid">
       <div class="calc-item"><div class="calc-item-label">固有振動数</div><div class="calc-item-value" style="color:${freqColor(freq)}">${freq.toFixed(2)} Hz</div></div>
       <div class="calc-item"><div class="calc-item-label">サンプル数</div><div class="calc-item-value">${_fmData.length}</div></div>
@@ -2276,8 +2333,8 @@ function _analyzeFreq(){
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">目標フロントに反映</button>
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">目標リアに反映</button>
-    </div>
-  </div>`:'<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。もう少し大きく揺らしてください。</div>';
+    </div>${warn}
+  </div>`:'<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。設置・固定を確認してください。</div>';
 }
 function applyMeasuredFreq(target){
   if(!_fmLastFreq){toast('先に計測してください');return;}
