@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.2.5</title>
+<title>Mileage 3.3.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -37,6 +37,7 @@ body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-syste
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;height:40px;z-index:50;display:flex;justify-content:space-around;background:var(--bg);border-top:1px solid rgba(255,255,255,.06);padding:0 8px 1px}
 .nav-btn{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;border:none;background:transparent;color:var(--text3);font-size:0.57em;line-height:10px;cursor:pointer;padding:0 0 1px}
 .nav-btn.active{color:var(--blue)}
+.nav-btn.nav-disabled{opacity:.3;pointer-events:none}
 .nav-btn svg{width:20px;height:20px;stroke-width:1.8;fill:none;stroke:currentColor}
 
 .page{display:none}.page.active{display:block}
@@ -168,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.2.5</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.3.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -201,6 +202,12 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div class="form-group" id="otherNameGroup" style="display:none">
           <label class="form-label">部品名</label>
           <input type="text" class="form-input" id="otherName" placeholder="例: スパークプラグ">
+        </div>
+        <div class="form-group" id="oilFilterGroup" style="display:none">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="oilFilterCheck" style="width:18px;height:18px;accent-color:#3b82f6;flex-shrink:0">
+            <span class="form-label" style="margin:0">オイルフィルターも同時交換（別記録を自動作成）</span>
+          </label>
         </div>
         <div class="form-group">
           <label class="form-label">交換時の走行距離 (km)</label>
@@ -483,6 +490,19 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
+        <div class="accordion-header" onclick="toggleAccordion('accFreqMeasure')">
+          <span class="accordion-title">📱 固有振動数 実測</span>
+          <span class="accordion-arrow" id="arrowFreqMeasure">▼</span>
+        </div>
+        <div class="accordion-body" id="accFreqMeasure">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマートフォンを車内に置き、ボンネットを軽く押して上下に揺らしながら計測します。iOSはセンサー許可が必要です。</p>
+            <button class="btn btn-primary" id="freqMeasureBtn" onclick="startFreqMeasure()">計測開始（10秒）</button>
+            <button class="btn" id="freqMeasureStopBtn" onclick="stopFreqMeasure()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
+            <div id="freqMeasureResult" style="margin-top:12px"></div>
+          </div>
+        </div>
+
         <div class="accordion-header" id="accGroupFreqHeader" onclick="toggleAccordion('accGroupFreq')" style="border-bottom:none;display:none">
           <span class="accordion-title">👥 グループメンバーの固有振動数</span>
           <span class="accordion-arrow" id="arrowGroupFreq">▼</span>
@@ -563,7 +583,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.2.5</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.3.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -766,6 +786,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <label class="form-label">部品・オイルの種類</label>
       <select class="form-input" id="editPartType" onchange="document.getElementById('editOtherNameGroup').style.display=this.value==='other'?'block':'none'">
         <option value="oil">エンジンオイル</option>
+        <option value="oilfilter">オイルフィルター</option>
         <option value="tire">タイヤ</option>
         <option value="brake">ブレーキパッド</option>
         <option value="airfilter">エアフィルター</option>
@@ -957,7 +978,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.2.5';
+const APP_VERSION = '3.3.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -972,7 +993,7 @@ if('serviceWorker' in navigator){
   });
 }
 
-const PART_LABELS={oil:'エンジンオイル',tire:'タイヤ',brake:'ブレーキパッド',airfilter:'エアフィルター',atf:'ATF',coolant:'クーラント',battery:'バッテリー',other:'その他'};
+const PART_LABELS={oil:'エンジンオイル',oilfilter:'オイルフィルター',tire:'タイヤ',brake:'ブレーキパッド',airfilter:'エアフィルター',atf:'ATF',coolant:'クーラント',battery:'バッテリー',other:'その他'};
 const BADGE_CLASS={oil:'badge-oil',tire:'badge-tire',brake:'badge-brake'};
 const SURFACE_LABELS={dry:'ドライ','semi-wet':'セミウェット',wet:'ウェット'};
 
@@ -1104,15 +1125,24 @@ function renderCarTabs(){
     `<button class="car-tab${!state.viewAll&&i===state.selectedCar?' active':''}" onclick="selectCar(${i})">${c.name}</button>`
   ).join('');
   document.getElementById('carTabs').innerHTML=allBtn+carBtns;
+  // 「すべて」表示中は入力系ナビをグレーアウト
+  ['nav-record','nav-odometer','nav-setting'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b)b.classList.toggle('nav-disabled',state.viewAll);
+  });
 }
 function selectAll(){
+  const inputPages=['record','setting','odometer'];
+  const wasOnInput=inputPages.some(p=>document.getElementById('page-'+p)?.classList.contains('active'));
   state.viewAll=true;
   save();renderCarTabs();renderDashboard();renderHistory();
+  if(wasOnInput){toast('車を選択してから操作してください');showPage('dashboard');}
 }
 function selectCar(i){
   state.selectedCar=i;
   state.viewAll=false;
   save();renderCarTabs();renderDashboard();renderHistory();updateOdomChart();renderOdomHistory();
+  ['freqCalcResult','springToFreqResult'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   if(document.getElementById('page-setting').classList.contains('active')){fillSettingForm();renderFreqCalc();}
   if(document.getElementById('page-settings').classList.contains('active'))renderSettings();
 }
@@ -1230,6 +1260,11 @@ function showImportModal(){
 
 // ---- ページ遷移 ----
 function showPage(name){
+  if(state.viewAll&&['record','setting','odometer'].includes(name)){
+    toast('車を選択してから操作してください');name='dashboard';
+  }
+  // セッティングタブを離れるとき固有振動数の計測を停止
+  if(name!=='setting'&&_fmActive)stopFreqMeasure();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -1452,6 +1487,8 @@ function renderDashboardAll(){
 // ---- 交換記録 ----
 document.getElementById('partType').addEventListener('change',function(){
   document.getElementById('otherNameGroup').style.display=this.value==='other'?'block':'none';
+  document.getElementById('oilFilterGroup').style.display=this.value==='oil'?'block':'none';
+  if(this.value!=='oil')document.getElementById('oilFilterCheck').checked=false;
 });
 function saveRecord(){
   const part=document.getElementById('partType').value;
@@ -1460,6 +1497,7 @@ function saveRecord(){
   const intervalVal=document.getElementById('recInterval').value;
   const note=document.getElementById('recNote').value.trim();
   const otherName=document.getElementById('otherName').value.trim();
+  const oilFilter=part==='oil'&&document.getElementById('oilFilterCheck').checked;
   if(!odo||!date){toast('走行距離と日付を入力してください');return;}
   
   const car=getCar();
@@ -1487,11 +1525,17 @@ function saveRecord(){
   }
   
   car.records.push({part,odomAtChange:odo,date,nextInterval:interval,note,otherName,id:Date.now(),ts:Date.now()});
+  // オイルフィルター同時交換 → 単独記録を自動作成
+  if(oilFilter){
+    car.records.push({part:'oilfilter',odomAtChange:odo,date,nextInterval:null,note:'',otherName:'',id:Date.now()+1,ts:Date.now()+1});
+  }
   if(!car.odomHistory.find(h=>h.km===odo&&h.date===date))car.odomHistory.push({km:odo,date});
-  save();toast('記録しました ✓');
+  save();toast(oilFilter?'記録しました ✓（フィルターも記録）':'記録しました ✓');
   document.getElementById('recOdo').value='';
   document.getElementById('recInterval').value='';
   document.getElementById('recNote').value='';
+  document.getElementById('oilFilterCheck').checked=false;
+  document.getElementById('oilFilterGroup').style.display='none';
   showPage('dashboard');
 }
 function saveOdometer(){
@@ -1683,7 +1727,7 @@ function renderHistoryAll(){
           <div class="timeline-header">
             <div><span class="badge ${bc}">${name}</span>${carLabel}
             <div class="timeline-sub">${item.date} | ${item.odomAtChange.toLocaleString()}km交換${nextIntervalText}${item.note?'<br>💬 '+item.note:''}</div></div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="showEditRecord(${item.id},${item._carIdx})">編集</button>
+            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditRecord(${item.id},${item._carIdx})">編集</button>
           </div>
         </div>
       </div>`;
@@ -1699,7 +1743,7 @@ function renderHistoryAll(){
             <div><span class="badge badge-setting">🏎 セッティング</span>${carLabel}
             <div class="timeline-title">📍 ${item.course||'?'}</div>
             <div class="timeline-sub">${item.date||''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="showEditSetting(${item.id},${item._carIdx})">編集</button>
+            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditSetting(${item.id},${item._carIdx})">編集</button>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${details}</div>`:''}
           <div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.note?` <span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}</div>
@@ -1889,6 +1933,26 @@ function generateCode(){
   let code='';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];
   return code;
 }
+function countUnsharedSettings(code){
+  let n=0;
+  state.cars.forEach(car=>car.settings.forEach(s=>{if(!s.fbIds||!s.fbIds[code])n++;}));
+  return n;
+}
+async function uploadSettingsToGroup(code){
+  const g=state.groups.find(x=>x.code===code);
+  if(!g)return 0;
+  let count=0;
+  for(const car of state.cars){
+    for(const s of car.settings){
+      if(!s.fbIds||!s.fbIds[code]){
+        const fbData={...s,nick:g.nick||state.nickname||''};
+        const fbId=await fbPush(`groups/${code}/settings`,fbData);
+        if(fbId){if(!s.fbIds)s.fbIds={};s.fbIds[code]=fbId;count++;}
+      }
+    }
+  }
+  save();return count;
+}
 async function createGroup(){
   const code=generateCode();
   await fbSet(`groups/${code}/created`,new Date().toISOString());
@@ -1896,6 +1960,11 @@ async function createGroup(){
   save();renderGroupList();updateCommunitySection();
   copyGroupCode(code);
   toast(`グループ作成: ${code}（コピー済み）`);
+  const n=countUnsharedSettings(code);
+  if(n>0&&confirm(`全車両のセッティング記録 ${n}件 をグループ ${code} に反映しますか？`)){
+    const count=await uploadSettingsToGroup(code);
+    if(count>0)toast(`${count}件 グループに共有しました`);
+  }
 }
 async function joinGroup(){
   const code=document.getElementById('joinCodeInput').value.toUpperCase().trim();
@@ -1908,6 +1977,11 @@ async function joinGroup(){
   save();hideModal('joinModal');renderGroupList();updateGroupNav();
   cacheGroupData(code);
   toast(`グループ ${code} に参加しました！`);
+  const n=countUnsharedSettings(code);
+  if(n>0&&confirm(`全車両のセッティング記録 ${n}件 をグループ ${code} に反映しますか？`)){
+    const count=await uploadSettingsToGroup(code);
+    if(count>0)toast(`${count}件 グループに共有しました`);
+  }
 }
 function leaveGroup(code){
   if(!confirm(`グループ ${code} から退出しますか？`))return;
@@ -2023,6 +2097,8 @@ function renderFreqCalc(){
     document.getElementById('targetFreqF').value=freqF.toFixed(1);
   if(freqR&&!document.getElementById('targetFreqR').value)
     document.getElementById('targetFreqR').value=freqR.toFixed(1);
+  document.getElementById('accFreqDisp').classList.add('open');
+  document.getElementById('arrowFreqDisp').classList.add('open');
   renderGroupFreq();
 }
 function renderGroupFreq(){
@@ -2142,6 +2218,74 @@ async function deleteAllGroupEntry(code,fbId){
   save();renderGroupFreq();
   loadAllGroupSettings();
   toast('削除しました');
+}
+
+// ---- 固有振動数 実測 ----
+let _fmData=[],_fmTimer=null,_fmActive=false;
+function startFreqMeasure(){
+  const btn=document.getElementById('freqMeasureBtn');
+  const stop=document.getElementById('freqMeasureStopBtn');
+  const res=document.getElementById('freqMeasureResult');
+  const go=()=>{
+    _fmData=[];_fmActive=true;
+    btn.style.display='none';stop.style.display='';
+    res.innerHTML='<div style="text-align:center;color:var(--text3);font-size:13px;padding:8px">計測中... 車を上下に揺らしてください</div>';
+    window.addEventListener('devicemotion',_fmHandler);
+    _fmTimer=setTimeout(stopFreqMeasure,10000);
+  };
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else toast('センサーへのアクセスが拒否されました');}).catch(()=>toast('センサーエラー'));
+  }else if(typeof DeviceMotionEvent!=='undefined'){
+    go();
+  }else{
+    toast('この端末は加速度センサーをサポートしていません');
+  }
+}
+function _fmHandler(e){
+  if(!_fmActive)return;
+  const a=e.accelerationIncludingGravity||e.acceleration;
+  if(a)_fmData.push({t:Date.now(),v:a.z??a.y??0});
+}
+function stopFreqMeasure(){
+  _fmActive=false;
+  window.removeEventListener('devicemotion',_fmHandler);
+  if(_fmTimer){clearTimeout(_fmTimer);_fmTimer=null;}
+  const btn=document.getElementById('freqMeasureBtn');
+  const stop=document.getElementById('freqMeasureStopBtn');
+  if(btn)btn.style.display='';if(stop)stop.style.display='none';
+  _analyzeFreq();
+}
+let _fmLastFreq=0;
+function _analyzeFreq(){
+  const el=document.getElementById('freqMeasureResult');
+  if(_fmData.length<20){el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分です。10秒間揺らし続けてください。</div>';return;}
+  const vals=_fmData.map(d=>d.v);
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const centered=vals.map(v=>v-mean);
+  let crossings=0;
+  for(let i=1;i<centered.length;i++)if(centered[i-1]<0&&centered[i]>=0)crossings++;
+  const dur=(_fmData[_fmData.length-1].t-_fmData[0].t)/1000;
+  const freq=dur>0?crossings/dur:0;
+  _fmLastFreq=freq;
+  el.innerHTML=freq>0?`<div class="calc-result">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">計測結果（上下方向）</div>
+    <div class="calc-grid">
+      <div class="calc-item"><div class="calc-item-label">固有振動数</div><div class="calc-item-value" style="color:${freqColor(freq)}">${freq.toFixed(2)} Hz</div></div>
+      <div class="calc-item"><div class="calc-item-label">サンプル数</div><div class="calc-item-value">${_fmData.length}</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">目標フロントに反映</button>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">目標リアに反映</button>
+    </div>
+  </div>`:'<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。もう少し大きく揺らしてください。</div>';
+}
+function applyMeasuredFreq(target){
+  if(!_fmLastFreq){toast('先に計測してください');return;}
+  const id=target==='F'?'targetFreqF':'targetFreqR';
+  document.getElementById(id).value=_fmLastFreq.toFixed(2);
+  document.getElementById('accFreqCalc').classList.add('open');
+  document.getElementById('arrowFreqCalc').classList.add('open');
+  toast(`目標${target==='F'?'フロント':'リア'}に ${_fmLastFreq.toFixed(2)}Hz を反映`);
 }
 
 async function loadGroupCompareOptions(){
@@ -2395,7 +2539,11 @@ async function saveSetting(){
   }
 
   // グループに共有
-  for(const group of state.groups){
+  const targetGroups=state.groups.length>1
+    ?confirm(`参加中のグループ（${state.groups.length}個）すべてに反映しますか？`)
+      ?state.groups:[]
+    :state.groups;
+  for(const group of targetGroups){
     const fbData={...data,nick:group.nick||data.nick};
     if(navigator.onLine){
       const fbId=await fbPush(`groups/${group.code}/settings`,fbData);
