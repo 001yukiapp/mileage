@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.3.7</title>
+<title>Mileage 3.4.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.3.7</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.4.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -218,9 +218,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <label class="form-label">交換日</label>
           <input type="date" class="form-input" id="recDate">
         </div>
-        <div class="form-group">
-          <label class="form-label">次回交換まであと何km？（任意）</label>
-          <input type="number" class="form-input" id="recInterval" placeholder="例: 3000" inputmode="numeric">
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">次回まであと何km？（任意）</label>
+            <input type="number" class="form-input" id="recInterval" placeholder="例: 3000" inputmode="numeric">
+          </div>
+          <div class="form-group">
+            <label class="form-label">次回まであと何日？（任意）</label>
+            <input type="number" class="form-input" id="recIntervalDays" placeholder="例: 180" inputmode="numeric">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">メモ（任意）</label>
@@ -594,7 +600,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.3.7</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.4.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -837,9 +843,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <input type="date" class="form-input" id="editRecDate">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">次回交換まであと何km？</label>
-      <input type="number" class="form-input" id="editRecInterval" inputmode="numeric" placeholder="未設定の場合は空白">
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">次回まであと何km？</label>
+        <input type="number" class="form-input" id="editRecInterval" inputmode="numeric" placeholder="空欄可">
+      </div>
+      <div class="form-group">
+        <label class="form-label">次回まであと何日？</label>
+        <input type="number" class="form-input" id="editRecIntervalDays" inputmode="numeric" placeholder="空欄可">
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">メモ</label>
@@ -1009,7 +1021,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.3.7';
+const APP_VERSION = '3.4.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1439,6 +1451,72 @@ function oilFilterStatusHtml(car){
   if(st.since===1)return`<div style="font-size:11px;color:var(--amber);margin-top:4px">🔧 次回オイル交換時はフィルター交換を推奨</div>`;
   return`<div style="font-size:11px;color:var(--red);margin-top:4px">⚠️ フィルター交換を強く推奨（${st.since}回連続で未交換）</div>`;
 }
+// 交換記録の次回交換状況（距離・日数の両対応）を算出
+function fmtMD(d){const dt=new Date(d);const md=(dt.getMonth()+1)+'/'+dt.getDate();return dt.getFullYear()!==new Date().getFullYear()?dt.getFullYear()+'/'+md:md;}
+function calcPartStatus(item,car){
+  const currentKm=getCurrentKm(car),dailyKm=calcDailyKm(car);
+  const hasKm=item.nextInterval!=null&&item.nextInterval!==''&&!isNaN(item.nextInterval);
+  const hasDays=item.nextIntervalDays!=null&&item.nextIntervalDays!==''&&!isNaN(item.nextIntervalDays);
+  const r={hasKm,hasDays,hasAny:hasKm||hasDays};
+  if(hasKm){
+    r.nextKm=item.odomAtChange+item.nextInterval;
+    if(currentKm!=null){
+      r.remKm=r.nextKm-currentKm;
+      r.pctKm=Math.min(100,Math.max(0,(currentKm-item.odomAtChange)/item.nextInterval*100));
+    }
+  }
+  if(hasDays){
+    const nd=new Date(item.date);nd.setDate(nd.getDate()+item.nextIntervalDays);
+    r.nextDate=nd;
+    const today=new Date();today.setHours(0,0,0,0);
+    r.remDays=Math.round((nd-today)/86400000);
+    r.pctDays=Math.min(100,Math.max(0,(today-new Date(item.date))/86400000/item.nextIntervalDays*100));
+  }
+  if(hasKm&&!hasDays&&dailyKm&&dailyKm>0&&r.remKm!=null)r.estDays=Math.round(r.remKm/dailyKm);
+  return r;
+}
+// 1パーツのアラート（距離・日数のうち早い方を1件だけ）を返す。notifyは「何日前から通知」
+function partAlert(item,car,notifyDays){
+  const s=calcPartStatus(item,car);
+  // 距離→日数換算（estDays）と日数残りのうち、小さい方で判定
+  const kmDays=s.hasKm&&s.estDays!=null?s.estDays:null;
+  const candidates=[];
+  if(s.hasKm&&s.remKm!=null)candidates.push({over:s.remKm<=0,days:kmDays});
+  if(s.hasDays&&s.remDays!=null)candidates.push({over:s.remDays<=0,days:s.remDays});
+  if(!candidates.length)return null;
+  // 超過があれば最優先、なければ残り日数が最小のもの
+  const over=candidates.find(c=>c.over);
+  if(over)return{level:'over'};
+  const soon=candidates.filter(c=>c.days!=null).sort((a,b)=>a.days-b.days)[0];
+  if(soon&&soon.days<=notifyDays)return{level:'soon',days:soon.days};
+  return null;
+}
+// 表示部品（次回情報・プログレス・残りテキスト・推定日数）を生成
+function partStatusParts(item,car){
+  const s=calcPartStatus(item,car);
+  const out={hasAny:s.hasAny,nextInfo:'',progressHtml:'',rightHtml:'',estHtml:''};
+  if(!s.hasAny)return out;
+  const ni=[];
+  if(s.hasKm)ni.push(s.nextKm.toLocaleString()+'km');
+  if(s.hasDays)ni.push(fmtMD(s.nextDate));
+  out.nextInfo=ni.join(' / ');
+  let fill='#22c55e';const rem=[];
+  if(s.hasKm&&s.remKm!=null){
+    if(s.remKm<=0){fill='#ef4444';rem.push('<span style="color:var(--red)">超過 '+Math.abs(s.remKm).toLocaleString()+'km</span>');}
+    else if(s.pctKm>=80){fill='#f59e0b';rem.push('<span style="color:var(--amber)">残り '+s.remKm.toLocaleString()+'km</span>');}
+    else rem.push('<span style="color:var(--green)">残り '+s.remKm.toLocaleString()+'km</span>');
+  }
+  if(s.hasDays&&s.remDays!=null){
+    if(s.remDays<=0){if(!s.hasKm)fill='#ef4444';rem.push('<span style="color:var(--red)">超過 '+Math.abs(s.remDays)+'日</span>');}
+    else if(s.pctDays>=80){if(!s.hasKm)fill='#f59e0b';rem.push('<span style="color:var(--amber)">残り '+s.remDays+'日</span>');}
+    else rem.push('<span style="color:var(--green)">残り '+s.remDays+'日</span>');
+  }
+  const pct=s.hasKm?s.pctKm:s.pctDays;
+  if(pct!=null)out.progressHtml='<div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:'+pct+'%;background:'+fill+'"></div></div>';
+  out.rightHtml=rem.join('<br>');
+  if(s.estDays!=null)out.estHtml='<div style="font-size:11px;color:var(--text3);margin-top:3px">約'+Math.max(0,s.estDays)+'日後</div>';
+  return out;
+}
 function renderDashboard(){
   if(state.viewAll){renderDashboardAll();return;}
   const car=getCar(),currentKm=getCurrentKm(car),dailyKm=calcDailyKm(car),notifyDays=state.notifyDays||30;
@@ -1447,25 +1525,14 @@ function renderDashboard(){
   [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(r.part==='oilfilter')return;if(!byPart[r.part])byPart[r.part]=r;});
   Object.values(byPart).forEach(r=>{
     const name=r.part==='other'?(r.otherName||'その他'):(PART_LABELS[r.part]||r.part);
-    const hasInterval = r.nextInterval !== null && r.nextInterval !== undefined && !isNaN(r.nextInterval);
-    const nextKm = hasInterval ? r.odomAtChange + r.nextInterval : null;
-    const rem = (currentKm !== null && nextKm !== null) ? nextKm - currentKm : null;
-    const pct = (currentKm !== null && hasInterval) ? Math.min(100, Math.max(0, (currentKm - r.odomAtChange) / r.nextInterval * 100)) : 0;
-    const estDays = (dailyKm && dailyKm > 0 && rem !== null) ? Math.round(rem / dailyKm) : null;
-    let fillColor = '#22c55e', remText = '';
-    if (rem !== null) {
-      if (rem <= 0) { fillColor = '#ef4444'; remText = `<span style="color:var(--red)">超過 ${Math.abs(rem).toLocaleString()}km</span>`; }
-      else if (pct >= 80) { fillColor = '#f59e0b'; remText = `<span style="color:var(--amber)">残り ${rem.toLocaleString()}km</span>`; }
-      else remText = `<span style="color:var(--green)">残り ${rem.toLocaleString()}km</span>`;
-    }
     const bc = BADGE_CLASS[r.part] || 'badge-other';
-    if (estDays !== null && estDays <= notifyDays && rem > 0)
-      alerts += `<div class="alert alert-warn"><span>⚠️</span><div><strong>${name}</strong>: 約${estDays}日後が交換時期<br><span style="font-size:11px;opacity:.8">残り ${rem.toLocaleString()}km</span></div></div>`;
-    if (rem !== null && rem <= 0)
-      alerts += `<div class="alert alert-warn"><span>🔴</span><div><strong>${name}</strong>: 交換時期を過ぎています</div></div>`;
-    
-    const nextKmText = nextKm !== null ? nextKm.toLocaleString() + 'km' : '未設定';
-    const progressHtml = hasInterval ? `<div class="progress"><div class="progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>` : '';
+    const ps=partStatusParts(r,car);
+    // アラート（距離・日数のうち早い方を1件）
+    const al=partAlert(r,car,notifyDays);
+    if(al){
+      if(al.level==='over')alerts+=`<div class="alert alert-warn"><span>🔴</span><div><strong>${name}</strong>: 交換時期を過ぎています</div></div>`;
+      else alerts+=`<div class="alert alert-warn"><span>⚠️</span><div><strong>${name}</strong>: 約${al.days}日後が交換時期</div></div>`;
+    }
     const sameParts=car.records.filter(x=>x.part===r.part&&(r.part!=='other'||x.otherName===r.otherName)).sort((a,b)=>a.odomAtChange-b.odomAtChange);
     let avgInterval=null;
     if(sameParts.length>=2){const ivs=[];for(let i=1;i<sameParts.length;i++)ivs.push(sameParts[i].odomAtChange-sameParts[i-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
@@ -1474,14 +1541,13 @@ function renderDashboard(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0">
           <span class="badge ${bc}">${name}</span>
-          <div style="font-size:11px;color:var(--text3)">${r.odomAtChange.toLocaleString()}km → 次回 ${nextKmText}</div>
-          ${progressHtml}
+          <div style="font-size:11px;color:var(--text3)">${r.date} ・ ${r.odomAtChange.toLocaleString()}km${ps.hasAny?' → 次回 '+ps.nextInfo:''}</div>
+          ${ps.progressHtml}
           ${avgInterval?`<div style="font-size:11px;color:var(--text3);margin-top:3px">平均交換: ${avgInterval.toLocaleString()}km</div>`:''}
           ${r.part==='oil'?oilFilterStatusHtml(car):''}
         </div>
         <div style="text-align:right;min-width:70px;margin-left:12px">
-          <div style="font-size:13px;font-weight:600">${remText || '<span style="color:var(--text3)">未設定</span>'}</div>
-          ${estDays !== null ? `<div style="font-size:11px;color:var(--text3);margin-top:3px">約${Math.max(0, estDays)}日後</div>` : ''}
+          ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
         </div>
       </div>
     </div>`;
@@ -1524,34 +1590,23 @@ function renderDashboardAll(){
     [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(r.part==='oilfilter')return;if(!byPart[r.part])byPart[r.part]=r;});
     Object.values(byPart).forEach(r=>{
       const name=r.part==='other'?(r.otherName||'その他'):(PART_LABELS[r.part]||r.part);
-      const hasInterval=r.nextInterval!==null&&r.nextInterval!==undefined&&!isNaN(r.nextInterval);
-      const nextKm=hasInterval?r.odomAtChange+r.nextInterval:null;
-      const rem=(currentKm!==null&&nextKm!==null)?nextKm-currentKm:null;
-      const pct=(currentKm!==null&&hasInterval)?Math.min(100,Math.max(0,(currentKm-r.odomAtChange)/r.nextInterval*100)):0;
-      const estDays=(dailyKm&&dailyKm>0&&rem!==null)?Math.round(rem/dailyKm):null;
-      let fillColor='#22c55e',remText='';
-      if(rem!==null){
-        if(rem<=0){fillColor='#ef4444';remText=`<span style="color:var(--red)">超過 ${Math.abs(rem).toLocaleString()}km</span>`;}
-        else if(pct>=80){fillColor='#f59e0b';remText=`<span style="color:var(--amber)">残り ${rem.toLocaleString()}km</span>`;}
-        else remText=`<span style="color:var(--green)">残り ${rem.toLocaleString()}km</span>`;
-      }
       const bc=BADGE_CLASS[r.part]||'badge-other';
-      if(estDays!==null&&estDays<=notifyDays&&rem>0)
-        alerts+=`<div class="alert alert-warn"><span>⚠️</span><div><strong>${car.name} / ${name}</strong>: 約${estDays}日後が交換時期</div></div>`;
-      if(rem!==null&&rem<=0)
-        alerts+=`<div class="alert alert-warn"><span>🔴</span><div><strong>${car.name} / ${name}</strong>: 交換時期を過ぎています</div></div>`;
-      const nextKmText=nextKm!==null?nextKm.toLocaleString()+'km':'未設定';
-      const progressHtml=hasInterval?`<div class="progress"><div class="progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>`:'';
+      const ps=partStatusParts(r,car);
+      const al=partAlert(r,car,notifyDays);
+      if(al){
+        if(al.level==='over')alerts+=`<div class="alert alert-warn"><span>🔴</span><div><strong>${car.name} / ${name}</strong>: 交換時期を過ぎています</div></div>`;
+        else alerts+=`<div class="alert alert-warn"><span>⚠️</span><div><strong>${car.name} / ${name}</strong>: 約${al.days}日後が交換時期</div></div>`;
+      }
       items+=`<div class="part-item">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1;min-width:0">
             <span class="badge ${bc}">${name}</span>
-            <div style="font-size:11px;color:var(--text3)">${r.odomAtChange.toLocaleString()}km → 次回 ${nextKmText}</div>
-            ${progressHtml}
+            <div style="font-size:11px;color:var(--text3)">${r.date} ・ ${r.odomAtChange.toLocaleString()}km${ps.hasAny?' → 次回 '+ps.nextInfo:''}</div>
+            ${ps.progressHtml}
+            ${r.part==='oil'?oilFilterStatusHtml(car):''}
           </div>
           <div style="text-align:right;min-width:70px;margin-left:12px">
-            <div style="font-size:13px;font-weight:600">${remText||'<span style="color:var(--text3)">未設定</span>'}</div>
-            ${estDays!==null?`<div style="font-size:11px;color:var(--text3);margin-top:3px">約${Math.max(0,estDays)}日後</div>`:''}
+            ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
           </div>
         </div>
       </div>`;
@@ -1612,6 +1667,8 @@ function saveRecord(){
   const odo=parseInt(document.getElementById('recOdo').value);
   const date=document.getElementById('recDate').value;
   const intervalVal=document.getElementById('recInterval').value;
+  const intervalDaysVal=document.getElementById('recIntervalDays').value;
+  const intervalDays=intervalDaysVal!==''?parseInt(intervalDaysVal):null;
   const note=document.getElementById('recNote').value.trim();
   const otherName=document.getElementById('otherName').value.trim();
   if(!odo||!date){toast('走行距離と日付を入力してください');return;}
@@ -1648,15 +1705,16 @@ function saveRecord(){
   }
   
   const oilId=Date.now();
-  car.records.push({part,odomAtChange:odo,date,nextInterval:interval,note,otherName,id:oilId,ts:oilId});
+  car.records.push({part,odomAtChange:odo,date,nextInterval:interval,nextIntervalDays:intervalDays,note,otherName,id:oilId,ts:oilId});
   // オイルフィルター同時交換 → 単独記録を自動作成（親IDで紐付け）
   if(oilFilter){
-    car.records.push({part:'oilfilter',odomAtChange:odo,date,nextInterval:null,note:'',otherName:'',parentId:oilId,id:oilId+1,ts:oilId+1});
+    car.records.push({part:'oilfilter',odomAtChange:odo,date,nextInterval:null,nextIntervalDays:null,note:'',otherName:'',parentId:oilId,id:oilId+1,ts:oilId+1});
   }
   if(!car.odomHistory.find(h=>h.km===odo&&h.date===date))car.odomHistory.push({km:odo,date});
   save();toast(oilFilter?'記録しました ✓（フィルターも記録）':'記録しました ✓');
   document.getElementById('recOdo').value='';
   document.getElementById('recInterval').value='';
+  document.getElementById('recIntervalDays').value='';
   document.getElementById('recNote').value='';
   document.getElementById('oilFilterCheck').checked=false;
   document.getElementById('oilFilterGroup').style.display='none';
@@ -1793,38 +1851,24 @@ function renderHistory(){
       const bc=BADGE_CLASS[item.part]||'badge-other';
       const partKey=item.part==='other'?'other:'+item.otherName:item.part;
       const isLatestForPart=latestByPart[partKey]===item.id;
-      // 残りkm・プログレスバーは最新記録のみ
-      const hasInterval=item.nextInterval!==null&&item.nextInterval!==undefined&&!isNaN(item.nextInterval);
-      const nextKm=hasInterval?item.odomAtChange+item.nextInterval:null;
-      let progressHtml='',remText='',estDaysHtml='';
-      if(isLatestForPart&&hasInterval&&currentKm!==null){
-        const rem=nextKm-currentKm;
-        const pct=Math.min(100,Math.max(0,(currentKm-item.odomAtChange)/item.nextInterval*100));
-        let fillColor='#22c55e';
-        if(rem<=0){fillColor='#ef4444';remText=`<span style="color:var(--red)">超過 ${Math.abs(rem).toLocaleString()}km</span>`;}
-        else if(pct>=80){fillColor='#f59e0b';remText=`<span style="color:var(--amber)">残り ${rem.toLocaleString()}km</span>`;}
-        else remText=`<span style="color:var(--green)">残り ${rem.toLocaleString()}km</span>`;
-        progressHtml=`<div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>`;
-        if(dailyKm&&dailyKm>0)estDaysHtml=`<div style="font-size:11px;color:var(--text3);margin-top:3px">約${Math.max(0,Math.round(rem/dailyKm))}日後</div>`;
-      }
+      const ps=isLatestForPart?partStatusParts(item,car):{hasAny:false,nextInfo:'',progressHtml:'',rightHtml:'',estHtml:''};
       const sameParts=car.records.filter(x=>x.part===item.part&&(item.part!=='other'||x.otherName===item.otherName)).sort((a,b)=>a.odomAtChange-b.odomAtChange);
       let avgInterval=null;
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
-      const nextKmText=nextKm!==null?nextKm.toLocaleString()+'km':'未設定';
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
         <div class="timeline-card${isLatest?' latest':''}">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${isLatest?'<span class="timeline-badge tl-blue">最新</span>':''}</div>
-              <div class="timeline-sub">${item.date} | ${item.odomAtChange.toLocaleString()}km交換${isLatestForPart?' → 次回 '+nextKmText:''}</div>
-              ${progressHtml}
+              <div class="timeline-sub">${item.date} | ${item.odomAtChange.toLocaleString()}km交換${ps.hasAny?' → 次回 '+ps.nextInfo:''}</div>
+              ${ps.progressHtml}
               ${isLatestForPart&&avgInterval?`<div style="font-size:11px;color:var(--text3);margin-top:3px">平均交換: ${avgInterval.toLocaleString()}km</div>`:''}
               ${isLatestForPart&&item.part==='oil'?oilFilterStatusHtml(car):''}
               ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:3px">💬 ${item.note}</div>`:''}
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
-              ${isLatestForPart?`<div style="font-size:13px;font-weight:600">${remText||'<span style="color:var(--text3)">未設定</span>'}</div>${estDaysHtml}`:''}
+              ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
               <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id})">編集</button>
             </div>
           </div>
@@ -1880,8 +1924,6 @@ function renderHistoryAll(){
     const carLabel=state.cars.length>1?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${item._carName}</span>`:'';
     if(item._type==='record'){
       const _car=state.cars[item._carIdx]||getCar();
-      const _ck=getCurrentKm(_car),_dk=calcDailyKm(_car);
-      // 各パーツの最新記録IDを特定
       const _latestByPart={};
       [..._car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{
         const k=r.part==='other'?'other:'+r.otherName:r.part;
@@ -1891,37 +1933,24 @@ function renderHistoryAll(){
       const isLatestForPart=_latestByPart[_partKey]===item.id;
       const name=item.part==='other'?(item.otherName||'その他'):(PART_LABELS[item.part]||item.part);
       const bc=BADGE_CLASS[item.part]||'badge-other';
-      const hasInterval=item.nextInterval!==null&&item.nextInterval!==undefined&&!isNaN(item.nextInterval);
-      const nextKm=hasInterval?item.odomAtChange+item.nextInterval:null;
-      let progressHtml='',remText='',estDaysHtml='';
-      if(isLatestForPart&&hasInterval&&_ck!==null){
-        const rem=nextKm-_ck;
-        const pct=Math.min(100,Math.max(0,(_ck-item.odomAtChange)/item.nextInterval*100));
-        let fillColor='#22c55e';
-        if(rem<=0){fillColor='#ef4444';remText=`<span style="color:var(--red)">超過 ${Math.abs(rem).toLocaleString()}km</span>`;}
-        else if(pct>=80){fillColor='#f59e0b';remText=`<span style="color:var(--amber)">残り ${rem.toLocaleString()}km</span>`;}
-        else remText=`<span style="color:var(--green)">残り ${rem.toLocaleString()}km</span>`;
-        progressHtml=`<div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>`;
-        if(_dk&&_dk>0)estDaysHtml=`<div style="font-size:11px;color:var(--text3);margin-top:3px">約${Math.max(0,Math.round(rem/_dk))}日後</div>`;
-      }
+      const ps=isLatestForPart?partStatusParts(item,_car):{hasAny:false,nextInfo:'',progressHtml:'',rightHtml:'',estHtml:''};
       const sameParts=_car.records.filter(x=>x.part===item.part&&(item.part!=='other'||x.otherName===item.otherName)).sort((a,b)=>a.odomAtChange-b.odomAtChange);
       let avgInterval=null;
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
-      const nextKmText=nextKm!==null?nextKm.toLocaleString()+'km':'未設定';
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
         <div class="timeline-card${isLatest?' latest':''}">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${carLabel}</div>
-              <div class="timeline-sub">${item.date} | ${item.odomAtChange.toLocaleString()}km交換${isLatestForPart?' → 次回 '+nextKmText:''}</div>
-              ${progressHtml}
+              <div class="timeline-sub">${item.date} | ${item.odomAtChange.toLocaleString()}km交換${ps.hasAny?' → 次回 '+ps.nextInfo:''}</div>
+              ${ps.progressHtml}
               ${isLatestForPart&&avgInterval?`<div style="font-size:11px;color:var(--text3);margin-top:3px">平均交換: ${avgInterval.toLocaleString()}km</div>`:''}
               ${isLatestForPart&&item.part==='oil'?oilFilterStatusHtml(_car):''}
               ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:3px">💬 ${item.note}</div>`:''}
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
-              ${isLatestForPart?`<div style="font-size:13px;font-weight:600">${remText||'<span style="color:var(--text3)">未設定</span>'}</div>${estDaysHtml}`:''}
+              ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
               <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id},${item._carIdx})">編集</button>
             </div>
           </div>
@@ -1972,6 +2001,7 @@ function showEditRecord(id,carIdx){
   document.getElementById('editRecOdo').value=r.odomAtChange||'';
   document.getElementById('editRecDate').value=r.date||'';
   document.getElementById('editRecInterval').value=(r.nextInterval!==null&&r.nextInterval!==undefined&&!isNaN(r.nextInterval))?r.nextInterval:'';
+  document.getElementById('editRecIntervalDays').value=(r.nextIntervalDays!==null&&r.nextIntervalDays!==undefined&&!isNaN(r.nextIntervalDays))?r.nextIntervalDays:'';
   document.getElementById('editRecNote').value=r.note||'';
   document.getElementById('editRecordModal').classList.add('show');
 }
@@ -1991,10 +2021,13 @@ function saveEditRecord(){
   const oldOdo=r.odomAtChange,oldDate=r.date;
   const intVal=document.getElementById('editRecInterval').value;
   const interval=intVal!==''?parseInt(intVal):null;
+  const intDaysVal=document.getElementById('editRecIntervalDays').value;
+  const intervalDays=intDaysVal!==''?parseInt(intDaysVal):null;
   r.part=document.getElementById('editPartType').value;
   r.otherName=r.part==='other'?document.getElementById('editOtherName').value.trim():'';
   r.odomAtChange=odo;r.date=date;
   r.nextInterval=(!isNaN(interval)&&interval!==null)?interval:null;
+  r.nextIntervalDays=(!isNaN(intervalDays)&&intervalDays!==null)?intervalDays:null;
   r.note=document.getElementById('editRecNote').value.trim();
   // オイルフィルター同時交換の再判定（親IDで紐付け／距離・日付の変更にも追従）
   if(r.part==='oil'){
