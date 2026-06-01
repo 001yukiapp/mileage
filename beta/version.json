@@ -1,5 +1,5 @@
 {
-  "version": "3.3.6",
+  "version": "3.3.7",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "履歴が表示されないバグを修正（currentKm/dailyKmの未定義参照エラー）"
+  "notes": "交換時の走行距離に常に最新距離を表示・車両タブ切替時も記録ページの距離とフィルター欄を更新"
 }
