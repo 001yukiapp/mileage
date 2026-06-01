@@ -1,5 +1,5 @@
 {
-  "version": "3.2.2",
+  "version": "3.2.3",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "セッティングタブ表示時にグループキャッシュをFirebaseから再取得、全グループデータの削除ボタン追加"
+  "notes": "Firebaseが空のときグループキャッシュを空で上書きするよう修正（古いキャッシュが消えない不具合の修正）"
 }
