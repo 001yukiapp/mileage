@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.3.2</title>
+<title>Mileage 3.3.4</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -37,7 +37,7 @@ body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-syste
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;height:40px;z-index:50;display:flex;justify-content:space-around;background:var(--bg);border-top:1px solid rgba(255,255,255,.06);padding:0 8px 1px}
 .nav-btn{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;border:none;background:transparent;color:var(--text3);font-size:0.57em;line-height:10px;cursor:pointer;padding:0 0 1px}
 .nav-btn.active{color:var(--blue)}
-.nav-btn.nav-disabled{opacity:.3;pointer-events:none}
+.car-tab.tab-disabled{opacity:.3;pointer-events:none}
 .nav-btn svg{width:20px;height:20px;stroke-width:1.8;fill:none;stroke:currentColor}
 
 .page{display:none}.page.active{display:block}
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.3.2</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.3.4</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -206,8 +206,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div class="form-group" id="oilFilterGroup" style="display:none">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
             <input type="checkbox" id="oilFilterCheck" style="width:18px;height:18px;accent-color:#3b82f6;flex-shrink:0">
-            <span class="form-label" style="margin:0">オイルフィルターも同時交換（別記録を自動作成）</span>
+            <span class="form-label" style="margin:0" id="oilFilterLabel">オイルフィルターも同時交換（別記録を自動作成）</span>
           </label>
+          <div id="oilFilterHint" style="font-size:11px;color:var(--amber);margin-top:4px"></div>
         </div>
         <div class="form-group">
           <label class="form-label">交換時の走行距離 (km)</label>
@@ -427,6 +428,16 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
+        <div class="two-col" style="margin-top:12px">
+          <div class="form-group">
+            <label class="form-label">実測 固有振動数 前 (Hz)</label>
+            <input type="number" class="form-input" id="stMeasFreqF" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
+          </div>
+          <div class="form-group">
+            <label class="form-label">実測 固有振動数 後 (Hz)</label>
+            <input type="number" class="form-input" id="stMeasFreqR" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
+          </div>
+        </div>
         <div class="form-group" style="margin-top:12px">
           <label class="form-label">コメント</label>
           <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto"></textarea>
@@ -583,7 +594,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.3.2</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.3.4</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -776,6 +787,16 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   </div>
 </div>
 
+<!-- モーダル: オイルフィルター交換ルール設定 -->
+<div class="modal-overlay" id="oilModeModal" onclick="if(event.target===this){_pendingOilSave=false;this.classList.remove('show');}">
+  <div class="modal">
+    <p class="modal-title">オイルフィルターの交換ルール</p>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">この車のオイルフィルター交換の運用を選んでください。<br>あとから設定タブで変更できます。</p>
+    <button class="btn btn-primary" onclick="setOilFilterMode('set')" style="margin-bottom:10px">オイルとセットで毎回交換</button>
+    <button class="btn btn-primary" onclick="setOilFilterMode('interval2')">オイル2回に1回 交換</button>
+  </div>
+</div>
+
 <!-- モーダル: 交換記録 編集 -->
 <div class="modal-overlay" id="editRecordModal" onclick="hideModal('editRecordModal',event)">
   <div class="modal">
@@ -930,6 +951,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editCsFL" step="0.1"></div>
       <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editCsFR" step="0.1"></div>
     </div>
+    <div class="form-group" id="editMeasFreqRow" style="display:none">
+      <label class="form-label">実測 固有振動数（編集不可）</label>
+      <div id="editMeasFreqText" style="font-size:13px;color:#60a5fa;padding:8px 0"></div>
+    </div>
     <div class="form-group">
       <label class="form-label">コメント</label>
       <textarea class="form-input" id="editStNote" rows="2" style="resize:none;height:auto"></textarea>
@@ -984,7 +1009,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.3.2';
+const APP_VERSION = '3.3.4';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1126,16 +1151,18 @@ function updateProNav(){
 
 // ---- 車両 ----
 function renderCarTabs(){
-  const allBtn=`<button class="car-tab${state.viewAll?' active':''}" onclick="selectAll()">すべて</button>`;
+  const allBtn=`<button class="car-tab${state.viewAll?' active':''}" id="carTabAll" onclick="selectAll()">すべて</button>`;
   const carBtns=state.cars.map((c,i)=>
     `<button class="car-tab${!state.viewAll&&i===state.selectedCar?' active':''}" onclick="selectCar(${i})">${c.name}</button>`
   ).join('');
   document.getElementById('carTabs').innerHTML=allBtn+carBtns;
-  // 「すべて」表示中は入力系ナビをグレーアウト
-  ['nav-record','nav-odometer','nav-setting'].forEach(id=>{
-    const b=document.getElementById(id);
-    if(b)b.classList.toggle('nav-disabled',state.viewAll);
-  });
+  _updateAllTabState();
+}
+// 記録・距離・セッティングの入力ページでは「すべて」タブを無効化（車を特定する必要があるため）
+function _updateAllTabState(){
+  const inputPage=['record','odometer','setting'].some(p=>document.getElementById('page-'+p)?.classList.contains('active'));
+  const allTab=document.getElementById('carTabAll');
+  if(allTab)allTab.classList.toggle('tab-disabled',inputPage);
 }
 function selectAll(){
   const inputPages=['record','setting','odometer'];
@@ -1279,10 +1306,11 @@ function showPage(name){
   if(name==='dashboard')renderDashboard();
   if(name==='history')renderHistory();
   if(name==='odometer'){updateOdomChart();renderOdomHistory();setTodayDates();}
-  if(name==='record'){setTodayDates();const pt=document.getElementById('partType').value;document.getElementById('oilFilterGroup').style.display=pt==='oil'?'block':'none';}
+  if(name==='record'){setTodayDates();_updateOilFilterUI();const _c=getCar();const _last=Math.max(getCurrentKm(_c)||0,...(_c.records||[]).map(r=>r.odomAtChange||0),0);const _ro=document.getElementById('recOdo');if(_ro&&!_ro.value&&_last)_ro.value=_last;}
   if(name==='settings'){renderSettings();renderGroupList();}
   if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();state.groups.forEach(g=>cacheGroupData(g.code));}
   if(name==='group'){loadGroupCompareOptions();}
+  _updateAllTabState();
 }
 function setTodayDates(){
   const today=new Date().toISOString().split('T')[0];
@@ -1301,7 +1329,8 @@ function resetSettingForm(){
    'stHelperFL','stHelperFR','stHelperRL','stHelperRR',
    'stPressFL','stPressFR','stPressRL','stPressRR',
    'stCamberFL','stCamberFR','stCamberRL','stCamberRR',
-   'stToeFL','stToeFR','stToeRL','stToeRR','stCasterFL','stCasterFR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+   'stToeFL','stToeFR','stToeRL','stToeRR','stCasterFL','stCasterFR',
+   'stMeasFreqF','stMeasFreqR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const useHelper=document.getElementById('useHelper');
   const helperInputs=document.getElementById('helperInputs');
   if(useHelper)useHelper.checked=false;
@@ -1368,12 +1397,46 @@ function getCurrentKm(car){
   if(!car.odomHistory.length)return null;
   return[...car.odomHistory].sort((a,b)=>new Date(b.date)-new Date(a.date))[0].km;
 }
+// 編集時の距離整合性: 過去(より古い日付)の最大km〜未来(より新しい日付)の最小km の範囲内か判定
+function odoEditRange(car,newDate,opts){
+  opts=opts||{};
+  let lower=0,upper=Infinity;
+  const nd=new Date(newDate).getTime();
+  const consider=e=>{
+    const ed=new Date(e.date).getTime();
+    if(ed<nd)lower=Math.max(lower,e.km);
+    else if(ed>nd)upper=Math.min(upper,e.km);
+  };
+  car.records.forEach(r=>{if(opts.excludeRecId!=null&&r.id===opts.excludeRecId)return;consider({date:r.date,km:r.odomAtChange||0});});
+  car.odomHistory.forEach(h=>{if(opts.excludeOdomDate!=null&&h.date===opts.excludeOdomDate)return;consider({date:h.date,km:h.km});});
+  return{lower,upper};
+}
+// オイルフィルターの状態（mode: set / interval2, since: 最後のフィルター交換以降のオイル交換回数）
+function oilFilterStatus(car){
+  if(!car.oilFilterMode)return null;
+  if(car.oilFilterMode==='set')return{mode:'set'};
+  const oils=car.records.filter(r=>r.part==='oil').sort((a,b)=>(a.odomAtChange||0)-(b.odomAtChange||0));
+  let since=0;
+  oils.forEach(o=>{
+    const hasF=car.records.some(x=>x.part==='oilfilter'&&(x.parentId===o.id||(x.parentId==null&&x.odomAtChange===o.odomAtChange&&x.date===o.date)));
+    if(hasF)since=0;else since++;
+  });
+  return{mode:'interval2',since};
+}
+function oilFilterStatusHtml(car){
+  const st=oilFilterStatus(car);
+  if(!st)return'';
+  if(st.mode==='set')return`<div style="font-size:11px;color:#86efac;margin-top:4px">🔧 フィルター: オイルとセットで交換</div>`;
+  if(st.since===0)return`<div style="font-size:11px;color:var(--text3);margin-top:4px">🔧 次回オイル交換時はフィルター交換不要</div>`;
+  if(st.since===1)return`<div style="font-size:11px;color:var(--amber);margin-top:4px">🔧 次回オイル交換時はフィルター交換を推奨</div>`;
+  return`<div style="font-size:11px;color:var(--red);margin-top:4px">⚠️ フィルター交換を強く推奨（${st.since}回連続で未交換）</div>`;
+}
 function renderDashboard(){
   if(state.viewAll){renderDashboardAll();return;}
   const car=getCar(),currentKm=getCurrentKm(car),dailyKm=calcDailyKm(car),notifyDays=state.notifyDays||30;
   let alerts='',items='';
   const byPart={};
-  [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(!byPart[r.part])byPart[r.part]=r;});
+  [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(r.part==='oilfilter')return;if(!byPart[r.part])byPart[r.part]=r;});
   Object.values(byPart).forEach(r=>{
     const name=r.part==='other'?(r.otherName||'その他'):(PART_LABELS[r.part]||r.part);
     const hasInterval = r.nextInterval !== null && r.nextInterval !== undefined && !isNaN(r.nextInterval);
@@ -1406,6 +1469,7 @@ function renderDashboard(){
           <div style="font-size:11px;color:var(--text3)">${r.odomAtChange.toLocaleString()}km → 次回 ${nextKmText}</div>
           ${progressHtml}
           ${avgInterval?`<div style="font-size:11px;color:var(--text3);margin-top:3px">平均交換: ${avgInterval.toLocaleString()}km</div>`:''}
+          ${r.part==='oil'?oilFilterStatusHtml(car):''}
         </div>
         <div style="text-align:right;min-width:70px;margin-left:12px">
           <div style="font-size:13px;font-weight:600">${remText || '<span style="color:var(--text3)">未設定</span>'}</div>
@@ -1414,6 +1478,12 @@ function renderDashboard(){
       </div>
     </div>`;
   });
+  // オイルフィルター交換推奨の通知
+  const _ofs=oilFilterStatus(car);
+  if(_ofs&&_ofs.mode==='interval2'){
+    if(_ofs.since>=2)alerts+=`<div class="alert alert-warn"><span>⚠️</span><div><strong>オイルフィルター</strong>: 交換を強く推奨（${_ofs.since}回連続で未交換）</div></div>`;
+    else if(_ofs.since===1)alerts+=`<div class="alert alert-warn"><span>🔧</span><div><strong>オイルフィルター</strong>: 次回オイル交換時に交換を推奨</div></div>`;
+  }
   const kmText=currentKm!==null?currentKm.toLocaleString()+' km':'--';
   const dayText=dailyKm!==null?Math.round(dailyKm)+' km/日':'計測中';
   const proOn=isProMode();
@@ -1443,7 +1513,7 @@ function renderDashboardAll(){
     const currentKm=getCurrentKm(car),dailyKm=calcDailyKm(car);
     let alerts='',items='';
     const byPart={};
-    [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(!byPart[r.part])byPart[r.part]=r;});
+    [...car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{if(r.part==='oilfilter')return;if(!byPart[r.part])byPart[r.part]=r;});
     Object.values(byPart).forEach(r=>{
       const name=r.part==='other'?(r.otherName||'その他'):(PART_LABELS[r.part]||r.part);
       const hasInterval=r.nextInterval!==null&&r.nextInterval!==undefined&&!isNaN(r.nextInterval);
@@ -1493,9 +1563,42 @@ function renderDashboardAll(){
 // ---- 交換記録 ----
 document.getElementById('partType').addEventListener('change',function(){
   document.getElementById('otherNameGroup').style.display=this.value==='other'?'block':'none';
-  document.getElementById('oilFilterGroup').style.display=this.value==='oil'?'block':'none';
-  if(this.value!=='oil')document.getElementById('oilFilterCheck').checked=false;
+  _updateOilFilterUI();
 });
+// 記録フォームのオイルフィルター欄を車のモードに応じて更新
+function _updateOilFilterUI(){
+  const pt=document.getElementById('partType').value;
+  const grp=document.getElementById('oilFilterGroup');
+  if(!grp)return;
+  if(pt!=='oil'){grp.style.display='none';document.getElementById('oilFilterCheck').checked=false;return;}
+  grp.style.display='block';
+  const car=getCar(),mode=car.oilFilterMode;
+  const chk=document.getElementById('oilFilterCheck');
+  const label=document.getElementById('oilFilterLabel');
+  const hint=document.getElementById('oilFilterHint');
+  if(mode==='set'){
+    chk.checked=true;chk.disabled=true;
+    label.textContent='オイルフィルターも交換（セット設定）';hint.textContent='';
+  }else if(mode==='interval2'){
+    chk.disabled=false;chk.checked=false;
+    const st=oilFilterStatus(car);
+    if(st&&st.since>=2)hint.textContent='⚠️ フィルター交換を強く推奨（'+st.since+'回連続で未交換）。交換したらチェック';
+    else if(st&&st.since===1)hint.textContent='今回はフィルター交換の推奨タイミングです。交換したらチェック';
+    else hint.textContent='2回に1回交換の設定です';
+    label.textContent='オイルフィルターも同時交換';
+  }else{
+    chk.disabled=false;chk.checked=false;
+    label.textContent='オイルフィルターも同時交換（別記録を自動作成）';hint.textContent='';
+  }
+}
+let _pendingOilSave=false;
+function setOilFilterMode(mode){
+  getCar().oilFilterMode=mode;save();
+  hideModal('oilModeModal');
+  if(document.getElementById('page-settings').classList.contains('active'))renderSettings();
+  if(_pendingOilSave){_pendingOilSave=false;saveRecord();}
+  else toast('オイルフィルター設定を保存しました');
+}
 function saveRecord(){
   const part=document.getElementById('partType').value;
   const odo=parseInt(document.getElementById('recOdo').value);
@@ -1503,10 +1606,16 @@ function saveRecord(){
   const intervalVal=document.getElementById('recInterval').value;
   const note=document.getElementById('recNote').value.trim();
   const otherName=document.getElementById('otherName').value.trim();
-  const oilFilter=part==='oil'&&document.getElementById('oilFilterCheck').checked;
   if(!odo||!date){toast('走行距離と日付を入力してください');return;}
-  
+
   const car=getCar();
+  // 初回オイル交換でフィルター運用が未設定なら設定モーダルを表示してから続行
+  if(part==='oil'&&!car.oilFilterMode){_pendingOilSave=true;document.getElementById('oilModeModal').classList.add('show');return;}
+  let oilFilter=part==='oil'&&document.getElementById('oilFilterCheck').checked;
+  if(part==='oil'&&car.oilFilterMode==='set')oilFilter=true;
+  // 走行距離は戻らない → 過去の最大距離より短い登録は不可
+  const maxOdo=Math.max(0,...car.odomHistory.map(h=>h.km),...car.records.map(r=>r.odomAtChange||0));
+  if(odo<maxOdo){toast(`過去の記録（${maxOdo.toLocaleString()}km）より短い距離は登録できません`);return;}
   let interval=parseInt(intervalVal);
   
   if(isNaN(interval)){
@@ -1597,6 +1706,10 @@ function saveEditOdom(){
   const car=getCar();
   const h=car.odomHistory.find(x=>x.date===origDate);
   if(!h)return;
+  // 距離整合性: 前後の履歴の範囲内のみ許可
+  const {lower,upper}=odoEditRange(car,date,{excludeOdomDate:origDate});
+  if(km<lower){toast(`これより前の記録（${lower.toLocaleString()}km）より小さくできません`);return;}
+  if(km>upper){toast(`これより後の記録（${upper.toLocaleString()}km）より大きくできません`);return;}
   h.date=date;h.km=km;
   save();hideModal('editOdomModal');updateOdomChart();renderDashboard();renderOdomHistory();
   toast('更新しました ✓');
@@ -1696,6 +1809,7 @@ function renderHistory(){
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">${details}</div>`:''}
           ${(item.freqF||item.freqR)?`<div style="font-size:11px;color:var(--text3);margin-top:4px">固有振動数 F:${item.freqF?parseFloat(item.freqF).toFixed(2)+'Hz':'-'} R:${item.freqR?parseFloat(item.freqR).toFixed(2)+'Hz':'-'}</div>`:''}
+          ${(item.measFreqF||item.measFreqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">📱 実測 F:${item.measFreqF?parseFloat(item.measFreqF).toFixed(2)+'Hz':'-'} R:${item.measFreqR?parseFloat(item.measFreqR).toFixed(2)+'Hz':'-'}</div>`:''}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
             <span style="font-size:12px">${stars}</span>
             ${item.note?`<span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}
@@ -1795,6 +1909,11 @@ function saveEditRecord(){
   const odo=parseInt(document.getElementById('editRecOdo').value);
   const date=document.getElementById('editRecDate').value;
   if(!odo||!date){toast('走行距離と日付を入力してください');return;}
+  // 距離整合性: 前後の履歴の範囲内のみ許可
+  const {lower,upper}=odoEditRange(car,date,{excludeRecId:r.id});
+  if(odo<lower){toast(`これより前の記録（${lower.toLocaleString()}km）より小さくできません`);return;}
+  if(odo>upper){toast(`これより後の記録（${upper.toLocaleString()}km）より大きくできません`);return;}
+  const oldOdo=r.odomAtChange,oldDate=r.date;
   const intVal=document.getElementById('editRecInterval').value;
   const interval=intVal!==''?parseInt(intVal):null;
   r.part=document.getElementById('editPartType').value;
@@ -1814,7 +1933,13 @@ function saveEditRecord(){
       const f=car.records[existIdx];f.odomAtChange=odo;f.date=date;if(f.parentId==null)f.parentId=r.id;
     }
   }
-  save();hideModal('editRecordModal');renderHistory();renderDashboard();
+  // 距離・日付が変わったら距離履歴を追従（旧エントリは他に使われていなければ削除し、新エントリを追加）
+  if(oldOdo!==odo||oldDate!==date){
+    const oldUsed=car.records.some(x=>x.odomAtChange===oldOdo&&x.date===oldDate);
+    if(!oldUsed)car.odomHistory=car.odomHistory.filter(h=>!(h.km===oldOdo&&h.date===oldDate));
+    if(!car.odomHistory.find(h=>h.km===odo&&h.date===date))car.odomHistory.push({km:odo,date});
+  }
+  save();hideModal('editRecordModal');renderHistory();renderDashboard();updateOdomChart();renderOdomHistory();
   toast('記録を更新しました');
 }
 function deleteRecordFromEdit(){
@@ -1822,8 +1947,14 @@ function deleteRecordFromEdit(){
   const ci=parseInt(document.getElementById('editRecCarIdx').value);
   const car=!isNaN(ci)?state.cars[ci]:getCar();
   if(!confirm('この記録を削除しますか？'))return;
+  const rec=car.records.find(r=>r.id===id);
   car.records=car.records.filter(r=>r.id!==id);
-  save();hideModal('editRecordModal');renderHistory();renderDashboard();toast('削除しました');
+  // この記録由来の距離履歴を、他に同一km/dateの記録が無ければ削除（平均走行を再計算させる）
+  if(rec){
+    const stillUsed=car.records.some(r=>r.odomAtChange===rec.odomAtChange&&r.date===rec.date);
+    if(!stillUsed)car.odomHistory=car.odomHistory.filter(h=>!(h.km===rec.odomAtChange&&h.date===rec.date));
+  }
+  save();hideModal('editRecordModal');renderHistory();renderDashboard();updateOdomChart();renderOdomHistory();toast('削除しました');
 }
 
 // ---- セッティング 編集 ----
@@ -1850,6 +1981,12 @@ function showEditSetting(id,carIdx){
   pf('editToFL',s.toeFL);pf('editToFR',s.toeFR);pf('editToRL',s.toeRL);pf('editToRR',s.toeRR);
   pf('editCsFL',s.casterFL);pf('editCsFR',s.casterFR);
   pf('editStNote',s.note);
+  // 実測固有振動数（読み取り専用表示）
+  const mfRow=document.getElementById('editMeasFreqRow');
+  if(s.measFreqF!=null||s.measFreqR!=null){
+    document.getElementById('editMeasFreqText').textContent=`📱 前: ${s.measFreqF!=null?s.measFreqF.toFixed(2)+'Hz':'-'} / 後: ${s.measFreqR!=null?s.measFreqR.toFixed(2)+'Hz':'-'}`;
+    mfRow.style.display='block';
+  }else{mfRow.style.display='none';}
   document.getElementById('editSettingModal').classList.add('show');
 }
 function saveEditSetting(){
@@ -2404,18 +2541,21 @@ function _analyzeFreq(){
       <div class="calc-item"><div class="calc-item-label">サンプル数</div><div class="calc-item-value">${_fmData.length}</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">目標フロントに反映</button>
-      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">目標リアに反映</button>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">フロントに反映</button>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">リアに反映</button>
     </div>${warn}
   </div>`:'<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。設置・固定を確認してください。</div>';
 }
 function applyMeasuredFreq(target){
   if(!_fmLastFreq){toast('先に計測してください');return;}
-  const id=target==='F'?'targetFreqF':'targetFreqR';
-  document.getElementById(id).value=_fmLastFreq.toFixed(2);
+  const v=_fmLastFreq.toFixed(2);
+  // 逆算用の目標値 と セッティング記録用の実測欄 の両方に反映
+  document.getElementById(target==='F'?'targetFreqF':'targetFreqR').value=v;
+  const meas=document.getElementById(target==='F'?'stMeasFreqF':'stMeasFreqR');
+  if(meas)meas.value=v;
   document.getElementById('accFreqCalc').classList.add('open');
   document.getElementById('arrowFreqCalc').classList.add('open');
-  toast(`目標${target==='F'?'フロント':'リア'}に ${_fmLastFreq.toFixed(2)}Hz を反映`);
+  toast(`${target==='F'?'フロント':'リア'}に ${v}Hz を反映（目標値＋実測欄）`);
 }
 
 async function loadGroupCompareOptions(){
@@ -2642,6 +2782,9 @@ async function saveSetting(){
     casterFL:pfSafe('stCasterFL'),
     casterFR:pfSafe('stCasterFR'),
     eval:parseInt(document.getElementById('stEval').value),
+    // 実測固有振動数
+    measFreqF:pfSafe('stMeasFreqF'),
+    measFreqR:pfSafe('stMeasFreqR'),
     note:document.getElementById('stNote').value.trim(),
     ts:Date.now(),id:Date.now()
   };
@@ -2811,7 +2954,21 @@ function renderSettings(){
       <input type="text" value="${c.name}" onchange="renameCar(${i},this.value)" maxlength="20">
       <button class="del-btn" onclick="showAddCarModal(${i})" style="font-size:16px">✏️</button>
       ${state.cars.length>1?`<button class="del-btn" onclick="deleteCar(${i})">×</button>`:''}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;padding:0 2px">
+      <span style="font-size:12px;color:var(--text3);white-space:nowrap">🔧 フィルター</span>
+      <select onchange="setCarOilMode(${i},this.value)" style="flex:1;background:var(--bg3);color:var(--text);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 8px;font-size:12px">
+        <option value=""${!c.oilFilterMode?' selected':''}>未設定</option>
+        <option value="set"${c.oilFilterMode==='set'?' selected':''}>オイルとセットで毎回</option>
+        <option value="interval2"${c.oilFilterMode==='interval2'?' selected':''}>オイル2回に1回</option>
+      </select>
     </div>`).join('');
+}
+function setCarOilMode(i,mode){
+  state.cars[i].oilFilterMode=mode||null;save();
+  if(i===state.selectedCar)_updateOilFilterUI();
+  renderDashboard();
+  toast('オイルフィルター設定を保存しました');
 }
 function saveProfile(){
   state.nickname=document.getElementById('s-nick').value.trim();
