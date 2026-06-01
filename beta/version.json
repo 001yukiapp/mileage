@@ -1,5 +1,5 @@
 {
-  "version": "3.3.5",
+  "version": "3.3.6",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "履歴の交換記録カードをホーム（パーツ状況）と統一（プログレスバー・残りkm色付き・約X日後・平均交換・オイルフィルター状況を追加）"
+  "notes": "履歴が表示されないバグを修正（currentKm/dailyKmの未定義参照エラー）"
 }
