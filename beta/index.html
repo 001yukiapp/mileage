@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.6.0</title>
+<title>Mileage 3.7.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.6.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.7.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -472,7 +472,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <div class="accordion-body" id="accGMeter">
           <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>画面が上を向くよう水平に近い角度で固定</b>し、<b>上端を進行方向</b>に向けてください。停車中に開始するとゼロ点を自動校正します。<br><span style="color:#fbbf24">⚠️ 運転中は画面を注視せず、同乗者が確認するか走行後にピーク値を確認してください。</span></p>
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホは<b>見やすい角度のまま固定でOK</b>（水平〜垂直・縦横どちらも対応。画面が運転席側を向くように）。<b>停車中に開始</b>すると自動でゼロ点校正します。マウントを動かしたら停車中に「ゼロ点校正」を押してください。<br><span style="color:#fbbf24">⚠️ 運転中は画面を注視せず、同乗者が確認するか走行後にピーク値を確認してください。</span></p>
             <button class="btn btn-primary" id="gMeterBtn" onclick="startGMeter()">開始</button>
             <button class="btn" id="gMeterStopBtn" onclick="stopGMeter()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
             <div id="gMeterArea" style="display:none;margin-top:12px">
@@ -484,10 +484,13 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:8px;padding:0 2px">
                 <span>加速 <b id="gMaxAcc" style="color:var(--text)">0.00</b></span>
                 <span>減速 <b id="gMaxBrk" style="color:var(--text)">0.00</b></span>
-                <span>左 <b id="gMaxL" style="color:var(--text)">0.00</b></span>
-                <span>右 <b id="gMaxR" style="color:var(--text)">0.00</b></span>
+                <span>左旋回 <b id="gMaxL" style="color:var(--text)">0.00</b></span>
+                <span>右旋回 <b id="gMaxR" style="color:var(--text)">0.00</b></span>
               </div>
-              <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);margin-top:10px">ピークをリセット</button>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn btn-sm" onclick="calibrateGMeter()" style="background:var(--bg3);color:var(--text);flex:1">📐 ゼロ点校正</button>
+                <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
+              </div>
             </div>
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
@@ -627,7 +630,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.6.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.7.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1048,7 +1051,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.7.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -2825,13 +2828,33 @@ let _gmActive=false,_gmWakeLock=null,_gmRaf=null,_gmFrame=0;
 let _gmGrav={x:0,y:0,z:9.81},_gmGravInit=false;
 let _gmLong=0,_gmLat=0,_gmTrail=[];
 let _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
+let _gmCalCount=-1,_gmCalBuf=[],_gmU={x:0,y:1}; // ゼロ点校正と「画面上方向」（縦横対応）
 const GM_BASE_RANGE=1.0; // 表示レンジ(G)。ピークに応じて自動拡大
 let _gmRange=GM_BASE_RANGE;
+// 画面の上方向を端末座標で返す（縦=Y軸 / 横=±X軸）
+function _gmOrientU(){
+  let a=0;
+  try{
+    if(screen.orientation&&typeof screen.orientation.angle==='number')a=screen.orientation.angle;
+    else if(typeof window.orientation==='number')a=window.orientation;
+  }catch(_){}
+  const r=a*Math.PI/180;
+  return {x:Math.sin(r),y:Math.cos(r)};
+}
+async function _gmAcquireWake(){try{if('wakeLock' in navigator)_gmWakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
+// ゼロ点校正: 約1秒分の静止サンプル平均で重力（＝取付姿勢）を確定
+function calibrateGMeter(silent){
+  if(!_gmActive){toast('先にGサークルを開始してください');return;}
+  _gmU=_gmOrientU();
+  _gmCalBuf=[];_gmCalCount=0;
+  if(silent!==true)toast('ゼロ点校正中… 1秒そのまま静止');
+}
 function startGMeter(){
   const go=()=>{
     _gmActive=true;_gmGravInit=false;_gmLong=0;_gmLat=0;_gmTrail=[];
     resetGPeaks(true);
-    (async()=>{try{if('wakeLock' in navigator)_gmWakeLock=await navigator.wakeLock.request('screen');}catch(_){}})();
+    calibrateGMeter(true); // 開始時に自動校正（停車中推奨）
+    _gmAcquireWake();
     document.getElementById('gMeterBtn').style.display='none';
     document.getElementById('gMeterStopBtn').style.display='';
     document.getElementById('gMeterArea').style.display='block';
@@ -2854,7 +2877,7 @@ function startGMeter(){
   }
 }
 function stopGMeter(){
-  _gmActive=false;
+  _gmActive=false;_gmCalCount=-1;_gmCalBuf=[];
   window.removeEventListener('devicemotion',_gmHandler);
   if(_gmRaf){cancelAnimationFrame(_gmRaf);_gmRaf=null;}
   try{if(_gmWakeLock){_gmWakeLock.release();_gmWakeLock=null;}}catch(_){}
@@ -2871,7 +2894,29 @@ function _gmHandler(e){
   const a=e.accelerationIncludingGravity;
   if(!a)return;
   const x=a.x||0,y=a.y||0,z=a.z||0;
-  // 重力推定（ローパス）。開始直後は現値で初期化＝停車中ならゼロ点校正になる
+  // ゼロ点校正中: 約1秒分を平均して重力（取付姿勢）を確定。揺れが大きければ棄却
+  if(_gmCalCount>=0){
+    _gmCalBuf.push({x,y,z});_gmCalCount++;
+    if(_gmCalCount>=60){
+      const n=_gmCalBuf.length;
+      let mx=0,my=0,mz=0;
+      _gmCalBuf.forEach(s=>{mx+=s.x;my+=s.y;mz+=s.z;});
+      mx/=n;my/=n;mz/=n;
+      let dev=0;
+      _gmCalBuf.forEach(s=>{dev+=(s.x-mx)*(s.x-mx)+(s.y-my)*(s.y-my)+(s.z-mz)*(s.z-mz);});
+      dev=Math.sqrt(dev/n);
+      _gmCalCount=-1;_gmCalBuf=[];
+      if(dev>0.8&&_gmGravInit){
+        toast('⚠️ 振動が大きく校正できません。停車中にやり直してください');
+      }else{
+        _gmGrav={x:mx,y:my,z:mz};_gmGravInit=true;
+        _gmLong=0;_gmLat=0;_gmTrail=[];
+        toast(dev>0.8?'ゼロ点校正完了（振動大・停車中の再校正を推奨）':'ゼロ点校正完了 ✓');
+      }
+    }
+    return;
+  }
+  // 保険: 校正前にデータが来た場合は現値で初期化
   if(!_gmGravInit){_gmGrav={x,y,z};_gmGravInit=true;}
   // 旋回・加減速中（動的Gが大きい間）は重力更新をほぼ凍結し、持続Gが重力に吸われるのを防ぐ
   const ddx=x-_gmGrav.x,ddy=y-_gmGrav.y,ddz=z-_gmGrav.z;
@@ -2883,23 +2928,27 @@ function _gmHandler(e){
   let dx=x-_gmGrav.x,dy=y-_gmGrav.y,dz=z-_gmGrav.z;
   const dot=dx*gx+dy*gy+dz*gz;
   dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
-  // 前後軸＝端末Y軸（画面上方向）の水平射影、左右軸＝重力×前後
-  let fx=-gx*gy,fy=1-gy*gy,fz=-gy*gz;
+  // 前後軸＝「画面上方向」と「画面裏方向(-Z)」の水平射影の合成。
+  // 水平置きでは上方向、立て置きでは裏方向が効き、どんな取付角度でも前方を向く（縦横画面対応）
+  const ux=_gmU.x,uy=_gmU.y;
+  const ug=ux*gx+uy*gy;
+  let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
   const fmag=Math.hypot(fx,fy,fz);
-  if(fmag<0.2)return; // 端末が立ちすぎていて進行方向が決められない
+  if(fmag<0.05)return;
   fx/=fmag;fy/=fmag;fz/=fmag;
-  const lx=gy*fz-gz*fy,ly=gz*fx-gx*fz,lz=gx*fy-gy*fx;
+  // 左右軸＝前後×重力（車両右方向が＋）
+  const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
   const G=9.80665;
   const lon=(dx*fx+dy*fy+dz*fz)/G; // ＋加速 / −減速
-  const lat=(dx*lx+dy*ly+dz*lz)/G; // ＋左 / −右
+  const lat=(dx*lx+dy*ly+dz*lz)/G; // ＋右旋回 / −左旋回（表示は左旋回で玉が右へ動く）
   // 表示用に軽い平滑化（路面ノイズ除去）
   _gmLong+=(lon-_gmLong)*0.25;
   _gmLat+=(lat-_gmLat)*0.25;
   const total=Math.hypot(_gmLong,_gmLat);
   if(_gmLong>_gmPeaks.acc)_gmPeaks.acc=_gmLong;
   if(-_gmLong>_gmPeaks.brk)_gmPeaks.brk=-_gmLong;
-  if(_gmLat>_gmPeaks.left)_gmPeaks.left=_gmLat;
-  if(-_gmLat>_gmPeaks.right)_gmPeaks.right=-_gmLat;
+  if(-_gmLat>_gmPeaks.left)_gmPeaks.left=-_gmLat;  // 左旋回G（左旋回中は lat<0）
+  if(_gmLat>_gmPeaks.right)_gmPeaks.right=_gmLat;  // 右旋回G
   if(total>_gmPeaks.total){_gmPeaks.total=total;_gmPeaks.totalLong=_gmLong;_gmPeaks.totalLat=_gmLat;}
   while(_gmRange<2.5&&_gmPeaks.total>_gmRange*0.92)_gmRange+=0.5;
   _gmTrail.push({lon:_gmLong,lat:_gmLat});
@@ -2926,8 +2975,8 @@ function _gmDraw(){
   ctx.beginPath();ctx.moveTo(c-R,c);ctx.lineTo(c+R,c);ctx.moveTo(c,c-R);ctx.lineTo(c,c+R);ctx.stroke();
   ctx.fillStyle='#64748b';ctx.font=`${10*dpr}px sans-serif`;ctx.textAlign='center';
   ctx.fillText('加速',c,c-R+12*dpr);ctx.fillText('減速',c,c+R-5*dpr);
-  ctx.textAlign='left';ctx.fillText('左',c-R+4*dpr,c-4*dpr);
-  ctx.textAlign='right';ctx.fillText('右',c+R-4*dpr,c-4*dpr);
+  ctx.textAlign='left';ctx.fillText('右旋回',c-R+4*dpr,c-4*dpr);
+  ctx.textAlign='right';ctx.fillText('左旋回',c+R-4*dpr,c-4*dpr);
   for(let g=0.5;g<=_gmRange+1e-9;g+=0.5){
     ctx.textAlign='left';ctx.fillStyle='rgba(148,163,184,.5)';
     ctx.fillText(g.toFixed(1),c+3*dpr,c-R*g/_gmRange+11*dpr);
@@ -2964,6 +3013,13 @@ function _gmDraw(){
     set('gMaxR',_gmPeaks.right.toFixed(2));
   }
 }
+// バックグラウンド復帰時にwake lock（画面スリープ防止）を取り直す
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    if(_fmActive)_fmAcquireWake();
+    if(_gmActive)_gmAcquireWake();
+  }
+});
 
 async function loadGroupCompareOptions(){
   const el=document.getElementById('groupCompareSelect');
