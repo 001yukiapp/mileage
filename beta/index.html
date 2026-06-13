@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.8.0</title>
+<title>Mileage 3.8.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.8.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.8.1</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -671,7 +671,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.8.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.8.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1092,7 +1092,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.8.0';
+const APP_VERSION = '3.8.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3136,7 +3136,7 @@ function renderYawAdvice(){
   const sname=s==='under'?'アンダー（曲がらない）':'オーバー（リアが出る）';
   const pname={entry:'進入',mid:'中立',exit:'立上り'}[p];
   el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin:8px 0 6px">${sname} ／ ${pname} ／ ${d}</div>`+
-    (list.map(r=>`<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="const x=this.querySelector('.yaw-detail');x.style.display=x.style.display==='none'?'block':'none'">
+    (list.map(r=>`<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="const x=this.querySelector('.yaw-detail');x.style.display=x.style.display==='none'?'block':'none';_accExpand(this)">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:15px">${badge(r.ease)}</span>
         <span style="font-weight:600;font-size:13px">${r.item}</span>
@@ -3147,6 +3147,8 @@ function renderYawAdvice(){
         <div style="color:#fbbf24;margin-top:2px">⚠️ ${r.cau}</div>
       </div>
     </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>');
+  const body=document.getElementById('accYaw');
+  if(body&&body.classList.contains('open'))body.style.maxHeight='none';
 }
 
 // ---- ヨー実測（GPS速度＋横G＋実ヨーレートでアンダー/オーバー判定）----
@@ -3742,8 +3744,25 @@ function toggleAccordion(id){
   const arrow=document.getElementById('arrow'+id.replace('acc',''));
   if(!body)return;
   const isOpen=body.classList.contains('open');
-  body.classList.toggle('open',!isOpen);
+  if(isOpen){
+    // 閉じる: 現在の高さを固定してから0へアニメーション
+    body.style.maxHeight=body.scrollHeight+'px';
+    requestAnimationFrame(()=>{body.style.maxHeight='0';});
+    body.classList.remove('open');
+  }else{
+    // 開く: 中身の実高さまで開き、アニメ後はnone（内部展開で伸びても切れない）
+    body.classList.add('open');
+    body.style.maxHeight=body.scrollHeight+'px';
+    const done=()=>{if(body.classList.contains('open'))body.style.maxHeight='none';body.removeEventListener('transitionend',done);};
+    body.addEventListener('transitionend',done);
+    setTimeout(done,350); // transitionend保険
+  }
   if(arrow)arrow.classList.toggle('open',!isOpen);
+}
+// 開いているアコーディオン内で中身が伸びたとき(カード展開など)に高さ制限を外す
+function _accExpand(el){
+  const body=el.closest('.accordion-body');
+  if(body&&body.classList.contains('open'))body.style.maxHeight='none';
 }
 
 // 走行場所ジャンル選択
