@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.7.0</title>
+<title>Mileage 3.8.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.7.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.8.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -496,6 +496,47 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
+        <div class="accordion-header" onclick="toggleAccordion('accYaw')">
+          <span class="accordion-title">🧭 ヨー診断（セッティング助言）</span>
+          <span class="accordion-arrow" id="arrowYaw">▼</span>
+        </div>
+        <div class="accordion-body" id="accYaw">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">症状と局面を選ぶと、対策を<b>お手軽度順</b>（🟢すぐ→🔴部品交換）に提案します。各カードを押すと理由・注意が開きます。</p>
+            <div class="form-group">
+              <label class="form-label">駆動方式</label>
+              <div id="yawDriveSeg" style="display:flex;gap:6px">
+                <button type="button" class="btn btn-sm" data-d="FF" onclick="setYawDrive('FF')" style="flex:1">FF</button>
+                <button type="button" class="btn btn-sm" data-d="FR" onclick="setYawDrive('FR')" style="flex:1">FR</button>
+                <button type="button" class="btn btn-sm" data-d="4WD" onclick="setYawDrive('4WD')" style="flex:1">4WD</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">症状</label>
+              <div id="yawSymSeg" style="display:flex;gap:6px">
+                <button type="button" class="btn btn-sm" data-s="under" onclick="setYawSym('under')" style="flex:1">アンダー（曲がらない）</button>
+                <button type="button" class="btn btn-sm" data-s="over" onclick="setYawSym('over')" style="flex:1">オーバー（リアが出る）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">局面</label>
+              <div id="yawPhaseSeg" style="display:flex;gap:6px">
+                <button type="button" class="btn btn-sm" data-p="entry" onclick="setYawPhase('entry')" style="flex:1">進入</button>
+                <button type="button" class="btn btn-sm" data-p="mid" onclick="setYawPhase('mid')" style="flex:1">中立</button>
+                <button type="button" class="btn btn-sm" data-p="exit" onclick="setYawPhase('exit')" style="flex:1">立上り</button>
+              </div>
+            </div>
+            <div id="yawAdvice" style="margin-top:6px"></div>
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+              <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📡 実測アンダー/オーバー判定</div>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Gサークルと同じくスマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
+              <button class="btn btn-primary" id="yawMeasBtn" onclick="startYawMeasure()">実測開始</button>
+              <button class="btn" id="yawMeasStopBtn" onclick="stopYawMeasure()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
+              <div id="yawMeasResult" style="margin-top:12px"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="accordion-header" onclick="toggleAccordion('accFreqDisp')">
           <span class="accordion-title">📊 現在の固有振動数</span>
           <span class="accordion-arrow" id="arrowFreqDisp">▼</span>
@@ -630,7 +671,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.7.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.8.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1051,7 +1092,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.8.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1353,6 +1394,7 @@ function showPage(name){
   // セッティングタブを離れるとき固有振動数の計測・Gメーターを停止
   if(name!=='setting'&&_fmActive)stopFreqMeasure();
   if(name!=='setting'&&_gmActive)stopGMeter();
+  if(name!=='setting'&&_ymActive)stopYawMeasure();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -1363,7 +1405,7 @@ function showPage(name){
   if(name==='odometer'){updateOdomChart();renderOdomHistory();setTodayDates();}
   if(name==='record'){setTodayDates();_updateOilFilterUI();fillRecOdo(true);}
   if(name==='settings'){renderSettings();renderGroupList();}
-  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();state.groups.forEach(g=>cacheGroupData(g.code));}
+  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
   if(name==='group'){loadGroupCompareOptions();}
   _updateAllTabState();
 }
@@ -3018,8 +3060,205 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     if(_fmActive)_fmAcquireWake();
     if(_gmActive)_gmAcquireWake();
+    if(_ymActive)_ymWakeAcq();
   }
 });
+
+// ---- ヨー診断（アンダー/オーバー対策アドバイス）----
+// s:症状 under/over, p:局面 entry(進入)/mid(中立)/exit(立ち上がり)
+// d:駆動 any/FF/FR/4WD, ease:お手軽度 1🟢/2🟡/3🔴
+const YAW_RULES=[
+  // アンダー：進入
+  {s:'under',p:'entry',d:'any',item:'空気圧',ease:1,dir:'F↓ / R↑',why:'前接地を稼ぎ初期応答を上げる',cau:'下げ過ぎは腰砕け・偏摩耗'},
+  {s:'under',p:'entry',d:'any',item:'減衰',ease:1,dir:'Fバンプ柔く or Fリバウンド硬く',why:'バンプ柔く=前荷重を乗せる／リバウンド硬く=応答を上げる',cau:'リバウンド硬過ぎでバタつき'},
+  {s:'under',p:'entry',d:'any',item:'アライメント',ease:2,dir:'Fキャンバー増 / Fトーアウト',why:'旋回初期の前グリップを増やす',cau:'トーアウト過大で直進フラつき'},
+  {s:'under',p:'entry',d:'any',item:'スタビ',ease:2,dir:'F柔く / R硬く',why:'前ロール許容で荷重移動を作る',cau:'リア硬過ぎでリアが跳ねる'},
+  {s:'under',p:'entry',d:'any',item:'バネレート',ease:3,dir:'F↓ / R↑',why:'前を沈ませ接地荷重を増やす',cau:'要部品交換・全体バランス再調整'},
+  // アンダー：中立
+  {s:'under',p:'mid',d:'any',item:'空気圧',ease:1,dir:'F最適化（温度差を見る）',why:'定常グリップを左右均一に',cau:'前後同時にいじらない'},
+  {s:'under',p:'mid',d:'any',item:'スタビ',ease:2,dir:'F柔く / R硬く',why:'定常ロールバランスの主役',cau:'リア硬過ぎで巻き込み'},
+  {s:'under',p:'mid',d:'any',item:'アライメント',ease:2,dir:'Fキャンバー増',why:'旋回中の前タイヤ接地を最大化',cau:'増やし過ぎで直進時の内減り'},
+  {s:'under',p:'mid',d:'any',item:'減衰',ease:1,dir:'F柔く / R硬く',why:'前を動かしグリップを引き出す',cau:'過渡で曖昧になり過ぎ注意'},
+  {s:'under',p:'mid',d:'any',item:'バネレート',ease:3,dir:'F↓ / R↑',why:'前後のロール剛性配分を前寄りに',cau:'要部品交換'},
+  // アンダー：立ち上がり
+  {s:'under',p:'exit',d:'FF',item:'減衰',ease:1,dir:'Rリバウンド柔く',why:'リアを伸ばしリフトオフ気味で巻く',cau:'柔過ぎはリア不安定'},
+  {s:'under',p:'exit',d:'FF',item:'空気圧',ease:1,dir:'F駆動輪を最適化',why:'前のトラクションと舵を両立',cau:'低過ぎで腰砕け'},
+  {s:'under',p:'exit',d:'FF',item:'スタビ/車高',ease:2,dir:'Rスタビ硬く / R車高↑',why:'リアを動かしフロント荷重を残す',cau:'やり過ぎでオーバー化'},
+  {s:'under',p:'exit',d:'FF',item:'LSD（前）',ease:3,dir:'機械式LSD投入',why:'パワーオン時の前トラクション確保',cau:'高コスト・挙動が大きく変わる'},
+  {s:'under',p:'exit',d:'FR',item:'空気圧',ease:1,dir:'R↑ / F↓',why:'前グリップを相対的に上げる',cau:'リア上げ過ぎでオーバー'},
+  {s:'under',p:'exit',d:'FR',item:'減衰',ease:1,dir:'F柔く',why:'加速時に残る前荷重を活かす',cau:'過渡の応答が緩む'},
+  {s:'under',p:'exit',d:'FR',item:'アライメント/スタビ',ease:2,dir:'Fキャンバー増 / Rスタビ硬く',why:'前接地増＋リアへ荷重移動',cau:'バランス崩れに注意'},
+  {s:'under',p:'exit',d:'4WD',item:'空気圧/減衰',ease:1,dir:'F↓ / F柔く',why:'4WDの押し出しアンダーを前で稼ぐ',cau:'トルク配分があれば併用'},
+  {s:'under',p:'exit',d:'4WD',item:'アライメント',ease:2,dir:'Fキャンバー増 / Fトーアウト',why:'前タイヤのグリップを増やす',cau:'直進安定とのトレード'},
+  // オーバー：進入
+  {s:'over',p:'entry',d:'any',item:'空気圧',ease:1,dir:'R↓ / F↑',why:'後接地を稼ぎ巻きを抑える',cau:'下げ過ぎでヨレ'},
+  {s:'over',p:'entry',d:'any',item:'減衰',ease:1,dir:'Fバンプ硬く or Fリバウンド柔く / Rバンプ柔く',why:'前荷重を急に乗せず後を安定させる',cau:'硬過ぎで初期アンダー'},
+  {s:'over',p:'entry',d:'any',item:'アライメント',ease:2,dir:'Rトーイン増 / Fキャンバー控えめ',why:'直進安定とリア接地を増やす',cau:'トーイン過大でだるい'},
+  {s:'over',p:'entry',d:'any',item:'スタビ',ease:2,dir:'R柔く / F硬く',why:'リアのロール許容で接地確保',cau:'前硬過ぎでアンダー化'},
+  {s:'over',p:'entry',d:'any',item:'バネレート',ease:3,dir:'R↓ / F↑',why:'リアを沈ませ接地荷重を増やす',cau:'要部品交換'},
+  // オーバー：中立
+  {s:'over',p:'mid',d:'any',item:'空気圧',ease:1,dir:'R最適化',why:'定常リアグリップを安定させる',cau:'前後同時にいじらない'},
+  {s:'over',p:'mid',d:'any',item:'スタビ',ease:2,dir:'R柔く / F硬く',why:'定常ロールバランスをリア寄りに',cau:'前硬過ぎでアンダー'},
+  {s:'over',p:'mid',d:'any',item:'アライメント',ease:2,dir:'Rトーイン増 / Rキャンバー最適化',why:'旋回中のリア接地を最大化',cau:'内減り注意'},
+  {s:'over',p:'mid',d:'any',item:'減衰',ease:1,dir:'R柔く / F硬く',why:'リアを動かしグリップを引き出す',cau:'曖昧になり過ぎ注意'},
+  {s:'over',p:'mid',d:'any',item:'バネレート',ease:3,dir:'R↓ / F↑',why:'ロール剛性配分をリア寄りに',cau:'要部品交換'},
+  // オーバー：立ち上がり
+  {s:'over',p:'exit',d:'FR',item:'空気圧',ease:1,dir:'R駆動輪を最適化',why:'後輪トラクションを確保',cau:'高過ぎ/低過ぎ両方で滑る'},
+  {s:'over',p:'exit',d:'FR',item:'減衰',ease:1,dir:'Rリバウンド柔く',why:'駆動輪を路面に押し付ける',cau:'柔過ぎでリアが落ち着かない'},
+  {s:'over',p:'exit',d:'FR',item:'アライメント/スタビ',ease:2,dir:'Rトーイン増 / Rスタビ柔く',why:'加速時のリア安定とロール許容',cau:'だるさとのトレード'},
+  {s:'over',p:'exit',d:'FR',item:'LSD（後）/バネ',ease:3,dir:'機械式LSD / Rバネ↓',why:'トラクションを路面に逃さず伝える',cau:'高コスト・挙動が激変'},
+  {s:'over',p:'exit',d:'4WD',item:'空気圧/減衰',ease:1,dir:'R↑ / 減衰見直し',why:'4WDの後輪トラクションを確保',cau:'トルク配分があれば併用'},
+  {s:'over',p:'exit',d:'4WD',item:'アライメント',ease:2,dir:'Rトーイン増',why:'加速時のリアを安定させる',cau:'だるさとのトレード'},
+  {s:'over',p:'exit',d:'FF',item:'（参考）',ease:1,dir:'FFは立上りオーバー稀',why:'全開でアンダーに転じるのが通常。アンダー側を参照',cau:'リフトオフでの巻きはアンダー(FF)対策の逆方向で調整'},
+];
+let _yawSel={s:'under',p:'mid',d:'FF'};
+function _yawInitDrive(){const c=getCar();if(c&&c.drive)_yawSel.d=c.drive;_yawSyncSeg();renderYawAdvice();}
+function setYawDrive(d){_yawSel.d=d;const c=getCar();if(c){c.drive=d;save();}_yawSyncSeg();renderYawAdvice();}
+function setYawSym(s){_yawSel.s=s;_yawSyncSeg();renderYawAdvice();}
+function setYawPhase(p){_yawSel.p=p;_yawSyncSeg();renderYawAdvice();}
+function _yawSyncSeg(){
+  [['yawDriveSeg','d'],['yawSymSeg','s'],['yawPhaseSeg','p']].forEach(([sid,key])=>{
+    const seg=document.getElementById(sid);if(!seg)return;
+    seg.querySelectorAll('button').forEach(b=>{
+      const on=b.dataset[key]===_yawSel[key];
+      if(on){b.classList.add('btn-primary');b.style.background='';b.style.color='';}
+      else{b.classList.remove('btn-primary');b.style.background='var(--bg3)';b.style.color='var(--text)';}
+    });
+  });
+}
+function renderYawAdvice(){
+  const el=document.getElementById('yawAdvice');if(!el)return;
+  const{s,p,d}=_yawSel;
+  let list=YAW_RULES.filter(r=>r.s===s&&r.p===p&&(r.d==='any'||r.d===d));
+  if(!list.length)list=YAW_RULES.filter(r=>r.s===s&&r.p===p);
+  list=list.slice().sort((a,b)=>a.ease-b.ease);
+  const badge=e=>e===1?'🟢':e===2?'🟡':'🔴';
+  const sname=s==='under'?'アンダー（曲がらない）':'オーバー（リアが出る）';
+  const pname={entry:'進入',mid:'中立',exit:'立上り'}[p];
+  el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin:8px 0 6px">${sname} ／ ${pname} ／ ${d}</div>`+
+    (list.map(r=>`<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="const x=this.querySelector('.yaw-detail');x.style.display=x.style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">${badge(r.ease)}</span>
+        <span style="font-weight:600;font-size:13px">${r.item}</span>
+        <span style="margin-left:auto;font-size:12px;color:#60a5fa;text-align:right">${r.dir}</span>
+      </div>
+      <div class="yaw-detail" style="display:none;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.6">
+        <div>💡 ${r.why}</div>
+        <div style="color:#fbbf24;margin-top:2px">⚠️ ${r.cau}</div>
+      </div>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>');
+}
+
+// ---- ヨー実測（GPS速度＋横G＋実ヨーレートでアンダー/オーバー判定）----
+let _ymActive=false,_ymWake=null,_ymGeo=null,_ymTimer=null;
+let _ymGrav={x:0,y:0,z:9.81},_ymGravInit=false,_ymU={x:0,y:1};
+let _ymSpeed=null,_ymAcc=null,_ymLastPos=null,_ymSamples=[],_ymCount=0;
+const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_NEED=40;
+async function _ymWakeAcq(){try{if('wakeLock' in navigator)_ymWake=await navigator.wakeLock.request('screen');}catch(_){}}
+function _ymSetResult(html){const el=document.getElementById('yawMeasResult');if(el)el.innerHTML=html;}
+function _haversine(la1,lo1,la2,lo2){
+  const R=6371000,d=Math.PI/180;
+  const dLa=(la2-la1)*d,dLo=(lo2-lo1)*d;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+function startYawMeasure(){
+  const go=()=>{
+    if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
+    _ymActive=true;_ymGravInit=false;_ymSamples=[];_ymCount=0;_ymSpeed=null;_ymLastPos=null;_ymAcc=null;
+    _ymU=_gmOrientU();
+    _ymWakeAcq();
+    document.getElementById('yawMeasBtn').style.display='none';
+    document.getElementById('yawMeasStopBtn').style.display='';
+    _ymSetResult('<div style="font-size:12px;color:var(--text3)">📡 測位中… 20km/h以上でコーナーを走ってください</div>');
+    window.addEventListener('devicemotion',_ymHandler);
+    _ymGeo=navigator.geolocation.watchPosition(pos=>{
+      _ymAcc=pos.coords.accuracy;
+      if(typeof pos.coords.speed==='number'&&pos.coords.speed>=0){_ymSpeed=pos.coords.speed;}
+      else if(_ymLastPos){
+        const dt=(pos.timestamp-_ymLastPos.t)/1000;
+        if(dt>0)_ymSpeed=_haversine(_ymLastPos.lat,_ymLastPos.lon,pos.coords.latitude,pos.coords.longitude)/dt;
+      }
+      _ymLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    _ymTimer=setTimeout(()=>{
+      if(!_ymActive)return;
+      if(_ymSamples.length>=8)_ymFinish();
+      else{stopYawMeasure();_ymSetResult('<div style="font-size:12px;color:#fbbf24">有効な走行データが集まりませんでした。GPS速度・コーナーG・スマホの固定をご確認ください。</div>');}
+    },120000);
+  };
+  const denied=()=>toast('センサーへのアクセスが拒否されました');
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?go():denied();}).catch(denied);
+  }else if(typeof DeviceMotionEvent!=='undefined'){go();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
+}
+function stopYawMeasure(){
+  _ymActive=false;
+  window.removeEventListener('devicemotion',_ymHandler);
+  if(_ymGeo!=null){try{navigator.geolocation.clearWatch(_ymGeo);}catch(_){}_ymGeo=null;}
+  if(_ymTimer){clearTimeout(_ymTimer);_ymTimer=null;}
+  try{if(_ymWake){_ymWake.release();_ymWake=null;}}catch(_){}
+  const b=document.getElementById('yawMeasBtn'),s=document.getElementById('yawMeasStopBtn');
+  if(b)b.style.display='';if(s)s.style.display='none';
+}
+function _ymHandler(e){
+  if(!_ymActive)return;
+  const a=e.accelerationIncludingGravity;if(!a)return;
+  const x=a.x||0,y=a.y||0,z=a.z||0;
+  if(!_ymGravInit){_ymGrav={x,y,z};_ymGravInit=true;return;}
+  const al=Math.hypot(x-_ymGrav.x,y-_ymGrav.y,z-_ymGrav.z)<0.6?0.02:0.0005;
+  _ymGrav.x+=(x-_ymGrav.x)*al;_ymGrav.y+=(y-_ymGrav.y)*al;_ymGrav.z+=(z-_ymGrav.z)*al;
+  const gm=Math.hypot(_ymGrav.x,_ymGrav.y,_ymGrav.z)||9.81;
+  const gx=_ymGrav.x/gm,gy=_ymGrav.y/gm,gz=_ymGrav.z/gm;
+  let dx=x-_ymGrav.x,dy=y-_ymGrav.y,dz=z-_ymGrav.z;
+  const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+  const ux=_ymU.x,uy=_ymU.y;
+  const ug=ux*gx+uy*gy;
+  let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+  const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+  fx/=fmag;fy/=fmag;fz/=fmag;
+  const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+  const G=9.80665;
+  const lon=(dx*fx+dy*fy+dz*fz)/G;   // ＋加速/−減速
+  const lat=(dx*lx+dy*ly+dz*lz)/G;   // ＋右旋回/−左旋回
+  const rr=e.rotationRate;if(!rr)return;
+  const yawRate=((rr.beta||0)*gx+(rr.gamma||0)*gy+(rr.alpha||0)*gz)*Math.PI/180; // rad/s 鉛直まわり
+  const V=_ymSpeed;
+  if(V==null||V<YM_VMIN)return;
+  if(_ymAcc!=null&&_ymAcc>YM_ACCMAX)return;
+  if(Math.abs(lat)<YM_LATMIN)return;
+  const rTh=(lat*G)/V;               // 理論ヨーレート rad/s（＋右旋回）
+  if(Math.abs(rTh)<0.02)return;
+  const ratio=Math.abs(yawRate)/Math.abs(rTh);
+  if(!isFinite(ratio)||ratio>4)return;
+  _ymSamples.push({ratio,lon});_ymCount++;
+  if(_ymCount%5===0)_ymSetResult(`<div style="font-size:12px;color:var(--text3)">測定中… 有効サンプル ${_ymSamples.length}/${YM_NEED}（速度 ${(V*3.6).toFixed(0)}km/h）</div>`);
+  if(_ymSamples.length>=YM_NEED)_ymFinish();
+}
+function _ymFinish(){
+  const n=_ymSamples.length;if(!n){stopYawMeasure();return;}
+  let sr=0,sl=0;_ymSamples.forEach(s=>{sr+=s.ratio;sl+=s.lon;});
+  const ratio=sr/n,lon=sl/n;
+  stopYawMeasure();
+  const pn={entry:'進入',mid:'中立',exit:'立上り'};
+  const p=lon<-0.1?'entry':lon>0.1?'exit':'mid';
+  let s=null,label,color;
+  if(ratio<0.85){s='under';label='アンダー傾向';color='#60a5fa';}
+  else if(ratio>1.18){s='over';label='オーバー傾向';color='#f87171';}
+  else{label='ニュートラル（良好）';color='#34d399';}
+  const strength=Math.round(Math.abs(1-ratio)*100);
+  let html=`<div style="background:var(--bg3);border-radius:10px;padding:12px">
+    <div style="font-weight:700;font-size:15px;color:${color}">${label}${s?`（強さ ${strength}%）`:''}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">実ヨー/理論ヨー比 ${ratio.toFixed(2)} ／ 局面 ${pn[p]} ／ 有効${n}サンプル</div>`;
+  if(s){
+    _yawSel.s=s;_yawSel.p=p;_yawSyncSeg();renderYawAdvice();
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">↑ 上の助言を「${label}・${pn[p]}」にセットしました。対策をご確認ください。</div>`;
+  }else{
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">狙い通り曲がれています。セッティング変更は不要です。</div>`;
+  }
+  _ymSetResult(html+'</div>');
+}
 
 async function loadGroupCompareOptions(){
   const el=document.getElementById('groupCompareSelect');
