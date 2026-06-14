@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.9.0</title>
+<title>Mileage 3.10.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.9.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.10.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -530,9 +530,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <div id="yawAdvice" style="margin-top:6px"></div>
             <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
               <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📡 実測アンダー/オーバー判定</div>
-              <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Gサークルと同じくスマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Gサークルと同じくスマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<b>判定は限界付近（タイヤが滑り出すくらい）でのみ反応</b>します。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
               <button class="btn btn-primary" id="yawMeasBtn" onclick="startYawMeasure()">実測開始</button>
-              <button class="btn" id="yawMeasStopBtn" onclick="stopYawMeasure()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
+              <button class="btn" id="yawMeasStopBtn" onclick="_ymFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
               <div id="yawMeasResult" style="margin-top:12px"></div>
             </div>
           </div>
@@ -672,7 +672,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.9.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.10.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1093,7 +1093,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.9.0';
+const APP_VERSION = '3.10.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -2808,6 +2808,9 @@ function _analyzeFreq(partial){
     }
   }
   _fmLastFreq=freq;
+  // 山の半値幅(FWHM)から減衰比ζを推定（ζ≈Δf/2f0）。山が鋭い=減衰不足で跳ねやすい
+  const _bw=freqs[hi]-freqs[lo];
+  const _zeta=freq>0?_bw/(2*freq):null;
   const fsAvg=_fmFsSum/_fmSegCount;
   // 車両設定からの理論値を並記（実測との比較用）
   const _car=getCar();
@@ -2816,6 +2819,19 @@ function _analyzeFreq(partial){
   const calcNote=(calcF||calcR)?`<div style="font-size:11px;color:var(--text3);margin-top:6px">計算値（バネレートから）: F ${calcF?calcF.toFixed(2)+'Hz':'-'} / R ${calcR?calcR.toFixed(2)+'Hz':'-'}　※実測は減衰の影響でやや低めに出ます</div>`:'';
   const warn=(freq<=FM_PEAK_LO+0.05||freq>=FM_PEAK_HI-0.05)?'<div style="font-size:11px;color:#fbbf24;margin-top:8px">⚠️ 探索範囲の端の値です。エンジン振動や設置・固定の影響の可能性があります。位置を見直して再計測してください。</div>':'';
   const partialNote=partial?`<div style="font-size:11px;color:#fbbf24;margin-bottom:6px">⚠️ 5分経過のため有効${_fmValidS}秒分で解析しました</div>`:'';
+  // 減衰（跳ね/突っ張り）診断：山の鋭さ ζ から
+  let dampNote='';
+  if(_zeta!=null&&!warn){
+    let dlabel,dcolor,dadvice;
+    if(_zeta<0.2){dlabel='跳ねやすい（減衰不足）';dcolor='#f87171';dadvice='固有振動数が良くてもバンプで跳ねやすい状態です。ダンパーの伸び側（リバウンド）減衰を強めると収まりが良くなります。';}
+    else if(_zeta>0.5){dlabel='突っ張り気味（減衰過多）';dcolor='#fbbf24';dadvice='減衰が効きすぎて動きが渋い状態です。減衰を弱めるとバンプの当たりが柔らかくなります。';}
+    else{dlabel='適正';dcolor='#34d399';dadvice='山の鋭さから見て減衰バランスは良好です。';}
+    dampNote=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="font-size:12px"><span style="color:var(--text3)">減衰の傾向（参考）:</span> <b style="color:${dcolor}">${dlabel}</b> <span style="color:var(--text3);font-size:11px">(山の鋭さ ζ≈${_zeta.toFixed(2)})</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">${dadvice}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">※スペクトルの山の幅からの推定（参考値）。固有振動数が良くても跳ねる/突っ張る場合の目安です。</div>
+    </div>`;
+  }
   el.innerHTML=`<div class="calc-result">
     ${partialNote}
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">測定結果（有効${_fmValidS}秒・${_fmSegCount}区間平均・${fsAvg.toFixed(0)}Hzサンプリング）</div>
@@ -2825,7 +2841,9 @@ function _analyzeFreq(partial){
     </div>
     ${second?'<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピークは前後どちらかの軸の共振の可能性があります</div>':''}
     ${calcNote}
+    ${dampNote}
     <div class="chart-wrap"><canvas id="fmChart"></canvas></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">縦軸＝揺れの強さ／横軸＝周波数。山が立つ周波数ほど揺れやすく、<b>赤い点が固有振動数</b>。山が鋭いほど減衰不足で跳ねやすい。</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">フロントに反映</button>
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">リアに反映</button>
@@ -2848,7 +2866,7 @@ function _fmRenderChart(freqs,spec,peakF,peakV,second){
     plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>items[0].parsed.x.toFixed(2)+' Hz',label:item=>item.dataset.label}}},
     scales:{
       x:{type:'linear',min:FM_SCAN_LO,max:FM_SCAN_HI,title:{display:true,text:'周波数 (Hz)',color:'#64748b',font:{size:10}},ticks:{stepSize:1,color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}},
-      y:{display:false,min:0}
+      y:{display:true,min:0,title:{display:true,text:'揺れの強さ',color:'#64748b',font:{size:10}},ticks:{display:false},grid:{display:false}}
     }
   }});
 }
@@ -3165,7 +3183,16 @@ function renderYawAdvice(){
 let _ymActive=false,_ymWake=null,_ymGeo=null,_ymTimer=null;
 let _ymGrav={x:0,y:0,z:9.81},_ymGravInit=false,_ymU={x:0,y:1};
 let _ymSpeed=null,_ymAcc=null,_ymLastPos=null,_ymSamples=[],_ymCount=0;
-const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_NEED=50;
+let _ymLog=null,_ymStreak=null; // 局面×症状の回数ログ／連続検出ストリーク
+const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_EVENT=6; // EVENT=1イベント確定に必要な連続サンプル数
+function _ymNewLog(){return{entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};}
+function _ymRenderLog(){
+  const pn={entry:'進入',mid:'中立',exit:'立上り'};
+  return['entry','mid','exit'].map(ph=>{
+    const u=_ymLog[ph].under,o=_ymLog[ph].over;
+    return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text2)">${pn[ph]}</span><span><span style="color:#60a5fa">アンダー ${u}</span> ／ <span style="color:#f87171">オーバー ${o}</span></span></div>`;
+  }).join('');
+}
 async function _ymWakeAcq(){try{if('wakeLock' in navigator)_ymWake=await navigator.wakeLock.request('screen');}catch(_){}}
 function _ymSetResult(html){const el=document.getElementById('yawMeasResult');if(el)el.innerHTML=html;}
 function _haversine(la1,lo1,la2,lo2){
@@ -3174,15 +3201,48 @@ function _haversine(la1,lo1,la2,lo2){
   const a=Math.sin(dLa/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLo/2)**2;
   return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
 }
+const YM_GATE_LAT=0.12; // 開始ゲート：これ未満の横Gなら開始可（停車 or 直進）
+// 開始前に約0.8秒だけ横Gを覗き、Gが乗っていれば開始を弾く（停車中/直進中のみ開始可）
+function _ymGate(onPass){
+  const U=_gmOrientU();let g=null,gInit=false,sum=0,n=0;
+  const h=(e)=>{
+    const a=e.accelerationIncludingGravity;if(!a)return;
+    const x=a.x||0,y=a.y||0,z=a.z||0;
+    if(!gInit){g={x,y,z};gInit=true;return;}
+    const al=Math.hypot(x-g.x,y-g.y,z-g.z)<0.6?0.05:0.0005;
+    g.x+=(x-g.x)*al;g.y+=(y-g.y)*al;g.z+=(z-g.z)*al;
+    const gm=Math.hypot(g.x,g.y,g.z)||9.81;
+    const gx=g.x/gm,gy=g.y/gm,gz=g.z/gm;
+    let dx=x-g.x,dy=y-g.y,dz=z-g.z;
+    const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+    const ux=U.x,uy=U.y,ug=ux*gx+uy*gy;
+    let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+    const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+    fx/=fmag;fy/=fmag;fz/=fmag;
+    const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+    const lat=(dx*lx+dy*ly+dz*lz)/9.80665;
+    sum+=Math.abs(lat);n++;
+  };
+  window.addEventListener('devicemotion',h);
+  _ymSetResult('<div style="font-size:12px;color:var(--text3)">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>');
+  setTimeout(()=>{
+    window.removeEventListener('devicemotion',h);
+    const avg=n>0?sum/n:0;
+    if(n<3){toast('センサー値が取れませんでした。もう一度お試しください');_ymSetResult('');return;}
+    if(avg>=YM_GATE_LAT){toast('Gがかかっています。停車中か直進走行中に開始してください');_ymSetResult('');return;}
+    onPass();
+  },900);
+}
 function startYawMeasure(){
   const go=()=>{
     if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
     _ymActive=true;_ymGravInit=false;_ymSamples=[];_ymCount=0;_ymSpeed=null;_ymLastPos=null;_ymAcc=null;
+    _ymLog=_ymNewLog();_ymStreak={ph:null,sym:null,c:0};
     _ymU=_gmOrientU();
     _ymWakeAcq();
     document.getElementById('yawMeasBtn').style.display='none';
     document.getElementById('yawMeasStopBtn').style.display='';
-    _ymSetResult('<div style="font-size:12px;color:var(--text3)">📡 測位中… 20km/h以上でコーナーを走ってください</div>');
+    _ymSetResult('<div style="font-size:12px;color:var(--text3)">📡 測位中… <b>20km/h以上でコーナーを走行</b>してください。<br><span style="color:#fbbf24">アンダー/オーバーは<b>限界付近（タイヤが滑り出すくらい）</b>でしか検出できません。しっかり攻めて走ってください。</span></div>');
     window.addEventListener('devicemotion',_ymHandler);
     _ymGeo=navigator.geolocation.watchPosition(pos=>{
       _ymAcc=pos.coords.accuracy;
@@ -3193,16 +3253,17 @@ function startYawMeasure(){
       }
       _ymLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
     },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    // 走行データが全く取れないまま2分なら案内（取れていれば停止ボタンまで継続）
     _ymTimer=setTimeout(()=>{
       if(!_ymActive)return;
-      if(_ymSamples.length>=8)_ymFinish();
-      else{stopYawMeasure();_ymSetResult('<div style="font-size:12px;color:#fbbf24">有効な走行データが集まりませんでした。GPS速度・コーナーG・スマホの固定をご確認ください。</div>');}
+      if(_ymSamples.length<8){stopYawMeasure();_ymSetResult('<div style="font-size:12px;color:#fbbf24">有効な走行データが集まりませんでした。GPS速度・コーナーG・スマホの固定をご確認ください。</div>');}
     },120000);
   };
+  const gate=()=>_ymGate(go);
   const denied=()=>toast('センサーへのアクセスが拒否されました');
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?go():denied();}).catch(denied);
-  }else if(typeof DeviceMotionEvent!=='undefined'){go();}
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?gate():denied();}).catch(denied);
+  }else if(typeof DeviceMotionEvent!=='undefined'){gate();}
   else{toast('この端末は加速度センサーをサポートしていません');}
 }
 function stopYawMeasure(){
@@ -3245,44 +3306,37 @@ function _ymHandler(e){
   const ratio=Math.abs(yawRate)/Math.abs(rTh);
   if(!isFinite(ratio)||ratio>4)return;
   _ymSamples.push({ratio,lon});_ymCount++;
-  if(_ymCount%5===0)_ymSetResult(`<div style="font-size:12px;color:var(--text3)">測定中… 有効サンプル ${_ymSamples.length}/${YM_NEED}（速度 ${(V*3.6).toFixed(0)}km/h）</div>`);
-  if(_ymSamples.length>=YM_NEED)_ymFinish();
+  // 局面と瞬間症状を判定し、同じ症状が連続したら1イベントとしてログに加算
+  const ph=lon<-0.1?'entry':lon>0.1?'exit':'mid';
+  const inst=ratio<0.85?'under':ratio>1.18?'over':null;
+  if(inst&&_ymStreak.ph===ph&&_ymStreak.sym===inst){
+    _ymStreak.c++;
+    if(_ymStreak.c===YM_EVENT)_ymLog[ph][inst]++; // 確定した瞬間だけ+1（長いコーナーで二重加算しない）
+  }else{
+    _ymStreak={ph,sym:inst,c:inst?1:0};
+  }
+  if(_ymCount%5===0)_ymSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 計測中（「停止」で確定）… 速度 ${(V*3.6).toFixed(0)}km/h</div>${_ymRenderLog()}</div>`);
 }
 function _ymFinish(){
-  const all=_ymSamples,n=all.length;if(!n){stopYawMeasure();return;}
   stopYawMeasure();
+  const n=_ymSamples.length;
   const pn={entry:'進入',mid:'中立',exit:'立上り'};
-  // 前後G(lon)で各サンプルを局面に振り分け（−減速=進入 / +加速=出口 / 中間=中立）
-  const groups={entry:[],mid:[],exit:[]};
-  all.forEach(s=>{const ph=s.lon<-0.1?'entry':s.lon>0.1?'exit':'mid';groups[ph].push(s.ratio);});
-  // 局面ごとに 実ヨー/理論ヨー比 の平均からアンダー/オーバー/ニュートラルを判定
-  const classify=arr=>{
-    if(arr.length<5)return null; // サンプル不足
-    const r=arr.reduce((a,b)=>a+b,0)/arr.length;
-    let s=null,label,color;
-    if(r<0.85){s='under';label='アンダー';color='#60a5fa';}
-    else if(r>1.18){s='over';label='オーバー';color='#f87171';}
-    else{label='ニュートラル';color='#34d399';}
-    return {s,label,color,r,strength:Math.round(Math.abs(1-r)*100),n:arr.length};
-  };
-  const res={entry:classify(groups.entry),mid:classify(groups.mid),exit:classify(groups.exit)};
-  let rows='';
-  ['entry','mid','exit'].forEach(ph=>{
-    const c=res[ph];
-    if(!c)rows+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span>${pn[ph]}</span><span>データ不足</span></div>`;
-    else rows+=`<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text2)">${pn[ph]}</span><span style="color:${c.color};font-weight:600">${c.label}${c.s?` ${c.strength}%`:''} <span style="color:var(--text3);font-weight:400;font-size:11px">(比${c.r.toFixed(2)}・${c.n})</span></span></div>`;
-  });
-  // 症状ありの局面のうち最も強いものを主症状として選択にセット
-  let best=null,bestPh=null;
-  ['entry','mid','exit'].forEach(ph=>{const c=res[ph];if(c&&c.s&&(!best||c.strength>best.strength)){best=c;bestPh=ph;}});
+  // 最も多く検出された局面×症状を「最も強い傾向」として選択にセット
+  let best=null;
+  ['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{
+    const c=_ymLog?_ymLog[ph][sym]:0;
+    if(c>0&&(!best||c>best.c))best={ph,sym,c};
+  }));
   let html=`<div style="background:var(--bg3);border-radius:10px;padding:12px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:4px">局面別 自動判別（有効${n}サンプル）</div>
-    ${rows}`;
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">局面別ログ（有効${n}サンプル）</div>
+    ${_ymLog?_ymRenderLog():''}`;
   if(best){
-    _yawSel.s=best.s;_yawSel.p=bestPh;_yawSave();_yawSyncSeg();renderYawAdvice();
-    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">↑ 最も強い「${pn[bestPh]}・${best.label}」を選択にセットしました。対策をご確認ください。</div>`;
+    const label=best.sym==='under'?'アンダー':'オーバー';
+    const col=best.sym==='under'?'#60a5fa':'#f87171';
+    _yawSel.s=best.sym;_yawSel.p=best.ph;_yawSave();_yawSyncSeg();renderYawAdvice();
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">最も強い傾向「<b style="color:${col}">${pn[best.ph]}・${label}</b>」（${best.c}回）を選択にセットしました。↓の対策をご確認ください。</div>`;
   }else{
-    html+=`<div style="font-size:12px;color:#34d399;margin-top:8px">判定できた局面はすべてニュートラル。狙い通り曲がれています。</div>`;
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">アンダー・オーバーは検出されませんでした。<br><span style="color:var(--text3)">この判定は<b>限界付近（タイヤが滑り出すくらい）</b>でのみ反応します。もっと攻めて走ると検出できます。</span></div>`;
   }
   _ymSetResult(html+'</div>');
 }
