@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.11.0</title>
+<title>Mileage 3.11.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.11.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.11.1</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -686,7 +686,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.11.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.11.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1107,7 +1107,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.11.0';
+const APP_VERSION = '3.11.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3436,7 +3436,9 @@ let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
 const LR_EVENT=6; // 連続サンプルでイベント確定（ヨー実測と同じ）
 // ばたつき検知（縦加速度の低周波リング=減衰不足 / 高周波チャタ=減衰過多）。閾値は実走で要調整
 let _lrVertLP=0,_lrLowE=0,_lrHighE=0,_lrBounceStreak=null,_lrBounceCool=0;
-const LR_BOUNCE_TH=0.22;     // ばたつきと見なす縦G実効値の閾値(G)
+// 縦G実効値(RMS)の閾値。RMSはサイン波振幅の約0.6倍に出る点を考慮。合成データ検証で調整(2026-06-14)
+const LR_BOUNCE_TH_LOW=0.15;  // 減衰不足(低周波リング)＝信頼できるので敏感に
+const LR_BOUNCE_TH_HIGH=0.30; // 減衰過多(高周波チャタ)＝エンジン/駆動系振動の誤検出リスクで保守的に
 const LR_BOUNCE_HOLD=8;      // 連続サンプルで確定（単発バンプを除外）
 const LR_BOUNCE_COOL=1500;   // 同種イベントの最小間隔(ms)・二重計上防止
 const _LR_PN={entry:'進入',mid:'中立',exit:'立上り'};
@@ -3544,8 +3546,8 @@ function _lrHandler(e){
   const Vb=_lrSpeed;
   if(Vb!=null&&Vb>=YM_VMIN){ // 走行中のみ（停車中のエンジン振動を除外）
     let bk=null;
-    if(lowRMS>=LR_BOUNCE_TH&&lowRMS>highRMS*1.3)bk='bunder';        // 低周波リング＝減衰不足
-    else if(highRMS>=LR_BOUNCE_TH*1.4&&highRMS>lowRMS*1.2)bk='bover'; // 高周波チャタ＝減衰過多（誤検出避けで閾値高め）
+    if(lowRMS>=LR_BOUNCE_TH_LOW&&lowRMS>highRMS*1.3)bk='bunder';      // 低周波リング＝減衰不足
+    else if(highRMS>=LR_BOUNCE_TH_HIGH&&highRMS>lowRMS*1.2)bk='bover'; // 高周波チャタ＝減衰過多（誤検出避けで閾値高め）
     if(bk&&_lrBounceStreak.kind===bk){
       _lrBounceStreak.c++;
       if(_lrBounceStreak.c===LR_BOUNCE_HOLD&&Date.now()-_lrBounceCool>LR_BOUNCE_COOL){
