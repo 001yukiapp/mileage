@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.8.1</title>
+<title>Mileage 3.9.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.8.1</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.9.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -491,6 +491,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                 <button class="btn btn-sm" onclick="calibrateGMeter()" style="background:var(--bg3);color:var(--text);flex:1">📐 ゼロ点校正</button>
                 <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
               </div>
+              <button class="btn btn-sm" id="gTrailBtn" onclick="toggleGTrail()" style="background:var(--bg3);color:var(--text);width:100%;margin-top:8px">✏️ 軌跡を残す: OFF</button>
             </div>
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
@@ -671,7 +672,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.8.1</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.9.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1092,7 +1093,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.8.1';
+const APP_VERSION = '3.9.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -2460,8 +2461,6 @@ function renderFreqCalc(){
     document.getElementById('targetFreqF').value=freqF.toFixed(1);
   if(freqR&&!document.getElementById('targetFreqR').value)
     document.getElementById('targetFreqR').value=freqR.toFixed(1);
-  document.getElementById('accFreqDisp').classList.add('open');
-  document.getElementById('arrowFreqDisp').classList.add('open');
   renderGroupFreq();
 }
 function renderGroupFreq(){
@@ -2868,7 +2867,7 @@ function applyMeasuredFreq(target){
 // ---- Gサークル（走行G・最大Gの円形表示）----
 let _gmActive=false,_gmWakeLock=null,_gmRaf=null,_gmFrame=0;
 let _gmGrav={x:0,y:0,z:9.81},_gmGravInit=false;
-let _gmLong=0,_gmLat=0,_gmTrail=[];
+let _gmLong=0,_gmLat=0,_gmTrail=[],_gmTrailHold=false;
 let _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
 let _gmCalCount=-1,_gmCalBuf=[],_gmU={x:0,y:1}; // ゼロ点校正と「画面上方向」（縦横対応）
 const GM_BASE_RANGE=1.0; // 表示レンジ(G)。ピークに応じて自動拡大
@@ -2928,8 +2927,13 @@ function stopGMeter(){
 }
 function resetGPeaks(silent){
   _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
-  _gmRange=GM_BASE_RANGE;
+  _gmRange=GM_BASE_RANGE;_gmTrail=[];
   if(silent!==true)toast('ピークをリセットしました');
+}
+function toggleGTrail(){
+  _gmTrailHold=!_gmTrailHold;
+  const b=document.getElementById('gTrailBtn');
+  if(b){b.textContent='✏️ 軌跡を残す: '+(_gmTrailHold?'ON':'OFF');b.classList.toggle('btn-primary',_gmTrailHold);if(_gmTrailHold){b.style.background='';b.style.color='';}else{b.style.background='var(--bg3)';b.style.color='var(--text)';}}
 }
 function _gmHandler(e){
   if(!_gmActive)return;
@@ -2994,7 +2998,8 @@ function _gmHandler(e){
   if(total>_gmPeaks.total){_gmPeaks.total=total;_gmPeaks.totalLong=_gmLong;_gmPeaks.totalLat=_gmLat;}
   while(_gmRange<2.5&&_gmPeaks.total>_gmRange*0.92)_gmRange+=0.5;
   _gmTrail.push({lon:_gmLong,lat:_gmLat});
-  if(_gmTrail.length>90)_gmTrail.splice(0,30);
+  const _cap=_gmTrailHold?4000:90;
+  if(_gmTrail.length>_cap)_gmTrail.splice(0,_gmTrailHold?500:30);
 }
 function _gmDraw(){
   if(!_gmActive)return;
@@ -3030,7 +3035,7 @@ function _gmDraw(){
     for(let i=1;i<_gmTrail.length;i++){
       const p0=toXY(_gmTrail[i-1].lon,_gmTrail[i-1].lat);
       const p1=toXY(_gmTrail[i].lon,_gmTrail[i].lat);
-      ctx.strokeStyle=`rgba(96,165,250,${(i/_gmTrail.length)*0.5})`;
+      ctx.strokeStyle=`rgba(96,165,250,${_gmTrailHold?0.35:(i/_gmTrail.length)*0.5})`;
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
   }
@@ -3111,11 +3116,16 @@ const YAW_RULES=[
   {s:'over',p:'exit',d:'4WD',item:'アライメント',ease:2,dir:'Rトーイン増',why:'加速時のリアを安定させる',cau:'だるさとのトレード'},
   {s:'over',p:'exit',d:'FF',item:'（参考）',ease:1,dir:'FFは立上りオーバー稀',why:'全開でアンダーに転じるのが通常。アンダー側を参照',cau:'リフトオフでの巻きはアンダー(FF)対策の逆方向で調整'},
 ];
-let _yawSel={s:'under',p:'mid',d:'FF'};
-function _yawInitDrive(){const c=getCar();if(c&&c.drive)_yawSel.d=c.drive;_yawSyncSeg();renderYawAdvice();}
-function setYawDrive(d){_yawSel.d=d;const c=getCar();if(c){c.drive=d;save();}_yawSyncSeg();renderYawAdvice();}
-function setYawSym(s){_yawSel.s=s;_yawSyncSeg();renderYawAdvice();}
-function setYawPhase(p){_yawSel.p=p;_yawSyncSeg();renderYawAdvice();}
+let _yawSel={s:'under',p:'entry',d:'FF'}; // 初回デフォルト: FF・アンダー・進入（全セグ左端）
+function _yawSave(){state.yawSel={s:_yawSel.s,p:_yawSel.p,d:_yawSel.d};save();}
+function _yawInitDrive(){
+  if(state.yawSel){if(state.yawSel.s)_yawSel.s=state.yawSel.s;if(state.yawSel.p)_yawSel.p=state.yawSel.p;if(state.yawSel.d)_yawSel.d=state.yawSel.d;}
+  const c=getCar();if(c&&c.drive)_yawSel.d=c.drive; // 駆動方式は車ごとの設定を優先
+  _yawSyncSeg();renderYawAdvice();
+}
+function setYawDrive(d){_yawSel.d=d;const c=getCar();if(c)c.drive=d;_yawSave();_yawSyncSeg();renderYawAdvice();}
+function setYawSym(s){_yawSel.s=s;_yawSave();_yawSyncSeg();renderYawAdvice();}
+function setYawPhase(p){_yawSel.p=p;_yawSave();_yawSyncSeg();renderYawAdvice();}
 function _yawSyncSeg(){
   [['yawDriveSeg','d'],['yawSymSeg','s'],['yawPhaseSeg','p']].forEach(([sid,key])=>{
     const seg=document.getElementById(sid);if(!seg)return;
@@ -3155,7 +3165,7 @@ function renderYawAdvice(){
 let _ymActive=false,_ymWake=null,_ymGeo=null,_ymTimer=null;
 let _ymGrav={x:0,y:0,z:9.81},_ymGravInit=false,_ymU={x:0,y:1};
 let _ymSpeed=null,_ymAcc=null,_ymLastPos=null,_ymSamples=[],_ymCount=0;
-const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_NEED=40;
+const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_NEED=50;
 async function _ymWakeAcq(){try{if('wakeLock' in navigator)_ymWake=await navigator.wakeLock.request('screen');}catch(_){}}
 function _ymSetResult(html){const el=document.getElementById('yawMeasResult');if(el)el.innerHTML=html;}
 function _haversine(la1,lo1,la2,lo2){
@@ -3239,25 +3249,40 @@ function _ymHandler(e){
   if(_ymSamples.length>=YM_NEED)_ymFinish();
 }
 function _ymFinish(){
-  const n=_ymSamples.length;if(!n){stopYawMeasure();return;}
-  let sr=0,sl=0;_ymSamples.forEach(s=>{sr+=s.ratio;sl+=s.lon;});
-  const ratio=sr/n,lon=sl/n;
+  const all=_ymSamples,n=all.length;if(!n){stopYawMeasure();return;}
   stopYawMeasure();
   const pn={entry:'進入',mid:'中立',exit:'立上り'};
-  const p=lon<-0.1?'entry':lon>0.1?'exit':'mid';
-  let s=null,label,color;
-  if(ratio<0.85){s='under';label='アンダー傾向';color='#60a5fa';}
-  else if(ratio>1.18){s='over';label='オーバー傾向';color='#f87171';}
-  else{label='ニュートラル（良好）';color='#34d399';}
-  const strength=Math.round(Math.abs(1-ratio)*100);
+  // 前後G(lon)で各サンプルを局面に振り分け（−減速=進入 / +加速=出口 / 中間=中立）
+  const groups={entry:[],mid:[],exit:[]};
+  all.forEach(s=>{const ph=s.lon<-0.1?'entry':s.lon>0.1?'exit':'mid';groups[ph].push(s.ratio);});
+  // 局面ごとに 実ヨー/理論ヨー比 の平均からアンダー/オーバー/ニュートラルを判定
+  const classify=arr=>{
+    if(arr.length<5)return null; // サンプル不足
+    const r=arr.reduce((a,b)=>a+b,0)/arr.length;
+    let s=null,label,color;
+    if(r<0.85){s='under';label='アンダー';color='#60a5fa';}
+    else if(r>1.18){s='over';label='オーバー';color='#f87171';}
+    else{label='ニュートラル';color='#34d399';}
+    return {s,label,color,r,strength:Math.round(Math.abs(1-r)*100),n:arr.length};
+  };
+  const res={entry:classify(groups.entry),mid:classify(groups.mid),exit:classify(groups.exit)};
+  let rows='';
+  ['entry','mid','exit'].forEach(ph=>{
+    const c=res[ph];
+    if(!c)rows+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span>${pn[ph]}</span><span>データ不足</span></div>`;
+    else rows+=`<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text2)">${pn[ph]}</span><span style="color:${c.color};font-weight:600">${c.label}${c.s?` ${c.strength}%`:''} <span style="color:var(--text3);font-weight:400;font-size:11px">(比${c.r.toFixed(2)}・${c.n})</span></span></div>`;
+  });
+  // 症状ありの局面のうち最も強いものを主症状として選択にセット
+  let best=null,bestPh=null;
+  ['entry','mid','exit'].forEach(ph=>{const c=res[ph];if(c&&c.s&&(!best||c.strength>best.strength)){best=c;bestPh=ph;}});
   let html=`<div style="background:var(--bg3);border-radius:10px;padding:12px">
-    <div style="font-weight:700;font-size:15px;color:${color}">${label}${s?`（強さ ${strength}%）`:''}</div>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">実ヨー/理論ヨー比 ${ratio.toFixed(2)} ／ 局面 ${pn[p]} ／ 有効${n}サンプル</div>`;
-  if(s){
-    _yawSel.s=s;_yawSel.p=p;_yawSyncSeg();renderYawAdvice();
-    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">↑ 上の助言を「${label}・${pn[p]}」にセットしました。対策をご確認ください。</div>`;
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">局面別 自動判別（有効${n}サンプル）</div>
+    ${rows}`;
+  if(best){
+    _yawSel.s=best.s;_yawSel.p=bestPh;_yawSave();_yawSyncSeg();renderYawAdvice();
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">↑ 最も強い「${pn[bestPh]}・${best.label}」を選択にセットしました。対策をご確認ください。</div>`;
   }else{
-    html+=`<div style="font-size:12px;color:var(--text2);margin-top:8px">狙い通り曲がれています。セッティング変更は不要です。</div>`;
+    html+=`<div style="font-size:12px;color:#34d399;margin-top:8px">判定できた局面はすべてニュートラル。狙い通り曲がれています。</div>`;
   }
   _ymSetResult(html+'</div>');
 }
