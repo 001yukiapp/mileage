@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.10.0</title>
+<title>Mileage 3.11.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -169,7 +169,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.10.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.11.0</span></span>
       <div id="updateBadge" style="display:none">
         <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
       </div>
@@ -492,6 +492,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                 <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
               </div>
               <button class="btn btn-sm" id="gTrailBtn" onclick="toggleGTrail()" style="background:var(--bg3);color:var(--text);width:100%;margin-top:8px">✏️ 軌跡を残す: OFF</button>
+              <div id="gAttitude" style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center"></div>
             </div>
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
@@ -535,6 +536,19 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
               <button class="btn" id="yawMeasStopBtn" onclick="_ymFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
               <div id="yawMeasResult" style="margin-top:12px"></div>
             </div>
+          </div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion('accLimitRun')">
+          <span class="accordion-title">🏁 限界走行実測（セッティングアドバイス）</span>
+          <span class="accordion-arrow" id="arrowLimitRun">▼</span>
+        </div>
+        <div class="accordion-body" id="accLimitRun">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>固定し停車中に開始</b>。コースを攻めて走ると、<b>アンダー/オーバー・最大G</b>を時刻付きで記録し、走行後に<b>イベントログ＋本コースの課題と対策</b>を出します。GPS位置も記録します（地図は不要・オフライン可）。<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないでください。走行後に確認します。</span></p>
+            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRun()">限界走行 開始</button>
+            <button class="btn" id="limitRunStopBtn" onclick="_lrFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
+            <div id="limitRunResult" style="margin-top:12px"></div>
           </div>
         </div>
 
@@ -672,7 +686,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.10.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.11.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1093,7 +1107,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.10.0';
+const APP_VERSION = '3.11.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -2587,6 +2601,7 @@ let _fmPsdSum=null,_fmSegCount=0,_fmValidS=0,_fmFsSum=0,_fmChart=null;
 const FM_DETECT_LO=1.5,FM_DETECT_HI=4.0;  // 走行検知の周波数帯(Hz)
 const FM_SCAN_LO=0.5,FM_SCAN_HI=6.0,FM_SCAN_STEP=0.05; // スペクトル算出帯(Hz)
 const FM_PEAK_LO=0.8,FM_PEAK_HI=4.0;      // ピーク探索帯(Hz)
+const FM_PROM_MIN=0.15;                    // 有効な共振と認めるピークの最小プロミネンス（これ未満は山なし＝ゴミとして弾く）
 const FM_BAND_TH=0.08;     // 走行検知のバンドパスRMS閾値(m/s²)
 const FM_CONFIRM_S=5;      // 走行開始の確認時間(秒)
 const FM_DROP_S=15;        // 走行検知のドロップアウト許容時間(秒)
@@ -2778,7 +2793,7 @@ function stopFreqMeasure(completed,reason){
   if(completed){_analyzeFreq(false);}
   else if(el){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px">計測を中止しました。</div>';}
 }
-let _fmLastFreq=0;
+let _fmLastFreq=0,_fmLastZeta=null;
 function _analyzeFreq(partial){
   const el=document.getElementById('freqMeasureResult');
   if(!_fmPsdSum||_fmSegCount<2){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分でした。もう一度お試しください。</div>';return;}
@@ -2790,6 +2805,15 @@ function _analyzeFreq(partial){
   let pi=-1,pv=-1;
   freqs.forEach((f,i)=>{if(f>=FM_PEAK_LO&&f<=FM_PEAK_HI&&wgt[i]>pv){pv=wgt[i];pi=i;}});
   if(pi<0||pv<=0){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。設置・固定を確認してください。</div>';return;}
+  // 有効な共振ピークか判定：探索帯の端に張り付いた/明確な山が無い（右肩下がり）場合はゴミとして弾く
+  const _loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
+  let _hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){_hiIdx=i;break;}}
+  let _rmin=pv;for(let i=pi;i<=_hiIdx;i++){if(wgt[i]<_rmin)_rmin=wgt[i];} // ピークより高域側の谷
+  const _prom=pv>0?(pv-_rmin)/pv:0; // 山のプロミネンス（右肩下がり=山なしだと小さくなる）
+  if(pi<=_loIdx||pi>=_hiIdx||_prom<FM_PROM_MIN){
+    if(el)el.innerHTML='<div style="color:#fbbf24;font-size:13px;line-height:1.7">⚠️ 有効な共振ピークを検出できませんでした。<br><span style="color:var(--text3);font-size:12px">スペクトルに明確な山が立っていません（路面が滑らか／速度が一定でない等）。<b>荒れた舗装路を40〜60km/hの一定速度</b>で、急加減速・カーブ・段差を避けて再測定してください。</span></div>';
+    return;
+  }
   // ピークを含む山（半値以上の連続領域）の重心で読む。減衰で山が幅広くても安定
   const th=pv*0.5;
   let lo=pi,hi=pi;
@@ -2811,6 +2835,7 @@ function _analyzeFreq(partial){
   // 山の半値幅(FWHM)から減衰比ζを推定（ζ≈Δf/2f0）。山が鋭い=減衰不足で跳ねやすい
   const _bw=freqs[hi]-freqs[lo];
   const _zeta=freq>0?_bw/(2*freq):null;
+  _fmLastZeta=_zeta;
   const fsAvg=_fmFsSum/_fmSegCount;
   // 車両設定からの理論値を並記（実測との比較用）
   const _car=getCar();
@@ -2848,8 +2873,49 @@ function _analyzeFreq(partial){
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">フロントに反映</button>
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">リアに反映</button>
     </div>${warn}
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">減衰を弱めて（または硬くして）ばたつき始めた走行で、感じた種類のボタンを押すと「ばたつき限界」を記録します（プロ向け）。</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1;font-size:11px" onclick="markBounceLimit('min')">ボヨン(減衰不足)を限界に</button>
+        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1;font-size:11px" onclick="markBounceLimit('max')">ガタガタ(減衰過多)を限界に</button>
+      </div>
+      <div id="bounceEngine"></div>
+    </div>
   </div>`;
   _fmRenderChart(freqs,wgt,freq,pv,second);
+  renderBounceEngine();
+}
+// ==== ばたつき限界エンジン（ζ帯）：k_max=k0×(ζ0/ζ_min)² で「ばたつかない限界の硬さ」を逆算 ====
+function markBounceLimit(side){
+  if(_fmLastZeta==null){toast('先に固有振動数を実測してください');return;}
+  const car=getCar();if(!car){toast('車両が選択されていません');return;}
+  if(side==='min')car.zetaMin=_fmLastZeta; else car.zetaMax=_fmLastZeta;
+  save();
+  toast(side==='min'?`ばたつき下限 ζ_min=${_fmLastZeta.toFixed(2)} を記録`:`ばたつき上限 ζ_max=${_fmLastZeta.toFixed(2)} を記録`);
+  renderBounceEngine();
+}
+function renderBounceEngine(){
+  const el=document.getElementById('bounceEngine');if(!el)return;
+  const car=getCar();if(!car){el.innerHTML='';return;}
+  const z0=_fmLastZeta,f0=_fmLastFreq,zmin=car.zetaMin,zmax=car.zetaMax;
+  let h=`<div style="margin-top:10px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">🏁 ばたつき限界エンジン</div>`;
+  h+=`<div style="font-size:11px;color:var(--text3)">記録済み: 下限ζ_min ${zmin!=null?zmin.toFixed(2):'未'} ／ 上限ζ_max ${zmax!=null?zmax.toFixed(2):'未'}　今の実測ζ ${z0!=null?z0.toFixed(2):'-'}</div>`;
+  if(z0!=null&&zmin!=null&&zmin>0){
+    const ratio=Math.pow(z0/zmin,2);   // バネ倍率（k_max/k0）
+    const fMax=f0*(z0/zmin);            // 上限での固有振動数
+    h+=`<div style="font-size:12px;color:var(--text2);margin-top:6px">今の減衰のまま、バネは今の<b style="color:#fbbf24"> ×${ratio.toFixed(2)} </b>（固有振動数 約${fMax.toFixed(2)}Hz相当）まで。それ以上はボヨン側でばたつきます。`;
+    if(car.springF)h+=`<br>F ${car.springF}→<b>${(car.springF*ratio).toFixed(1)}</b>kgf/mm`;
+    if(car.springR)h+=`${car.springF?' / ':'<br>'}R ${car.springR}→<b>${(car.springR*ratio).toFixed(1)}</b>kgf/mm`;
+    h+=`</div>`;
+    if(ratio>1.03)h+=`<div style="font-size:11px;color:#34d399;margin-top:3px">→ まだ硬くできます（＝もっと速く）。バネを上げるとζが下がるので、減衰も上げ気味にして限界を割らないように。</div>`;
+    else if(ratio<0.97)h+=`<div style="font-size:11px;color:#f87171;margin-top:3px">→ 今すでに限界より軟らかい減衰バランス。減衰を上げるかバネを下げて。</div>`;
+    else h+=`<div style="font-size:11px;color:#fbbf24;margin-top:3px">→ ほぼ限界。今が美味しいところ。</div>`;
+    if(zmax!=null&&z0>=zmax)h+=`<div style="font-size:11px;color:#fbbf24;margin-top:3px">⚠️ 今のζは上限ζ_max以上＝減衰過多側のガタガタ領域。減衰を弱める方向も検討。</div>`;
+  }else{
+    h+=`<div style="font-size:11px;color:var(--text3);margin-top:4px">「ボヨン(減衰不足)を限界に」を記録すると、ここに『あと何kgf/mm硬くできるか』が出ます。</div>`;
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
 }
 function _fmRenderChart(freqs,spec,peakF,peakV,second){
   const canvas=document.getElementById('fmChart');
@@ -2890,6 +2956,8 @@ let _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
 let _gmCalCount=-1,_gmCalBuf=[],_gmU={x:0,y:1}; // ゼロ点校正と「画面上方向」（縦横対応）
 const GM_BASE_RANGE=1.0; // 表示レンジ(G)。ピークに応じて自動拡大
 let _gmRange=GM_BASE_RANGE;
+const GM_SMOOTH=0.12; // 表示Gの平滑化係数（小さいほど強くローパス＝持続Gのみ残し単発振動を削る）
+let _gmAtt=null; // ゼロ点校正時のスマホ姿勢（前後傾き/左右傾き 度）
 // 画面の上方向を端末座標で返す（縦=Y軸 / 横=±X軸）
 function _gmOrientU(){
   let a=0;
@@ -2901,6 +2969,22 @@ function _gmOrientU(){
   return {x:Math.sin(r),y:Math.cos(r)};
 }
 async function _gmAcquireWake(){try{if('wakeLock' in navigator)_gmWakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
+// ゼロ点校正時のスマホ姿勢（重力ベクトルから前後傾き/左右傾きを算出）。斜め置きで縦Gが前後Gに化ける原因の切り分け用
+function _gmComputeAtt(){
+  const gm=Math.hypot(_gmGrav.x,_gmGrav.y,_gmGrav.z)||9.81;
+  const nx=_gmGrav.x/gm,ny=_gmGrav.y/gm,nz=_gmGrav.z/gm;
+  const pitch=Math.round(Math.atan2(ny,nz)*180/Math.PI); // 0°=画面水平 / 90°=画面垂直（前後の起き角）
+  const roll=Math.round(Math.atan2(nx,nz)*180/Math.PI);   // 左右の傾き
+  _gmAtt={pitch,roll};
+  _gmRenderAtt();
+}
+function _gmRenderAtt(){
+  const el=document.getElementById('gAttitude');if(!el)return;
+  if(!_gmAtt){el.innerHTML='';return;}
+  const{pitch,roll}=_gmAtt;
+  const warn=Math.abs(roll)>=10?' <span style="color:#fbbf24">⚠️左右に傾いています。前後Gに横方向が混じる場合は左右傾きを0に近づけてください</span>':'';
+  el.innerHTML=`ゼロ点姿勢　前後の起き ${pitch}° ／ 左右の傾き ${roll}°　<span style="color:var(--text3)">(0°=水平置き)</span>${warn}`;
+}
 // ゼロ点校正: 約1秒分の静止サンプル平均で重力（＝取付姿勢）を確定
 function calibrateGMeter(silent){
   if(!_gmActive){toast('先にGサークルを開始してください');return;}
@@ -2975,6 +3059,7 @@ function _gmHandler(e){
       }else{
         _gmGrav={x:mx,y:my,z:mz};_gmGravInit=true;
         _gmLong=0;_gmLat=0;_gmTrail=[];
+        _gmComputeAtt();
         toast(dev>0.8?'ゼロ点校正完了（振動大・停車中の再校正を推奨）':'ゼロ点校正完了 ✓');
       }
     }
@@ -3005,9 +3090,9 @@ function _gmHandler(e){
   const G=9.80665;
   const lon=(dx*fx+dy*fy+dz*fz)/G; // ＋加速 / −減速
   const lat=(dx*lx+dy*ly+dz*lz)/G; // ＋右旋回 / −左旋回（表示は左旋回で玉が右へ動く）
-  // 表示用に軽い平滑化（路面ノイズ除去）
-  _gmLong+=(lon-_gmLong)*0.25;
-  _gmLat+=(lat-_gmLat)*0.25;
+  // 表示用に平滑化（路面の単発振動を削り、持続Gのみ残す）
+  _gmLong+=(lon-_gmLong)*GM_SMOOTH;
+  _gmLat+=(lat-_gmLat)*GM_SMOOTH;
   const total=Math.hypot(_gmLong,_gmLat);
   if(_gmLong>_gmPeaks.acc)_gmPeaks.acc=_gmLong;
   if(-_gmLong>_gmPeaks.brk)_gmPeaks.brk=-_gmLong;
@@ -3339,6 +3424,259 @@ function _ymFinish(){
     html+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">アンダー・オーバーは検出されませんでした。<br><span style="color:var(--text3)">この判定は<b>限界付近（タイヤが滑り出すくらい）</b>でのみ反応します。もっと攻めて走ると検出できます。</span></div>`;
   }
   _ymSetResult(html+'</div>');
+}
+
+// ==== 限界走行実測（セッティングアドバイス・フェーズ1）====
+// ヨー実測(アンダー/オーバー)＋Gピークを1セッション化。走行後に時系列イベントログ＋本コース課題サマリを出す。
+// GPS位置も記録しておく（フェーズ3のコーナー別マップ用）。既存の単機能（ヨー実測/Gサークル/固有振動）はそのまま残す。
+let _lrActive=false,_lrWake=null,_lrGeo=null,_lrTimer=null;
+let _lrGrav={x:0,y:0,z:9.81},_lrGravInit=false,_lrU={x:0,y:1};
+let _lrSpeed=null,_lrAcc=null,_lrLastPos=null;
+let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
+const LR_EVENT=6; // 連続サンプルでイベント確定（ヨー実測と同じ）
+// ばたつき検知（縦加速度の低周波リング=減衰不足 / 高周波チャタ=減衰過多）。閾値は実走で要調整
+let _lrVertLP=0,_lrLowE=0,_lrHighE=0,_lrBounceStreak=null,_lrBounceCool=0;
+const LR_BOUNCE_TH=0.22;     // ばたつきと見なす縦G実効値の閾値(G)
+const LR_BOUNCE_HOLD=8;      // 連続サンプルで確定（単発バンプを除外）
+const LR_BOUNCE_COOL=1500;   // 同種イベントの最小間隔(ms)・二重計上防止
+const _LR_PN={entry:'進入',mid:'中立',exit:'立上り'};
+async function _lrWakeAcq(){try{if('wakeLock' in navigator)_lrWake=await navigator.wakeLock.request('screen');}catch(_){}}
+function _lrSetResult(html){const el=document.getElementById('limitRunResult');if(el)el.innerHTML=html;}
+function _lrClock(ts){const d=new Date(ts);const z=n=>String(n).padStart(2,'0');return`${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;}
+// YAW_RULESから助言HTMLを生成（renderYawAdviceと同じ並びロジック・限界走行サマリ用）
+function _lrAdviceHtml(s,p,d){
+  let list=YAW_RULES.filter(r=>r.s===s&&r.p===p&&(r.d==='any'||r.d===d));
+  if(!list.length)list=YAW_RULES.filter(r=>r.s===s&&r.p===p);
+  list=list.slice().sort((a,b)=>a.ease-b.ease);
+  const badge=e=>e===1?'🟢':e===2?'🟡':'🔴';
+  return list.map(r=>`<div style="background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+    <div style="display:flex;align-items:center;gap:6px"><span>${badge(r.ease)}</span><b>${r.item}</b><span style="margin-left:auto;color:#60a5fa">${r.dir}</span></div>
+  </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>';
+}
+// 開始前ゲート（停車中/直進のみ・横Gがかかっていたら弾く。ヨー実測と同じ思想）
+function _lrGate(onPass){
+  const U=_gmOrientU();let g=null,gInit=false,sum=0,n=0;
+  const h=(e)=>{
+    const a=e.accelerationIncludingGravity;if(!a)return;
+    const x=a.x||0,y=a.y||0,z=a.z||0;
+    if(!gInit){g={x,y,z};gInit=true;return;}
+    const al=Math.hypot(x-g.x,y-g.y,z-g.z)<0.6?0.05:0.0005;
+    g.x+=(x-g.x)*al;g.y+=(y-g.y)*al;g.z+=(z-g.z)*al;
+    const gm=Math.hypot(g.x,g.y,g.z)||9.81;
+    const gx=g.x/gm,gy=g.y/gm,gz=g.z/gm;
+    let dx=x-g.x,dy=y-g.y,dz=z-g.z;
+    const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+    const ux=U.x,uy=U.y,ug=ux*gx+uy*gy;
+    let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+    const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+    fx/=fmag;fy/=fmag;fz/=fmag;
+    const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+    const lat=(dx*lx+dy*ly+dz*lz)/9.80665;
+    sum+=Math.abs(lat);n++;
+  };
+  window.addEventListener('devicemotion',h);
+  _lrSetResult('<div style="font-size:12px;color:var(--text3)">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>');
+  setTimeout(()=>{
+    window.removeEventListener('devicemotion',h);
+    const avg=n>0?sum/n:0;
+    if(n<3){toast('センサー値が取れませんでした。もう一度お試しください');_lrSetResult('');return;}
+    if(avg>=YM_GATE_LAT){toast('Gがかかっています。停車中か直進走行中に開始してください');_lrSetResult('');return;}
+    onPass();
+  },900);
+}
+function startLimitRun(){
+  const go=()=>{
+    if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
+    _lrActive=true;_lrGravInit=false;_lrSpeed=null;_lrLastPos=null;_lrAcc=null;
+    _lrStartTs=Date.now();_lrEvents=[];_lrTrack=[];_lrStreak={ph:null,sym:null,c:0};_lrMaxG=0;_lrCount=0;
+    _lrVertLP=0;_lrLowE=0;_lrHighE=0;_lrBounceStreak={kind:null,c:0};_lrBounceCool=0;
+    _lrU=_gmOrientU();_lrWakeAcq();
+    document.getElementById('limitRunBtn').style.display='none';
+    document.getElementById('limitRunStopBtn').style.display='';
+    _lrSetResult('<div style="font-size:12px;color:var(--text3)">📡 計測中… コースを攻めて走ってください。アンダー/オーバー・最大Gを記録します。<br><span style="color:#fbbf24">運転中は画面を見ないで。走行後に結果を確認してください。</span></div>');
+    window.addEventListener('devicemotion',_lrHandler);
+    _lrGeo=navigator.geolocation.watchPosition(pos=>{
+      _lrAcc=pos.coords.accuracy;
+      if(typeof pos.coords.speed==='number'&&pos.coords.speed>=0){_lrSpeed=pos.coords.speed;}
+      else if(_lrLastPos){
+        const dt=(pos.timestamp-_lrLastPos.t)/1000;
+        if(dt>0)_lrSpeed=_haversine(_lrLastPos.lat,_lrLastPos.lon,pos.coords.latitude,pos.coords.longitude)/dt;
+      }
+      _lrLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
+      if(_lrTrack.length<8000)_lrTrack.push({t:pos.timestamp,lat:pos.coords.latitude,lon:pos.coords.longitude,sp:_lrSpeed});
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  };
+  const gate=()=>_lrGate(go);
+  const denied=()=>toast('センサーへのアクセスが拒否されました');
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?gate():denied();}).catch(denied);
+  }else if(typeof DeviceMotionEvent!=='undefined'){gate();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
+}
+function stopLimitRun(){
+  _lrActive=false;
+  window.removeEventListener('devicemotion',_lrHandler);
+  if(_lrGeo!=null){try{navigator.geolocation.clearWatch(_lrGeo);}catch(_){}_lrGeo=null;}
+  if(_lrTimer){clearTimeout(_lrTimer);_lrTimer=null;}
+  try{if(_lrWake){_lrWake.release();_lrWake=null;}}catch(_){}
+  const b=document.getElementById('limitRunBtn'),s=document.getElementById('limitRunStopBtn');
+  if(b)b.style.display='';if(s)s.style.display='none';
+}
+function _lrHandler(e){
+  if(!_lrActive)return;
+  const a=e.accelerationIncludingGravity;if(!a)return;
+  const x=a.x||0,y=a.y||0,z=a.z||0;
+  if(!_lrGravInit){_lrGrav={x,y,z};_lrGravInit=true;return;}
+  const al=Math.hypot(x-_lrGrav.x,y-_lrGrav.y,z-_lrGrav.z)<0.6?0.02:0.0005;
+  _lrGrav.x+=(x-_lrGrav.x)*al;_lrGrav.y+=(y-_lrGrav.y)*al;_lrGrav.z+=(z-_lrGrav.z)*al;
+  const gm=Math.hypot(_lrGrav.x,_lrGrav.y,_lrGrav.z)||9.81;
+  const gx=_lrGrav.x/gm,gy=_lrGrav.y/gm,gz=_lrGrav.z/gm;
+  let dx=x-_lrGrav.x,dy=y-_lrGrav.y,dz=z-_lrGrav.z;
+  const dot=dx*gx+dy*gy+dz*gz;
+  const vert=dot/9.80665; // 重力方向の動加速度＝バンプ/縦揺れ信号(G)
+  dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+  // --- ばたつき検知：縦揺れを低周波(リング)/高周波(チャタ)に分けてエネルギー監視 ---
+  _lrVertLP+=(vert-_lrVertLP)*0.18;        // 低周波成分（おおむね数Hz以下）
+  const vHigh=vert-_lrVertLP;               // 高周波成分
+  _lrLowE+=(_lrVertLP*_lrVertLP-_lrLowE)*0.08;
+  _lrHighE+=(vHigh*vHigh-_lrHighE)*0.08;
+  const lowRMS=Math.sqrt(Math.max(0,_lrLowE)),highRMS=Math.sqrt(Math.max(0,_lrHighE));
+  const Vb=_lrSpeed;
+  if(Vb!=null&&Vb>=YM_VMIN){ // 走行中のみ（停車中のエンジン振動を除外）
+    let bk=null;
+    if(lowRMS>=LR_BOUNCE_TH&&lowRMS>highRMS*1.3)bk='bunder';        // 低周波リング＝減衰不足
+    else if(highRMS>=LR_BOUNCE_TH*1.4&&highRMS>lowRMS*1.2)bk='bover'; // 高周波チャタ＝減衰過多（誤検出避けで閾値高め）
+    if(bk&&_lrBounceStreak.kind===bk){
+      _lrBounceStreak.c++;
+      if(_lrBounceStreak.c===LR_BOUNCE_HOLD&&Date.now()-_lrBounceCool>LR_BOUNCE_COOL){
+        _lrEvents.push({t:Date.now(),cat:'bounce',kind:bk,speed:Vb*3.6,la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});_lrBounceCool=Date.now();
+      }
+    }else{_lrBounceStreak={kind:bk,c:bk?1:0};}
+  }
+  const ux=_lrU.x,uy=_lrU.y,ug=ux*gx+uy*gy;
+  let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+  const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+  fx/=fmag;fy/=fmag;fz/=fmag;
+  const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+  const G=9.80665;
+  const lon=(dx*fx+dy*fy+dz*fz)/G;
+  const lat=(dx*lx+dy*ly+dz*lz)/G;
+  // 最大合成Gを記録
+  const tot=Math.hypot(lon,lat);
+  if(tot>_lrMaxG)_lrMaxG=tot;
+  const rr=e.rotationRate;if(!rr)return;
+  const yawRate=((rr.beta||0)*gx+(rr.gamma||0)*gy+(rr.alpha||0)*gz)*Math.PI/180;
+  const V=_lrSpeed;
+  if(V==null||V<YM_VMIN)return;
+  if(_lrAcc!=null&&_lrAcc>YM_ACCMAX)return;
+  if(Math.abs(lat)<YM_LATMIN)return;
+  const rTh=(lat*G)/V;
+  if(Math.abs(rTh)<0.02)return;
+  const ratio=Math.abs(yawRate)/Math.abs(rTh);
+  if(!isFinite(ratio)||ratio>4)return;
+  _lrCount++;
+  // 局面と瞬間症状を判定。同症状がLR_EVENT連続したら1イベントとして時刻付きで記録
+  const ph=lon<-0.1?'entry':lon>0.1?'exit':'mid';
+  const inst=ratio<0.85?'under':ratio>1.18?'over':null;
+  if(inst&&_lrStreak.ph===ph&&_lrStreak.sym===inst){
+    _lrStreak.c++;
+    if(_lrStreak.c===LR_EVENT)_lrEvents.push({t:Date.now(),cat:'yaw',kind:inst,ph,speed:V*3.6,g:Math.abs(lat),la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});
+  }else{
+    _lrStreak={ph,sym:inst,c:inst?1:0};
+  }
+  if(_lrCount%5===0){
+    const el=Math.floor((Date.now()-_lrStartTs)/1000);
+    _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${(V*3.6).toFixed(0)}km/h ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div></div>`);
+  }
+}
+function _lrFinish(){
+  stopLimitRun();
+  const ev=_lrEvents;
+  // 局面×症状の集計
+  const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
+  ev.forEach(e=>{if(e.cat==='yaw'&&agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
+  const bounce={bunder:0,bover:0};
+  ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
+  let best=null;
+  ['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{
+    const c=agg[ph][sym];if(c>0&&(!best||c>best.c))best={ph,sym,c};
+  }));
+  const elapsed=Math.floor((Date.now()-_lrStartTs)/1000);
+  // 時系列イベントログ
+  let logHtml='';
+  if(ev.length){
+    logHtml=ev.slice(-40).map(e=>{
+      let label,col,mid,right;
+      if(e.cat==='bounce'){
+        label=e.kind==='bunder'?'ばたつき(減衰不足)':'ばたつき(減衰過多)';
+        col=e.kind==='bunder'?'#f87171':'#fbbf24';mid='';right=`${e.speed.toFixed(0)}km/h`;
+      }else{
+        label=e.kind==='under'?'アンダー':'オーバー';
+        col=e.kind==='under'?'#60a5fa':'#f87171';mid=`<span style="color:var(--text3)"> ${_LR_PN[e.ph]}</span>`;right=`${e.speed.toFixed(0)}km/h ${e.g.toFixed(2)}G`;
+      }
+      return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text3)">${_lrClock(e.t)}</span><span><b style="color:${col}">${label}</b>${mid}</span><span style="color:var(--text3)">${right}</span></div>`;
+    }).join('');
+  }else{
+    logHtml='<div style="font-size:12px;color:var(--text3);padding:6px 0">アンダー・オーバー・ばたつきは検出されませんでした（限界付近でのみ反応）。</div>';
+  }
+  // 課題サマリ
+  let summary=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${_lrMaxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件</div>`;
+  // ばたつきサマリ
+  if(bounce.bunder>0||bounce.bover>0){
+    summary+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
+    if(bounce.bunder>0)summary+=`<b style="color:#f87171">減衰不足 ${bounce.bunder}回</b>`;
+    if(bounce.bunder>0&&bounce.bover>0)summary+=' / ';
+    if(bounce.bover>0)summary+=`<b style="color:#fbbf24">減衰過多 ${bounce.bover}回</b>`;
+    summary+=`</div>`;
+    if(bounce.bunder>=bounce.bover)summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰不足側。リバウンド減衰を強めて収まりを出す。固有振動数実測の「ばたつき限界エンジン」でバネ上限も確認できます。</div>`;
+    else summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰過多側。減衰を弱めて当たりを柔らかく（高周波チャタはエンジン振動の誤検出もあり得るので参考値）。</div>`;
+  }
+  if(best){
+    const d=(getCar()&&getCar().drive)||_yawSel.d||'FF';
+    const label=best.sym==='under'?'アンダー':'オーバー';
+    const col=best.sym==='under'?'#60a5fa':'#f87171';
+    _yawSel.s=best.sym;_yawSel.p=best.ph;_yawSave();_yawSyncSeg();renderYawAdvice();
+    summary+=`<div style="margin-top:8px;font-size:13px">本コースの主課題：<b style="color:${col}">${_LR_PN[best.ph]}・${label}</b>（${best.c}回で最多）</div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0 6px">お手軽度順の対策（🟢すぐ→🔴部品交換）。ヨー診断にも自動セット済み。</div>
+      ${_lrAdviceHtml(best.sym,best.ph,d)}`;
+  }else{
+    summary+='<div style="margin-top:8px;font-size:12px;color:var(--text2)">明確なアンダー/オーバー傾向は出ませんでした。もっと攻めると検出できます。</div>';
+  }
+  const hasMap=_lrTrack.length>=10;
+  _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:6px">🏁 限界走行 結果</div>
+    ${summary}
+    ${hasMap?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">コースマップ（イベント位置）</div>
+    <canvas id="lrMap" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">青=アンダー / 赤=オーバー / オレンジ=ばたつき。走行軌跡上に検出位置を表示。</div>`:''}
+    <div style="font-weight:700;font-size:13px;margin:12px 0 2px">イベントログ（時系列${ev.length>40?'・直近40件':''}）</div>
+    ${logHtml}
+  </div>`);
+  if(hasMap)_lrRenderMap();
+}
+// 走行軌跡＋イベント位置をcanvasに描画（Leaflet不要・オフライン）
+function _lrRenderMap(){
+  const cv=document.getElementById('lrMap');if(!cv)return;
+  const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null);if(pts.length<2)return;
+  let laMin=Infinity,laMax=-Infinity,loMin=Infinity,loMax=-Infinity;
+  pts.forEach(p=>{laMin=Math.min(laMin,p.lat);laMax=Math.max(laMax,p.lat);loMin=Math.min(loMin,p.lon);loMax=Math.max(loMax,p.lon);});
+  const latMid=(laMin+laMax)/2,kx=Math.cos(latMid*Math.PI/180); // 経度の距離圧縮
+  const W=cv.clientWidth||320,H=Math.max(160,Math.min(280,W*0.7));
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;
+  const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  const pad=14;
+  const spanX=Math.max(1e-9,(loMax-loMin)*kx),spanY=Math.max(1e-9,laMax-laMin);
+  const sc=Math.min((W-2*pad)/spanX,(H-2*pad)/spanY);
+  const ox=(W-spanX*sc)/2,oy=(H-spanY*sc)/2;
+  const X=p=>ox+((p.lon-loMin)*kx)*sc, Y=p=>H-(oy+((p.lat-laMin))*sc); // 北を上に
+  ctx.strokeStyle='#475569';ctx.lineWidth=2;ctx.beginPath();
+  pts.forEach((p,i)=>{const xx=X(p),yy=Y(p);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});
+  ctx.stroke();
+  _lrEvents.forEach(e=>{
+    if(e.la==null||e.lo==null)return;
+    const col=e.cat==='bounce'?'#fbbf24':(e.kind==='under'?'#60a5fa':'#f87171');
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);ctx.fill();
+  });
 }
 
 async function loadGroupCompareOptions(){
