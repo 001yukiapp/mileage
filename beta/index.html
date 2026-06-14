@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.12.0</title>
+<title>Mileage 3.13.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -87,6 +87,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .timeline-dot{position:absolute;left:-20px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--bg3);border:2px solid var(--text3)}
 .timeline-dot.blue{background:var(--blue);border-color:var(--blue)}
 .timeline-dot.purple{background:#a855f7;border-color:#a855f7}
+.timeline-dot.amber{background:#fbbf24;border-color:#fbbf24}
 .timeline-card{background:var(--bg2);border-radius:var(--radius);padding:12px 14px;border:1px solid rgba(255,255,255,.04)}
 .timeline-card.latest{border-color:rgba(59,130,246,.3)}
 .timeline-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
@@ -124,6 +125,11 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .pro-toggle.on{background:var(--green)}
 .pro-toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:transform .2s}
 .pro-toggle.on::after{transform:translateX(20px)}
+.pro-toggle-sm{width:34px;height:20px;border-radius:10px}
+.pro-toggle-sm::after{width:14px;height:14px;top:3px;left:3px}
+.pro-toggle-sm.on::after{transform:translateX(14px)}
+.seg-chip{font-size:12px;padding:5px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:var(--bg2);color:var(--text3);cursor:pointer;white-space:nowrap}
+.seg-chip.on{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.45);color:#93c5fd;font-weight:600}
 
 /* アップデートモーダル */
 .update-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -169,9 +175,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.12.0</span></span>
-      <div id="updateBadge" style="display:none">
-        <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
+      <span class="header-title">Mileage <span class="header-version">3.13.0</span></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="updateBadge" style="display:none">
+          <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:10px;color:var(--text3);letter-spacing:.3px">Pro</span>
+          <button class="pro-toggle pro-toggle-sm" id="proToggleHdr" onclick="toggleProMode()" title="Proモード（セッティング管理）"></button>
+        </div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -281,6 +293,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <p class="section-title" style="margin:0">いじりログ</p>
           <button class="btn btn-primary" style="width:auto;padding:0 16px" onclick="openTuningLog()">＋ 追加</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="seg-chip" id="tlScopeCar" onclick="setTuningLogScope(false)">この車種</button>
+          <button class="seg-chip" id="tlScopeAll" onclick="setTuningLogScope(true)">すべて</button>
         </div>
         <div id="tuningLogList"></div>
       </div>
@@ -459,16 +475,12 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <div class="two-col" style="margin-top:12px">
-          <div class="form-group">
-            <label class="form-label">実測 固有振動数 前 (Hz)</label>
-            <input type="number" class="form-input" id="stMeasFreqF" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
-          </div>
-          <div class="form-group">
-            <label class="form-label">実測 固有振動数 後 (Hz)</label>
-            <input type="number" class="form-input" id="stMeasFreqR" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
-          </div>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">固有振動数（計算値）</label>
+          <div id="stFreqInline" style="font-size:13px;min-height:18px"></div>
         </div>
+        <input type="hidden" id="stMeasFreqF">
+        <input type="hidden" id="stMeasFreqR">
         <div class="form-group" style="margin-top:12px">
           <label class="form-label">コメント</label>
           <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto"></textarea>
@@ -702,7 +714,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.12.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.13.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1141,12 +1153,12 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     </div>
     <div class="form-group">
       <label class="form-label">次の課題（任意）</label>
-      <input type="text" class="form-input" id="tlNext" placeholder="例: 次は温間1.9を試す">
+      <div style="display:flex;gap:8px">
+        <input type="text" class="form-input" id="tlNext" placeholder="例: 次は温間1.9を試す" style="flex:1">
+        <button class="btn" type="button" style="background:var(--bg3);color:var(--text);width:auto;padding:0 14px;white-space:nowrap" onclick="addNextToTodo()">予定に追加</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">「予定に追加」を押すと、いじり予定リストに入ります</div>
     </div>
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:14px">
-      <input type="checkbox" id="tlNextToTodo" checked style="width:18px;height:18px;accent-color:#3b82f6;flex-shrink:0">
-      <span class="form-label" style="margin:0">次の課題を「いじり予定」に追加する</span>
-    </label>
 
     <!-- 換算ヘルパー -->
     <details style="margin-bottom:14px;background:var(--bg3);border-radius:10px;padding:10px 12px">
@@ -1185,7 +1197,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.12.0';
+const APP_VERSION = '3.13.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1329,6 +1341,8 @@ function toggleProMode(){
 function updateProNav(){
   const btn=document.getElementById('nav-setting');
   if(btn)btn.style.display=state.proMode?'flex':'none';
+  const pt=document.getElementById('proToggleHdr');
+  if(pt)pt.classList.toggle('on',!!state.proMode);
 }
 
 // ---- 車両 ----
@@ -1498,7 +1512,7 @@ function showPage(name){
   if(name==='dashboard')renderDashboard();
   if(name==='record'){setTodayDates();_updateOilFilterUI();fillRecOdo(true);renderTodos();renderTuningLog();renderOdomHistory();switchRecView(document.getElementById('recViewSel').value);}
   if(name==='settings'){renderSettings();renderGroupList();}
-  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
+  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();updateInlineFreq();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
   if(name==='group'){renderGroupTimeline();}
   _updateAllTabState();
 }
@@ -1732,24 +1746,30 @@ function renderDashboard(){
   const kmText=currentKm!==null?currentKm.toLocaleString()+' km':'--';
   const dayText=dailyKm!==null?Math.round(dailyKm)+' km/日':'計測中';
   const proOn=isProMode();
+  const partCount=Object.keys(byPart).length;
+  const countBadge=`<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.08);color:var(--text2);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">記録パーツ ${partCount}</span>`;
+  // 走行距離が長期間未更新なら入力をうながす
+  const lastOdoDate=car.odomHistory.length?[...car.odomHistory].map(h=>h.date).sort().slice(-1)[0]:null;
+  const odomStaleDays=lastOdoDate?(Date.now()-new Date(lastOdoDate))/86400000:9999;
+  const odomHint=(odomStaleDays>=14)?`<div class="alert alert-info" style="font-size:12px">📏 現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div>`:'';
+  const statusBar=car.records.length?`<div class="alert ${alerts?'alert-warn':'alert-ok'}" style="align-items:center;justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px">${alerts?'⚠️ 交換時期が近いパーツがあります':'✅ すべて良好です'}</span>
+      ${countBadge}
+    </div>`:'';
   document.getElementById('page-dashboard').innerHTML=`
-    <div class="pro-banner">
-      <div>
-        <div style="font-size:14px;font-weight:600">⚡ Proモード${proOn?' <span style="color:#86efac">ON</span>':''}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">${proOn?'セッティング管理が有効です':'タップしてセッティング管理を有効化'}</div>
-      </div>
-      <button class="pro-toggle ${proOn?'on':''}" onclick="toggleProMode()"></button>
-    </div>
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">走行距離</div><div class="metric-value">${kmText}</div></div>
-      <div class="metric"><div class="metric-label">平均走行</div><div class="metric-value">${dayText}</div></div>
-      <div class="metric"><div class="metric-label">記録パーツ</div><div class="metric-value">${Object.keys(byPart).length}</div></div>
-    </div>
-    ${alerts}${!alerts&&car.records.length>0?'<div class="alert alert-ok"><span>✅</span>すべて良好です</div>':''}
+    ${odomHint}
+    ${statusBar}
+    ${alerts}
     <div class="card"><p class="section-title">パーツ状況</p>
       ${items||'<div class="empty"><div class="empty-icon">🔧</div><div class="empty-text">まだ記録がありません<br>「記録」タブから追加してください</div></div>'}
     </div>
-    ${car.odomHistory.length?'<div class="card"><p class="section-title">走行距離の推移</p><div class="chart-wrap"><canvas id="odomChart"></canvas></div></div>':''}
+    <div class="card">
+      ${car.odomHistory.length?'<p class="section-title">走行距離の推移</p><div class="chart-wrap"><canvas id="odomChart"></canvas></div>':''}
+      <div style="display:flex;gap:20px;${car.odomHistory.length?'margin-top:10px;':''}font-size:11px;color:var(--text3)">
+        <span>走行距離 <b style="color:var(--text2);font-weight:600;font-size:12px">${kmText}</b></span>
+        <span>平均走行 <b style="color:var(--text2);font-weight:600;font-size:12px">${dayText}</b></span>
+      </div>
+    </div>
     <div id="homeHistory"></div>
     <div style="height:16px"></div>`;
   if(car.odomHistory.length)updateOdomChart();
@@ -1806,6 +1826,7 @@ document.getElementById('partType').addEventListener('change',function(){
   document.getElementById('otherNameGroup').style.display=this.value==='other'?'block':'none';
   _updateOilFilterUI();
 });
+['stSpringFL','stSpringFR','stSpringRL','stSpringRR'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('input',updateInlineFreq);});
 // 記録フォームのオイルフィルター欄を車のモードに応じて更新
 function _updateOilFilterUI(){
   const pt=document.getElementById('partType').value;
@@ -1923,13 +1944,13 @@ function renderOdomHistory(){
   const sorted=[...car.odomHistory].sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!sorted.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">記録なし</div>';return;}
   el.innerHTML=sorted.map(h=>`
-    <div class="part-item">
+    <div class="part-item" onclick="showEditOdom('${h.date}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:14px;font-weight:600">${h.km.toLocaleString()} km</div>
           <div style="font-size:11px;color:var(--text3)">${h.date}</div>
         </div>
-        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="showEditOdom('${h.date}')">編集</button>
+        <span style="font-size:11px;color:var(--text3)">タップで編集</span>
       </div>
     </div>`).join('');
 }
@@ -2011,10 +2032,17 @@ function renderTodos(){
 }
 
 // ==== いじりログ ====
+let _tlCarIdx=null; // 編集中ログの所有車インデックス
+function setTuningLogScope(all){
+  state.tuningLogAll=!!all;save();renderTuningLog();
+}
 function openTuningLog(id){
-  const car=getCar();
   const today=new Date().toISOString().split('T')[0];
-  let log=id?car.tuningLog.find(x=>x.id===id):null;
+  let log=null;
+  _tlCarIdx=state.selectedCar;
+  if(id){
+    for(let i=0;i<state.cars.length;i++){const l=state.cars[i].tuningLog.find(x=>x.id===id);if(l){log=l;_tlCarIdx=i;break;}}
+  }
   document.getElementById('tuningLogModalTitle').textContent=log?'いじりログを編集':'いじりログ';
   document.getElementById('tlId').value=log?log.id:'';
   document.getElementById('tlDate').value=log?log.date:today;
@@ -2023,13 +2051,12 @@ function openTuningLog(id){
   document.getElementById('tlCondition').value=log?log.condition:'';
   document.getElementById('tlNote').value=log?log.note:'';
   document.getElementById('tlNext').value=log?log.nextTask:'';
-  document.getElementById('tlNextToTodo').checked=!log;
   document.getElementById('tlDeleteBtn').style.display=log?'block':'none';
   document.getElementById('cvResult').textContent='';
   document.getElementById('tuningLogModal').classList.add('show');
 }
 function saveTuningLog(){
-  const car=getCar();
+  const car=state.cars[_tlCarIdx]||getCar();
   const id=document.getElementById('tlId').value;
   const date=document.getElementById('tlDate').value;
   const target=document.getElementById('tlTarget').value.trim();
@@ -2044,25 +2071,37 @@ function saveTuningLog(){
   }else{
     car.tuningLog.push({id:Date.now(),date,target,settings,condition,note,nextTask,createdAt:Date.now()});
   }
-  if(nextTask&&document.getElementById('tlNextToTodo').checked){
-    car.todos.push({id:Date.now()+1,text:nextTask,done:false,createdAt:Date.now()+1});
-  }
   save();hideModal('tuningLogModal');renderTuningLog();renderTodos();
   toast('保存しました ✓');
+}
+function addNextToTodo(){
+  const text=document.getElementById('tlNext').value.trim();
+  if(!text){toast('次の課題を入力してください');return;}
+  const car=state.cars[_tlCarIdx]||getCar();
+  car.todos.push({id:Date.now(),text,done:false,createdAt:Date.now()});
+  save();renderTodos();
+  toast('いじり予定に追加しました ✓');
 }
 function deleteTuningLog(){
   const id=document.getElementById('tlId').value;
   if(!id)return;
   if(!confirm('このログを削除しますか？'))return;
-  const car=getCar();
+  const car=state.cars[_tlCarIdx]||getCar();
   car.tuningLog=car.tuningLog.filter(x=>x.id!=id);
   save();hideModal('tuningLogModal');renderTuningLog();
   toast('削除しました');
 }
 function renderTuningLog(){
-  const car=getCar();const el=document.getElementById('tuningLogList');
+  const el=document.getElementById('tuningLogList');
   if(!el)return;
-  const list=[...car.tuningLog].sort((a,b)=>new Date(b.date)-new Date(a.date)||b.createdAt-a.createdAt);
+  const all=!!state.tuningLogAll;
+  const cc=document.getElementById('tlScopeCar'),ca=document.getElementById('tlScopeAll');
+  if(cc)cc.classList.toggle('on',!all);
+  if(ca)ca.classList.toggle('on',all);
+  let list=[];
+  if(all){state.cars.forEach((c,ci)=>c.tuningLog.forEach(l=>list.push({...l,_carName:c.name})));}
+  else{list=getCar().tuningLog.map(l=>({...l}));}
+  list.sort((a,b)=>new Date(b.date)-new Date(a.date)||b.createdAt-a.createdAt);
   if(!list.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">ログなし</div>';return;}
   el.innerHTML=list.map(l=>`
     <div class="part-item" onclick="openTuningLog(${l.id})" style="cursor:pointer">
@@ -2070,6 +2109,7 @@ function renderTuningLog(){
         <div style="font-size:14px;font-weight:600">${esc(l.target)||'（対象なし）'}</div>
         <div style="font-size:11px;color:var(--text3);flex-shrink:0">${l.date}</div>
       </div>
+      ${all&&l._carName?`<div style="font-size:10px;color:#93c5fd;margin-top:2px">🚗 ${esc(l._carName)}</div>`:''}
       ${l.settings?`<div style="font-size:13px;color:var(--text2);margin-top:3px">${esc(l.settings)}</div>`:''}
       ${l.condition?`<div style="font-size:11px;color:var(--text3);margin-top:2px">🌡 ${esc(l.condition)}</div>`:''}
       ${l.note?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(l.note)}</div>`:''}
@@ -2136,12 +2176,15 @@ function renderHistory(){
   const el=document.getElementById('homeHistory');
   if(!el)return;
   const proOn=isProMode();
+  const f=histFilter();
   let allItems=car.records.map(r=>({...r,_type:'record'}));
   if(proOn)allItems=[...allItems,...car.settings.map(s=>({...s,_type:'setting'}))];
+  allItems=[...allItems,...car.tuningLog.map(t=>({...t,_type:'custom'}))];
   if(!allItems.length){
     el.innerHTML='';
     return;
   }
+  allItems=allItems.filter(it=>f[it._type]);
   allItems.sort((a,b)=>{
     const da=new Date(a.date||0).getTime();
     const db=new Date(b.date||0).getTime();
@@ -2183,6 +2226,22 @@ function renderHistory(){
           </div>
         </div>
       </div>`;
+    }else if(item._type==='custom'){
+      return`<div class="timeline-item">
+        <div class="timeline-dot${isLatest?' amber':''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
+          <div class="timeline-header">
+            <div style="flex:1;min-width:0">
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 いじりログ</span>
+              <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
+              <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
+            </div>
+          </div>
+          ${item.settings?`<div style="font-size:12px;color:var(--text2);margin-top:6px">${esc(item.settings)}</div>`:''}
+          ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px">💬 ${esc(item.note)}</div>`:''}
+          ${item.nextTask?`<div style="font-size:11px;color:#fbbf24;margin-top:4px">→ ${esc(item.nextTask)}</div>`:''}
+        </div>
+      </div>`;
     }else{
       const stars='⭐'.repeat(item.eval||3);
       const springStr=item.springFL||item.springFR?`バネF:${item.springFL||''}/${item.springFR||''}`:item.springF?`バネF:${item.springF}`:'';
@@ -2214,25 +2273,66 @@ function renderHistory(){
   }).join('');
   el.innerHTML=`<div style="padding:16px 16px 0">
     <p class="section-title">${proOn?'全記録タイムライン':'交換履歴'}</p>
+    ${histFilterBar(proOn)}
     ${proOn&&car.settings.length>=2?`<button class="btn" onclick="showCompareModal()" style="background:var(--bg3);color:var(--text);width:auto;padding:8px 16px;font-size:13px;margin-bottom:12px">📊 セッティングを比較</button>`:''}
-    <div class="timeline">${rows}</div>
+    <div class="timeline">${rows||'<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">表示する記録がありません</div>'}</div>
   </div><div style="height:16px"></div>`;
+}
+// 履歴フィルタ（消耗品/セッティング/カスタム）
+function histFilter(){
+  if(!state.histFilter)state.histFilter={record:true,setting:true,custom:true};
+  return state.histFilter;
+}
+function histFilterBar(proOn){
+  const f=histFilter();
+  const all=f.record&&(!proOn||f.setting)&&f.custom;
+  const chip=(key,label)=>`<button class="seg-chip ${f[key]?'on':''}" onclick="toggleHistFilter('${key}')">${label}</button>`;
+  return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    ${chip('record','消耗品')}
+    ${proOn?chip('setting','セッティング'):''}
+    ${chip('custom','カスタム')}
+    <button class="seg-chip ${all?'on':''}" onclick="toggleHistFilter('all')">すべて</button>
+  </div>`;
+}
+function toggleHistFilter(key){
+  const f=histFilter();
+  if(key==='all'){f.record=true;f.setting=true;f.custom=true;}
+  else f[key]=!f[key];
+  save();renderHistory();
 }
 function renderHistoryAll(){
   const el=document.getElementById('homeHistory');
   if(!el)return;
   const proOn=isProMode();
   let allItems=[];
+  const f=histFilter();
   state.cars.forEach((car,ci)=>{
     car.records.forEach(r=>allItems.push({...r,_type:'record',_carIdx:ci,_carName:car.name}));
     if(proOn)car.settings.forEach(s=>allItems.push({...s,_type:'setting',_carIdx:ci,_carName:car.name}));
+    car.tuningLog.forEach(t=>allItems.push({...t,_type:'custom',_carIdx:ci,_carName:car.name}));
   });
   if(!allItems.length){el.innerHTML='<div class="empty" style="padding-top:60px"><div class="empty-icon">📋</div><div class="empty-text">記録がありません</div></div>';return;}
+  allItems=allItems.filter(it=>f[it._type]);
   allItems.sort((a,b)=>new Date(b.date||0).getTime()-new Date(a.date||0).getTime());
   const rows=allItems.map((item,i)=>{
     const isLatest=i===0;
     const carLabel=state.cars.length>1?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${item._carName}</span>`:'';
-    if(item._type==='record'){
+    if(item._type==='custom'){
+      return`<div class="timeline-item">
+        <div class="timeline-dot${isLatest?' amber':''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
+          <div class="timeline-header">
+            <div style="flex:1;min-width:0">
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 いじりログ</span>${carLabel}
+              <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
+              <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
+            </div>
+          </div>
+          ${item.settings?`<div style="font-size:12px;color:var(--text2);margin-top:6px">${esc(item.settings)}</div>`:''}
+          ${item.nextTask?`<div style="font-size:11px;color:#fbbf24;margin-top:4px">→ ${esc(item.nextTask)}</div>`:''}
+        </div>
+      </div>`;
+    }else if(item._type==='record'){
       const _car=state.cars[item._carIdx]||getCar();
       const _latestByPart={};
       [..._car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{
@@ -2288,7 +2388,8 @@ function renderHistoryAll(){
   }).join('');
   el.innerHTML=`<div style="padding:16px 16px 0">
     <p class="section-title">全記録タイムライン</p>
-    <div class="timeline">${rows}</div>
+    ${histFilterBar(proOn)}
+    <div class="timeline">${rows||'<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">表示する記録がありません</div>'}</div>
   </div><div style="height:16px"></div>`;
 }
 
@@ -2693,6 +2794,23 @@ function renderFreqCalc(){
   if(freqR&&!document.getElementById('targetFreqR').value)
     document.getElementById('targetFreqR').value=freqR.toFixed(1);
   renderGroupFreq();
+}
+// セッティングフォーム内：固有振動数（計算値）のインライン表示
+function updateInlineFreq(){
+  const el=document.getElementById('stFreqInline');if(!el)return;
+  const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  const sFL=num('stSpringFL'),sFR=num('stSpringFR'),sRL=num('stSpringRL'),sRR=num('stSpringRR');
+  const springF=(sFL&&sFR)?(sFL+sFR)/2:(sFL||sFR||car.springF||null);
+  const springR=(sRL&&sRR)?(sRL+sRR)/2:(sRL||sRR||car.springR||null);
+  let freqF=null,freqR=null;
+  if(car.weight&&car.frontRatio&&car.leverF&&springF)freqF=computeNaturalFreq(springF,car.leverF,cornerMass(car,'F'));
+  if(car.weight&&car.frontRatio&&car.leverR&&springR)freqR=computeNaturalFreq(springR,car.leverR,cornerMass(car,'R'));
+  if(freqF||freqR){
+    el.innerHTML=`<span style="color:${freqColor(freqF)};font-weight:600">F: ${freqF?freqF.toFixed(2)+' Hz':'-'}</span>　<span style="color:${freqColor(freqR)};font-weight:600">R: ${freqR?freqR.toFixed(2)+' Hz':'-'}</span>`;
+  }else{
+    el.innerHTML=`<div style="font-size:11px;color:var(--text3)">設定 → 車両の ✏️ から 車重・レバー比・バネレート を入力すると表示されます</div>`;
+  }
 }
 function renderGroupFreq(){
   const el=document.getElementById('groupFreqDisplay');
