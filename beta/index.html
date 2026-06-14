@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.13.0</title>
+<title>Mileage 3.14.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -168,6 +168,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .modal-overlay.show{opacity:1;pointer-events:all}
 .modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px calc(env(safe-area-inset-bottom) + 20px);width:100%;transform:translateY(100%);transition:transform .3s;max-height:85vh;overflow-y:auto}
 .modal-overlay.show .modal{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.22);margin:-8px auto 14px;flex-shrink:0}
+.sheet-closebar{position:sticky;bottom:calc((env(safe-area-inset-bottom) + 20px) * -1);margin:14px -20px calc((env(safe-area-inset-bottom) + 20px) * -1);padding:10px 20px calc(env(safe-area-inset-bottom) + 12px);background:var(--bg2);border-top:1px solid rgba(255,255,255,.07);z-index:1}
+.sheet-closebar button{width:100%;background:var(--bg3);color:var(--text);border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer}
 .modal-title{font-size:1.14em;font-weight:600;margin-bottom:16px}
 </style>
 </head>
@@ -175,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.13.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.14.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -487,8 +490,63 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <button class="btn btn-primary" onclick="saveSetting()">記録する</button>
       </div>
+      <!-- ===== 実測系（センサーで測る） ===== -->
       <div class="card">
-        <p class="section-title">固有振動数 / バネレート計算</p>
+        <p class="section-title">📡 実測（センサーで測る）</p>
+
+        <div class="accordion-header" onclick="toggleAccordion('accLimitRun')">
+          <span class="accordion-title">🏁 限界走行実測（セッティングアドバイス）</span>
+          <span class="accordion-arrow" id="arrowLimitRun">▼</span>
+        </div>
+        <div class="accordion-body" id="accLimitRun">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>固定し停車中に開始</b>。コースを攻めて走ると、<b>アンダー/オーバー・最大G</b>を時刻付きで記録し、走行後に<b>イベントログ＋本コースの課題と対策</b>を出します。GPS位置も記録します（地図は不要・オフライン可）。<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないでください。走行後に確認します。</span></p>
+            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRun()">限界走行 開始</button>
+            <button class="btn" id="limitRunStopBtn" onclick="_lrFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
+            <button class="btn" id="yawCardBtn" onclick="toggleYawCard()" style="background:var(--bg3);color:var(--text);margin-top:8px">🧭 セッティングカード表示</button>
+            <div id="limitRunResult" style="margin-top:12px"></div>
+
+            <!-- セッティングカード（ヨー診断）: 限界走行内に統合・戻れる -->
+            <div id="yawCardPanel" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:13px;font-weight:600;color:var(--text2)">🧭 セッティングカード（ヨー診断）</div>
+                <button class="btn btn-sm" onclick="toggleYawCard()" style="background:var(--bg3);color:var(--text);width:auto;padding:4px 12px">← 閉じる</button>
+              </div>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:10px">症状と局面を選ぶと、対策を<b>お手軽度順</b>（🟢すぐ→🔴部品交換）に提案します。各カードを押すと理由・注意が開きます。</p>
+              <div class="form-group">
+                <label class="form-label">駆動方式</label>
+                <div id="yawDriveSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-d="FF" onclick="setYawDrive('FF')" style="flex:1">FF</button>
+                  <button type="button" class="btn btn-sm" data-d="FR" onclick="setYawDrive('FR')" style="flex:1">FR</button>
+                  <button type="button" class="btn btn-sm" data-d="4WD" onclick="setYawDrive('4WD')" style="flex:1">4WD</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">症状</label>
+                <div id="yawSymSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-s="under" onclick="setYawSym('under')" style="flex:1">アンダー（曲がらない）</button>
+                  <button type="button" class="btn btn-sm" data-s="over" onclick="setYawSym('over')" style="flex:1">オーバー（リアが出る）</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">局面</label>
+                <div id="yawPhaseSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-p="entry" onclick="setYawPhase('entry')" style="flex:1">進入</button>
+                  <button type="button" class="btn btn-sm" data-p="mid" onclick="setYawPhase('mid')" style="flex:1">中立</button>
+                  <button type="button" class="btn btn-sm" data-p="exit" onclick="setYawPhase('exit')" style="flex:1">立上り</button>
+                </div>
+              </div>
+              <div id="yawAdvice" style="margin-top:6px"></div>
+              <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+                <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📡 実測アンダー/オーバー判定</div>
+                <p style="font-size:11px;color:var(--text3);margin-bottom:8px">スマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<b>判定は限界付近（タイヤが滑り出すくらい）でのみ反応</b>します。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
+                <button class="btn btn-primary" id="yawMeasBtn" onclick="startYawMeasure()">実測開始</button>
+                <button class="btn" id="yawMeasStopBtn" onclick="_ymFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
+                <div id="yawMeasResult" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="accordion-header" onclick="toggleAccordion('accFreqMeasure')">
           <span class="accordion-title">📱 固有振動数 実測</span>
@@ -503,7 +561,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accGMeter')">
+        <div class="accordion-header" onclick="toggleAccordion('accGMeter')" style="border-bottom:none">
           <span class="accordion-title">🎯 Gサークル</span>
           <span class="accordion-arrow" id="arrowGMeter">▼</span>
         </div>
@@ -534,78 +592,54 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
         </div>
+      </div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accYaw')">
-          <span class="accordion-title">🧭 ヨー診断（セッティング助言）</span>
-          <span class="accordion-arrow" id="arrowYaw">▼</span>
-        </div>
-        <div class="accordion-body" id="accYaw">
-          <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">症状と局面を選ぶと、対策を<b>お手軽度順</b>（🟢すぐ→🔴部品交換）に提案します。各カードを押すと理由・注意が開きます。</p>
-            <div class="form-group">
-              <label class="form-label">駆動方式</label>
-              <div id="yawDriveSeg" style="display:flex;gap:6px">
-                <button type="button" class="btn btn-sm" data-d="FF" onclick="setYawDrive('FF')" style="flex:1">FF</button>
-                <button type="button" class="btn btn-sm" data-d="FR" onclick="setYawDrive('FR')" style="flex:1">FR</button>
-                <button type="button" class="btn btn-sm" data-d="4WD" onclick="setYawDrive('4WD')" style="flex:1">4WD</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">症状</label>
-              <div id="yawSymSeg" style="display:flex;gap:6px">
-                <button type="button" class="btn btn-sm" data-s="under" onclick="setYawSym('under')" style="flex:1">アンダー（曲がらない）</button>
-                <button type="button" class="btn btn-sm" data-s="over" onclick="setYawSym('over')" style="flex:1">オーバー（リアが出る）</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">局面</label>
-              <div id="yawPhaseSeg" style="display:flex;gap:6px">
-                <button type="button" class="btn btn-sm" data-p="entry" onclick="setYawPhase('entry')" style="flex:1">進入</button>
-                <button type="button" class="btn btn-sm" data-p="mid" onclick="setYawPhase('mid')" style="flex:1">中立</button>
-                <button type="button" class="btn btn-sm" data-p="exit" onclick="setYawPhase('exit')" style="flex:1">立上り</button>
-              </div>
-            </div>
-            <div id="yawAdvice" style="margin-top:6px"></div>
-            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
-              <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📡 実測アンダー/オーバー判定</div>
-              <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Gサークルと同じくスマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<b>判定は限界付近（タイヤが滑り出すくらい）でのみ反応</b>します。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
-              <button class="btn btn-primary" id="yawMeasBtn" onclick="startYawMeasure()">実測開始</button>
-              <button class="btn" id="yawMeasStopBtn" onclick="_ymFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
-              <div id="yawMeasResult" style="margin-top:12px"></div>
-            </div>
+      <!-- ===== 計算系（数値から計算） ===== -->
+      <div class="card">
+        <p class="section-title">🧮 固有振動数 計算</p>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">選択中の車両の<b>最新セッティング</b>を読み込んで表示します。数値を変えるとリアルタイムで固有振動数が変わります。</p>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">車重 (kg)</label>
+            <input type="number" class="form-input" id="calcWeight" inputmode="numeric" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">前軸荷重比 (%)</label>
+            <input type="number" class="form-input" id="calcRatioF" inputmode="numeric" oninput="renderCalcFreq()" placeholder="例: 55">
           </div>
         </div>
-
-        <div class="accordion-header" onclick="toggleAccordion('accLimitRun')">
-          <span class="accordion-title">🏁 限界走行実測（セッティングアドバイス）</span>
-          <span class="accordion-arrow" id="arrowLimitRun">▼</span>
-        </div>
-        <div class="accordion-body" id="accLimitRun">
-          <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>固定し停車中に開始</b>。コースを攻めて走ると、<b>アンダー/オーバー・最大G</b>を時刻付きで記録し、走行後に<b>イベントログ＋本コースの課題と対策</b>を出します。GPS位置も記録します（地図は不要・オフライン可）。<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないでください。走行後に確認します。</span></p>
-            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRun()">限界走行 開始</button>
-            <button class="btn" id="limitRunStopBtn" onclick="_lrFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
-            <div id="limitRunResult" style="margin-top:12px"></div>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">レバー比 前</label>
+            <input type="number" class="form-input" id="calcLeverF" inputmode="decimal" step="0.01" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">レバー比 後</label>
+            <input type="number" class="form-input" id="calcLeverR" inputmode="decimal" step="0.01" oninput="renderCalcFreq()">
           </div>
         </div>
-
-        <div class="accordion-header" onclick="toggleAccordion('accFreqDisp')">
-          <span class="accordion-title">📊 現在の固有振動数</span>
-          <span class="accordion-arrow" id="arrowFreqDisp">▼</span>
-        </div>
-        <div class="accordion-body" id="accFreqDisp">
-          <div class="accordion-inner">
-            <div id="freqCalcDisplay"></div>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">バネレート 前 (kgf/mm)</label>
+            <input type="number" class="form-input" id="calcSpringF" inputmode="decimal" step="0.5" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">バネレート 後 (kgf/mm)</label>
+            <input type="number" class="form-input" id="calcSpringR" inputmode="decimal" step="0.5" oninput="renderCalcFreq()">
           </div>
         </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm" onclick="resetCalcPanel()" style="background:var(--bg3);color:var(--text);flex:1">🔄 最新セッティングにリセット</button>
+          <button class="btn btn-sm" onclick="applyCalcToCar()" style="background:var(--bg3);color:var(--text);flex:1">💾 この値を車両にセット</button>
+        </div>
+        <div id="calcFreqDisplay"></div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accFreqCalc')">
-          <span class="accordion-title">🔄 バネレートを逆算</span>
+        <div class="accordion-header" onclick="toggleAccordion('accFreqCalc')" style="margin-top:14px">
+          <span class="accordion-title">🔄 目標固有振動数からバネレートを逆算</span>
           <span class="accordion-arrow" id="arrowFreqCalc">▼</span>
         </div>
         <div class="accordion-body" id="accFreqCalc">
           <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">目標固有振動数からバネレートを逆算</p>
             <div class="two-col">
               <div class="form-group">
                 <label class="form-label">目標 フロント (Hz)</label>
@@ -620,29 +654,6 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <div id="freqCalcResult"></div>
           </div>
         </div>
-
-        <div class="accordion-header" onclick="toggleAccordion('accFreqCheck')">
-          <span class="accordion-title">📐 固有振動数を確認</span>
-          <span class="accordion-arrow" id="arrowFreqCheck">▼</span>
-        </div>
-        <div class="accordion-body" id="accFreqCheck">
-          <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">バネレートを入れて固有振動数を確認</p>
-            <div class="two-col">
-              <div class="form-group">
-                <label class="form-label">バネレート前 (kgf/mm)</label>
-                <input type="number" class="form-input" id="springToFreqF" inputmode="decimal" step="0.5" placeholder="例: 8.0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">バネレート後 (kgf/mm)</label>
-                <input type="number" class="form-input" id="springToFreqR" inputmode="decimal" step="0.5" placeholder="例: 6.0">
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="calcSpringToFreq()">固有振動数を確認</button>
-            <div id="springToFreqResult"></div>
-          </div>
-        </div>
-
       </div>
       <div style="height:16px"></div>
     </div>
@@ -714,7 +725,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.13.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.14.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -723,7 +734,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 
     <div id="page-group" class="page">
       <div class="accordion-header" id="accGroupFreqHeader" onclick="toggleAccordion('accGroupFreq')" style="display:none;margin-top:4px">
-        <span class="accordion-title">👥 メンバーの固有振動数</span>
+        <span class="accordion-title">👥 メンバーのセッティング</span>
         <span class="accordion-arrow" id="arrowGroupFreq">▼</span>
       </div>
       <div class="accordion-body" id="accGroupFreq">
@@ -1113,11 +1124,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     <p class="modal-title" id="groupDetailTitle">セッティング詳細</p>
     <div id="groupDetailBody"></div>
     <div class="form-group" style="margin-top:14px">
+      <label class="form-label">自分の車</label>
+      <select class="form-input" id="groupDetailCarSel" onchange="groupDetailSwitchCar(this.value)"></select>
+    </div>
+    <div class="form-group">
       <label class="form-label">比較する自分のセッティング</label>
       <select class="form-input" id="groupDetailMySel"></select>
     </div>
     <div class="two-col">
-      <button class="btn btn-primary" onclick="groupDetailCompare()">自分と比較</button>
+      <button class="btn btn-primary" onclick="groupDetailCompare()">自分の車と比較</button>
       <button class="btn" style="background:var(--bg3);color:var(--text)" onclick="groupDetailConvert()">自分の車に換算</button>
     </div>
     <div id="groupDetailResult" style="margin-top:12px"></div>
@@ -1197,7 +1212,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.13.0';
+const APP_VERSION = '3.14.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1243,6 +1258,7 @@ function load(){
   try{const s=localStorage.getItem('milage_v1');if(s)state=JSON.parse(s);}catch(e){}
   normalizeState();
   applyFontSize(state.fontSize);
+  initSheets();
   renderCarTabs();
   setTodayDates();
   renderDashboard();
@@ -1371,8 +1387,8 @@ function selectCar(i){
   state.selectedCar=i;
   state.viewAll=false;
   save();renderCarTabs();renderDashboard();renderHistory();updateOdomChart();renderOdomHistory();
-  ['freqCalcResult','springToFreqResult'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
-  if(document.getElementById('page-setting').classList.contains('active')){fillSettingForm();renderFreqCalc();}
+  ['freqCalcResult'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  if(document.getElementById('page-setting').classList.contains('active')){fillSettingForm();renderCalcPanel();}
   if(document.getElementById('page-settings').classList.contains('active'))renderSettings();
   if(document.getElementById('page-record').classList.contains('active')){_updateOilFilterUI();fillRecOdo(true);}
 }
@@ -1482,8 +1498,44 @@ function updateCar(i){
 
 // ---- モーダル ----
 function hideModal(id,e){
-  if(!e||e.target===document.getElementById(id))
-    document.getElementById(id).classList.remove('show');
+  const ov=document.getElementById(id);
+  if(!e||e.target===ov){
+    const m=ov.querySelector('.modal');
+    if(m)m.style.transform=''; // プルダウン中のインラインtransformを解除
+    ov.classList.remove('show');
+  }
+}
+// ==== ボトムシート共通UI: 最下部の閉じるバー＋上端での下フリック破棄 ====
+function initSheets(){
+  document.querySelectorAll('.modal-overlay').forEach(ov=>{
+    const m=ov.querySelector('.modal');
+    if(!m||m.dataset.sheetInit)return;
+    m.dataset.sheetInit='1';
+    // 上部のドラッグハンドル
+    const handle=document.createElement('div');handle.className='sheet-handle';
+    m.insertBefore(handle,m.firstChild);
+    // 最下部の閉じるバー
+    const bar=document.createElement('div');bar.className='sheet-closebar';
+    const btn=document.createElement('button');btn.type='button';btn.textContent='閉じる';
+    btn.onclick=()=>hideModal(ov.id);
+    bar.appendChild(btn);m.appendChild(bar);
+    // 上端で下方向フリック → シュッと閉じる
+    let startY=0,cur=0,drag=false;
+    m.addEventListener('touchstart',e=>{
+      if(m.scrollTop<=0){startY=e.touches[0].clientY;drag=true;cur=0;m.style.transition='none';}
+      else drag=false;
+    },{passive:true});
+    m.addEventListener('touchmove',e=>{
+      if(!drag)return;
+      cur=e.touches[0].clientY-startY;
+      if(cur>0){m.style.transform='translateY('+cur+'px)';if(e.cancelable)e.preventDefault();}
+    },{passive:false});
+    m.addEventListener('touchend',()=>{
+      if(!drag)return;drag=false;m.style.transition='';
+      if(cur>110){m.style.transform='';hideModal(ov.id);}
+      else m.style.transform='';
+    });
+  });
 }
 function showJoinModal(){
   document.getElementById('joinCodeInput').value='';
@@ -1512,7 +1564,7 @@ function showPage(name){
   if(name==='dashboard')renderDashboard();
   if(name==='record'){setTodayDates();_updateOilFilterUI();fillRecOdo(true);renderTodos();renderTuningLog();renderOdomHistory();switchRecView(document.getElementById('recViewSel').value);}
   if(name==='settings'){renderSettings();renderGroupList();}
-  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();updateInlineFreq();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
+  if(name==='setting'){fillSettingForm();setTodayDates();renderCalcPanel();updateInlineFreq();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
   if(name==='group'){renderGroupTimeline();}
   _updateAllTabState();
 }
@@ -1587,7 +1639,8 @@ function fillSettingForm(){
   const tfR=document.getElementById('targetFreqR');
   if(tfF)tfF.value='';
   if(tfR)tfR.value='';
-  renderFreqCalc();
+  renderCalcPanel();
+  updateInlineFreq();
 }
 
 // ---- ダッシュボード ----
@@ -1751,7 +1804,7 @@ function renderDashboard(){
   // 走行距離が長期間未更新なら入力をうながす
   const lastOdoDate=car.odomHistory.length?[...car.odomHistory].map(h=>h.date).sort().slice(-1)[0]:null;
   const odomStaleDays=lastOdoDate?(Date.now()-new Date(lastOdoDate))/86400000:9999;
-  const odomHint=(odomStaleDays>=14)?`<div class="alert alert-info" style="font-size:12px">📏 現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div>`:'';
+  const odomHint=(odomStaleDays>=14)?`<div class="alert alert-info" style="font-size:12px"><span>📏</span><div>現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div></div>`:'';
   const statusBar=car.records.length?`<div class="alert ${alerts?'alert-warn':'alert-ok'}" style="align-items:center;justify-content:space-between">
       <span style="display:flex;align-items:center;gap:8px">${alerts?'⚠️ 交換時期が近いパーツがあります':'✅ すべて良好です'}</span>
       ${countBadge}
@@ -1765,9 +1818,9 @@ function renderDashboard(){
     </div>
     <div class="card">
       ${car.odomHistory.length?'<p class="section-title">走行距離の推移</p><div class="chart-wrap"><canvas id="odomChart"></canvas></div>':''}
-      <div style="display:flex;gap:20px;${car.odomHistory.length?'margin-top:10px;':''}font-size:11px;color:var(--text3)">
-        <span>走行距離 <b style="color:var(--text2);font-weight:600;font-size:12px">${kmText}</b></span>
+      <div style="display:flex;justify-content:space-between;align-items:center;${car.odomHistory.length?'margin-top:10px;':''}font-size:11px;color:var(--text3)">
         <span>平均走行 <b style="color:var(--text2);font-weight:600;font-size:12px">${dayText}</b></span>
+        <span>走行距離 <b style="color:var(--text);font-weight:700;font-size:14px">${kmText}</b></span>
       </div>
     </div>
     <div id="homeHistory"></div>
@@ -2179,7 +2232,6 @@ function renderHistory(){
   const f=histFilter();
   let allItems=car.records.map(r=>({...r,_type:'record'}));
   if(proOn)allItems=[...allItems,...car.settings.map(s=>({...s,_type:'setting'}))];
-  allItems=[...allItems,...car.tuningLog.map(t=>({...t,_type:'custom'}))];
   if(!allItems.length){
     el.innerHTML='';
     return;
@@ -2209,7 +2261,7 @@ function renderHistory(){
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditRecord(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${isLatest?'<span class="timeline-badge tl-blue">最新</span>':''}</div>
@@ -2221,7 +2273,6 @@ function renderHistory(){
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
               ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
-              <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id})">編集</button>
             </div>
           </div>
         </div>
@@ -2251,14 +2302,13 @@ function renderHistory(){
       const details=[springStr,springRStr,pressStr,pressRStr].filter(Boolean).join(' | ');
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' purple':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div>
               <span class="badge badge-setting">🏎 セッティング</span>
               <div class="timeline-title">📍 ${item.course||'?'}</div>
               <div class="timeline-sub">${item.date||''}${item.temp?` · ${item.temp}°C`:''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}${item.genre?' · '+(item.genre==='street'?'ストリート':'サーキット'):''}</div>
             </div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditSetting(${item.id})">編集</button>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">${details}</div>`:''}
           ${(item.freqF||item.freqR)?`<div style="font-size:11px;color:var(--text3);margin-top:4px">固有振動数 F:${item.freqF?parseFloat(item.freqF).toFixed(2)+'Hz':'-'} R:${item.freqR?parseFloat(item.freqR).toFixed(2)+'Hz':'-'}</div>`:''}
@@ -2285,18 +2335,22 @@ function histFilter(){
 }
 function histFilterBar(proOn){
   const f=histFilter();
-  const all=f.record&&(!proOn||f.setting)&&f.custom;
+  const all=f.record&&(!proOn||f.setting);
   const chip=(key,label)=>`<button class="seg-chip ${f[key]?'on':''}" onclick="toggleHistFilter('${key}')">${label}</button>`;
   return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
     ${chip('record','消耗品')}
     ${proOn?chip('setting','セッティング'):''}
-    ${chip('custom','カスタム')}
     <button class="seg-chip ${all?'on':''}" onclick="toggleHistFilter('all')">すべて</button>
   </div>`;
 }
 function toggleHistFilter(key){
   const f=histFilter();
-  if(key==='all'){f.record=true;f.setting=true;f.custom=true;}
+  const proOn=isProMode();
+  if(key==='all'){
+    const all=f.record&&(!proOn||f.setting);
+    const next=!all; // すべてONなら全OFF、それ以外は全ON
+    f.record=next;f.setting=next;
+  }
   else f[key]=!f[key];
   save();renderHistory();
 }
@@ -2309,7 +2363,6 @@ function renderHistoryAll(){
   state.cars.forEach((car,ci)=>{
     car.records.forEach(r=>allItems.push({...r,_type:'record',_carIdx:ci,_carName:car.name}));
     if(proOn)car.settings.forEach(s=>allItems.push({...s,_type:'setting',_carIdx:ci,_carName:car.name}));
-    car.tuningLog.forEach(t=>allItems.push({...t,_type:'custom',_carIdx:ci,_carName:car.name}));
   });
   if(!allItems.length){el.innerHTML='<div class="empty" style="padding-top:60px"><div class="empty-icon">📋</div><div class="empty-text">記録がありません</div></div>';return;}
   allItems=allItems.filter(it=>f[it._type]);
@@ -2349,7 +2402,7 @@ function renderHistoryAll(){
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditRecord(${item.id},${item._carIdx})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${carLabel}</div>
@@ -2361,7 +2414,6 @@ function renderHistoryAll(){
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
               ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
-              <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id},${item._carIdx})">編集</button>
             </div>
           </div>
         </div>
@@ -2373,12 +2425,11 @@ function renderHistoryAll(){
       const details=[springStr,springRStr].filter(Boolean).join(' | ');
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' purple':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id},${item._carIdx})" style="cursor:pointer">
           <div class="timeline-header">
             <div><span class="badge badge-setting">🏎 セッティング</span>${carLabel}
             <div class="timeline-title">📍 ${item.course||'?'}</div>
             <div class="timeline-sub">${item.date||''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditSetting(${item.id},${item._carIdx})">編集</button>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${details}</div>`:''}
           <div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.note?` <span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}</div>
@@ -2747,30 +2798,53 @@ function freqColor(f){
   if(f<2.8)return'#60a5fa';
   return'#fcd34d';
 }
-function renderFreqCalc(){
-  const car=getCar();
-  const el=document.getElementById('freqCalcDisplay');
-  if(!el)return;
-  const{weight,frontRatio,rearRatio,leverF,leverR,springF,springR}=car;
-  if(!weight||!frontRatio||!leverF||!springF){
-    el.innerHTML=`<div class="alert alert-info" style="font-size:12px">車両設定（車重・荷重比・レバー比・バネレート）を登録すると現在の固有振動数が表示されます</div>`;
-    renderGroupFreq();return;
+// 選択車の最新セッティング（記録）を返す
+function latestSetting(car){return (car&&car.settings&&car.settings.length)?[...car.settings].sort((a,b)=>(b.ts||0)-(a.ts||0))[0]:null;}
+// 計算系パネル: 最新セッティング/車両を読み込んで固有振動数を表示
+function renderCalcPanel(){
+  if(!document.getElementById('calcWeight')){renderGroupFreq();return;}
+  fillCalcInputs();
+  renderCalcFreq();
+  renderGroupFreq();
+}
+function fillCalcInputs(){
+  const car=getCar();const ls=latestSetting(car);
+  const setv=(id,v)=>{const e=document.getElementById(id);if(e)e.value=(v!=null&&v!=='')?v:'';};
+  const avg=(a,b)=>{a=parseFloat(a);b=parseFloat(b);if(!isNaN(a)&&!isNaN(b))return(a+b)/2;return!isNaN(a)?a:(!isNaN(b)?b:null);};
+  const lsW=ls&&ls.weight!=null&&ls.weight!==''?ls.weight:null;
+  const lsSpF=ls?avg(ls.springFL,ls.springFR):null;
+  const lsSpR=ls?avg(ls.springRL,ls.springRR):null;
+  setv('calcWeight',lsW!=null?lsW:(car.weight||''));
+  setv('calcRatioF',car.frontRatio||'');
+  setv('calcLeverF',car.leverF||'');
+  setv('calcLeverR',car.leverR||'');
+  setv('calcSpringF',lsSpF!=null?+lsSpF.toFixed(2):(car.springF||''));
+  setv('calcSpringR',lsSpR!=null?+lsSpR.toFixed(2):(car.springR||''));
+}
+// 入力値からリアルタイムに固有振動数を計算表示
+function renderCalcFreq(){
+  const el=document.getElementById('calcFreqDisplay');if(!el)return;
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  const weight=num('calcWeight'),ratioF=num('calcRatioF'),leverF=num('calcLeverF'),leverR=num('calcLeverR'),springF=num('calcSpringF'),springR=num('calcSpringR');
+  if(!weight||!ratioF||!leverF){
+    el.innerHTML=`<div class="alert alert-info" style="font-size:12px">車重・前軸荷重比・レバー比・バネレートを入力すると固有振動数が表示されます</div>`;
+    return;
   }
-  const unsprungF=car.unsprungF||0,unsprungR=car.unsprungR||0;
-  const massF=Math.max(1,weight*(frontRatio/100)/2-unsprungF);
-  const effRear=rearRatio||(100-frontRatio);
-  const massR=Math.max(1,weight*(effRear/100)/2-unsprungR);
-  const freqF=computeNaturalFreq(springF,leverF,massF);
-  const freqR=(leverR&&springR)?computeNaturalFreq(springR,leverR,massR):null;
-  const strokeF=car.strokeF,strokeR=car.strokeR;
+  const car=getCar();const unsF=car.unsprungF||0,unsR=car.unsprungR||0;
+  const ratioR=100-ratioF;
+  const massF=Math.max(1,weight*(ratioF/100)/2-unsF);
+  const massR=Math.max(1,weight*(ratioR/100)/2-unsR);
+  const freqF=springF?computeNaturalFreq(springF,leverF,massF):null;
+  const freqR=(springR&&leverR)?computeNaturalFreq(springR,leverR,massR):null;
+  const {strokeF,strokeR}=calcStrokeFromSpring(weight,ratioF,ratioR,leverF,leverR,springF,springR);
   el.innerHTML=`
     <div class="calc-result">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">現在の固有振動数${unsprungF||unsprungR?'（バネ上重量）':'（軸重近似）'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">現在の固有振動数${unsF||unsR?'（バネ上重量）':'（軸重近似）'}</div>
       <div class="calc-grid">
         <div class="calc-item">
           <div class="calc-item-label">フロント</div>
           <div class="calc-item-value" style="color:${freqColor(freqF)}">${freqF?freqF.toFixed(2)+' Hz':'--'}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${springF} kgf/mm / L=${leverF}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${springF||'-'} kgf/mm / L=${leverF}</div>
         </div>
         <div class="calc-item">
           <div class="calc-item-label">リア</div>
@@ -2787,13 +2861,34 @@ function renderFreqCalc(){
           <span style="color:var(--text);font-weight:600">${v.min}〜${v.max} Hz</span>
         </div>`).join('')}
     </div>
-    ${strokeF||strokeR?`<div style="font-size:11px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">1G縮み量: フロント ${strokeF?strokeF.toFixed(1)+'mm':'--'} / リア ${strokeR?strokeR.toFixed(1)+'mm':'--'}</div>`:''}
-    `;
+    ${strokeF||strokeR?`<div style="font-size:11px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">1G縮み量: フロント ${strokeF?strokeF.toFixed(1)+'mm':'--'} / リア ${strokeR?strokeR.toFixed(1)+'mm':'--'}</div>`:''}`;
   if(freqF&&!document.getElementById('targetFreqF').value)
     document.getElementById('targetFreqF').value=freqF.toFixed(1);
   if(freqR&&!document.getElementById('targetFreqR').value)
     document.getElementById('targetFreqR').value=freqR.toFixed(1);
-  renderGroupFreq();
+}
+function resetCalcPanel(){fillCalcInputs();renderCalcFreq();toast('最新セッティングを読み込みました');}
+function applyCalcToCar(){
+  const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  car.weight=num('calcWeight');
+  car.frontRatio=num('calcRatioF');
+  car.rearRatio=car.frontRatio!=null?100-car.frontRatio:null;
+  car.leverF=num('calcLeverF');car.leverR=num('calcLeverR');
+  car.springF=num('calcSpringF');car.springR=num('calcSpringR');
+  const {strokeF,strokeR}=calcStrokeFromSpring(car.weight,car.frontRatio,car.rearRatio,car.leverF,car.leverR,car.springF,car.springR);
+  car.strokeF=strokeF;car.strokeR=strokeR;
+  save();updateInlineFreq();
+  toast('この値を車両に保存しました ✓');
+}
+// セッティングカード（ヨー診断）の表示切替（限界走行実測内に統合）
+function toggleYawCard(){
+  const p=document.getElementById('yawCardPanel');if(!p)return;
+  const show=(p.style.display==='none'||!p.style.display);
+  p.style.display=show?'block':'none';
+  const btn=document.getElementById('yawCardBtn');
+  if(btn)btn.textContent=show?'🧭 セッティングカードを閉じる':'🧭 セッティングカード表示';
+  if(show){_yawInitDrive();renderYawAdvice();}
 }
 // セッティングフォーム内：固有振動数（計算値）のインライン表示
 function updateInlineFreq(){
@@ -2837,12 +2932,14 @@ function renderGroupFreq(){
 }
 function calcFromFreq(){
   const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
   const targetF=parseFloat(document.getElementById('targetFreqF').value);
   const targetR=parseFloat(document.getElementById('targetFreqR').value);
-  const{weight,frontRatio,leverF,leverR}=car;
-  if(!weight||!frontRatio||!leverF){toast('車両設定（車重・荷重比・レバー比）を先に登録してください');return;}
-  const massF=cornerMass(car,'F');
-  const massR=cornerMass(car,'R');
+  const weight=num('calcWeight'),frontRatio=num('calcRatioF'),leverF=num('calcLeverF'),leverR=num('calcLeverR');
+  if(!weight||!frontRatio||!leverF){toast('上の計算欄に車重・前軸荷重比・レバー比を入力してください');return;}
+  const unsF=car.unsprungF||0,unsR=car.unsprungR||0;
+  const massF=Math.max(1,weight*(frontRatio/100)/2-unsF);
+  const massR=Math.max(1,weight*((100-frontRatio)/100)/2-unsR);
   const recF=(targetF&&leverF)?computeSpringFromFreq(targetF,leverF,massF):null;
   const recR=(targetR&&leverR)?computeSpringFromFreq(targetR,leverR,massR):null;
   const el=document.getElementById('freqCalcResult');
@@ -2864,27 +2961,6 @@ function toggleHelper(checked){
   if(!checked){['stHelperFL','stHelperFR','stHelperRL','stHelperRR'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});}
 }
 
-function calcSpringToFreq(){
-  const car=getCar();
-  const spF=parseFloat(document.getElementById('springToFreqF').value);
-  const spR=parseFloat(document.getElementById('springToFreqR').value);
-  const{weight,frontRatio,rearRatio,leverF,leverR,unsprungF,unsprungR}=car;
-  const el=document.getElementById('springToFreqResult');
-  if(!weight||!frontRatio||!leverF){toast('車両設定（車重・荷重比・レバー比）を先に登録してください');return;}
-  const effRear=rearRatio||(100-frontRatio);
-  const massF=Math.max(1,weight*(frontRatio/100)/2-(unsprungF||0));
-  const massR=Math.max(1,weight*(effRear/100)/2-(unsprungR||0));
-  const freqF=spF?computeNaturalFreq(spF,leverF,massF):null;
-  const freqR=(spR&&leverR)?computeNaturalFreq(spR,leverR,massR):null;
-  if(!freqF&&!freqR){toast('バネレートを入力してください');return;}
-  el.innerHTML=`<div class="calc-result" style="margin-top:10px">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">固有振動数</div>
-    <div class="calc-grid">
-      ${freqF?`<div class="calc-item"><div class="calc-item-label">フロント (${spF} kgf/mm)</div><div class="calc-item-value" style="color:${freqColor(freqF)}">${freqF.toFixed(2)} Hz</div></div>`:''}
-      ${freqR?`<div class="calc-item"><div class="calc-item-label">リア (${spR} kgf/mm)</div><div class="calc-item-value" style="color:${freqColor(freqR)}">${freqR.toFixed(2)} Hz</div></div>`:''}
-    </div>
-  </div>`;
-}
 
 async function loadAllGroupSettings(){
   const el=document.getElementById('allGroupResult');
@@ -3595,8 +3671,6 @@ function renderYawAdvice(){
         <div style="color:#fbbf24;margin-top:2px">⚠️ ${r.cau}</div>
       </div>
     </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>');
-  const body=document.getElementById('accYaw');
-  if(body&&body.classList.contains('open'))body.style.maxHeight='none';
 }
 
 // ---- ヨー実測（GPS速度＋横G＋実ヨーレートでアンダー/オーバー判定）----
@@ -4044,10 +4118,10 @@ async function renderGroupTimeline(){
     const sub=[s.date,s.temp?s.temp+'°C':'',s.tire,s.surface?SURFACE_LABELS[s.surface]:''].filter(Boolean).join(' · ');
     return`<div class="part-item" onclick="openGroupSetting(${i})" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <div style="font-size:14px;font-weight:600">${esc(s.nick)||'?'} ${mine?'<span style="font-size:10px;color:#86efac">(自分)</span>':''}</div>
+        <div style="font-size:14px;font-weight:600">${esc(s.nick)||'?'}${s.car?` <span style="font-size:11px;font-weight:500;color:var(--text3)">${esc(s.car)}</span>`:''} ${mine?'<span style="font-size:10px;color:#86efac">(自分)</span>':''}</div>
         <div style="font-size:12px;flex-shrink:0">${'⭐'.repeat(s.eval||3)}</div>
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-top:2px">📍 ${esc(s.course)||'?'}${s.car?` <span style="color:var(--text3)">/ ${esc(s.car)}</span>`:''}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">📍 ${esc(s.course)||'?'}</div>
       ${sub?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(sub)}</div>`:''}
       ${(s.freqF||s.freqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">固有振動 F:${s.freqF?parseFloat(s.freqF).toFixed(2):'-'} R:${s.freqR?parseFloat(s.freqR).toFixed(2):'-'} Hz</div>`:''}
     </div>`;
@@ -4085,12 +4159,28 @@ function openGroupSetting(i){
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(head)} ${'⭐'.repeat(s.eval||3)}</div>
     ${rows||'<div style="font-size:12px;color:var(--text3)">数値データなし</div>'}
     ${s.note?`<div style="font-size:12px;color:var(--text2);margin-top:8px">💬 ${esc(s.note)}</div>`:''}`;
+  // 自分の車の選択肢（車両タブの選択車を参照・ここからも変更可）
+  const carSel=document.getElementById('groupDetailCarSel');
+  if(carSel)carSel.innerHTML=state.cars.map((c,j)=>`<option value="${j}"${j===state.selectedCar?' selected':''}>${esc(c.name)}</option>`).join('');
   // 自分のセッティング選択肢
-  const mySel=document.getElementById('groupDetailMySel');
-  const mine=[...getCar().settings].sort((a,b)=>(b.ts||0)-(a.ts||0));
-  mySel.innerHTML=mine.length?mine.map((m,j)=>`<option value="${m.id}">${j===0?'最新: ':''}${m.date||'?'} ${m.course||'?'} ${'⭐'.repeat(m.eval||3)}</option>`).join(''):'<option value="">自分のセッティングなし</option>';
+  _fillGroupDetailMySel();
   document.getElementById('groupDetailResult').innerHTML='';
   document.getElementById('groupDetailModal').classList.add('show');
+}
+function _fillGroupDetailMySel(){
+  const mySel=document.getElementById('groupDetailMySel');
+  if(!mySel)return;
+  const mine=[...getCar().settings].sort((a,b)=>(b.ts||0)-(a.ts||0));
+  mySel.innerHTML=mine.length?mine.map((m,j)=>`<option value="${m.id}">${j===0?'最新: ':''}${m.date||'?'} ${m.course||'?'} ${'⭐'.repeat(m.eval||3)}</option>`).join(''):'<option value="">自分のセッティングなし</option>';
+}
+// グループ比較画面から自分の車を切り替え（車両タブの選択車にも反映）
+function groupDetailSwitchCar(idx){
+  idx=parseInt(idx);
+  if(isNaN(idx)||!state.cars[idx])return;
+  state.selectedCar=idx;state.viewAll=false;
+  save();renderCarTabs();
+  _fillGroupDetailMySel();
+  document.getElementById('groupDetailResult').innerHTML='';
 }
 function groupDetailCompare(){
   const their=_groupDetailCur;if(!their)return;
