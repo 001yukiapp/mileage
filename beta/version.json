@@ -1,5 +1,5 @@
 {
-  "version": "3.16.4",
+  "version": "3.16.5",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビをProject Control風の「文字だけの低いナビ」に変更。アイコンは非表示（HTMLは温存）、flex構造維持でボタン数が変わっても均等配置、safe-area(env)対応でiPhoneホームバーにもかからないように。"
+  "notes": "下部ナビ下の余白を解消。safe-area(env)をナビのpadding/高さから外し、固定値（ナビ高さ56px・padding8px・本文下余白68px）に戻した。文字だけナビは維持。"
 }
