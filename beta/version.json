@@ -1,5 +1,5 @@
 {
-  "version": "3.16.5",
+  "version": "3.16.6",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビ下の余白を解消。safe-area(env)をナビのpadding/高さから外し、固定値（ナビ高さ56px・padding8px・本文下余白68px）に戻した。文字だけナビは維持。"
+  "notes": "下部ナビをProject Controlと同方式に移植。固定heightをやめ、grid5分割＋ボタンのpaddingで高さを決定。safe-areaはpadding-bottomに取り込み、背景をぼかし入りに。文字だけナビは維持。"
 }
