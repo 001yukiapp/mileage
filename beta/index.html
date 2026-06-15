@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.14.0</title>
+<title>Mileage 3.15.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -178,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.14.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.15.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -201,15 +201,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     <div id="page-record" class="page">
       <div class="card" style="padding-top:12px;padding-bottom:12px">
         <select class="form-input" id="recViewSel" onchange="switchRecView(this.value)">
-          <option value="exchange">交換記録</option>
+          <option value="exchange">消耗品</option>
           <option value="odo">走行距離</option>
-          <option value="tuning">いじりログ・予定</option>
+          <option value="tuning">やること・カスタムログ</option>
         </select>
       </div>
 
       <div id="recView-exchange" class="rec-view">
       <div class="card">
-        <p class="section-title">交換を記録</p>
+        <p class="section-title">消耗品を記録</p>
         <div class="form-group">
           <label class="form-label">部品・オイルの種類</label>
           <select class="form-input" id="partType">
@@ -281,9 +281,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       </div><!-- /recView-odo -->
 
       <div id="recView-tuning" class="rec-view" style="display:none">
-      <!-- いじり予定 -->
+      <!-- やることリスト -->
       <div class="card">
-        <p class="section-title">いじり予定</p>
+        <p class="section-title">やることリスト</p>
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <input type="text" class="form-input" id="todoInput" placeholder="例: レバー比を測る" style="flex:1" onkeydown="if(event.key==='Enter')addTodo()">
           <button class="btn btn-primary" style="width:auto;padding:0 18px;flex-shrink:0" onclick="addTodo()">追加</button>
@@ -291,10 +291,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div id="todoList"></div>
       </div>
 
-      <!-- いじりログ -->
+      <!-- カスタムログ -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <p class="section-title" style="margin:0">いじりログ</p>
+          <p class="section-title" style="margin:0">カスタムログ</p>
           <button class="btn btn-primary" style="width:auto;padding:0 16px" onclick="openTuningLog()">＋ 追加</button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px">
@@ -444,7 +444,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
 
         <!-- アコーディオン: アライメント -->
-        <div class="accordion-header" onclick="toggleAccordion('accAlign')" style="border-bottom:none">
+        <div class="accordion-header" onclick="toggleAccordion('accAlign')">
           <span class="accordion-title">📐 アライメント設定</span>
           <span class="accordion-arrow" id="arrowAlign">▼</span>
         </div>
@@ -474,6 +474,41 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <div class="four-grid">
               <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="stCasterFL" step="0.1"></div>
               <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="stCasterFR" step="0.1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- アコーディオン: 車高 / 車高調 -->
+        <div class="accordion-header" onclick="toggleAccordion('accHeight')" style="border-bottom:none">
+          <span class="accordion-title">📏 車高 / 車高調</span>
+          <span class="accordion-arrow" id="arrowHeight">▼</span>
+        </div>
+        <div class="accordion-body" id="accHeight">
+          <div class="accordion-inner">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">車高調 全長 ロア〜アッパー (mm) - フロント</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="stShockLenFL" inputmode="decimal" step="0.5"></div>
+              <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="stShockLenFR" inputmode="decimal" step="0.5"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:10px 0 8px">車高調 全長 ロア〜アッパー (mm) - リア</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="stShockLenRL" inputmode="decimal" step="0.5"></div>
+              <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="stShockLenRR" inputmode="decimal" step="0.5"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:12px 0 8px">プリロード (周) - フロント</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="stPreloadFL" inputmode="decimal" step="0.25" placeholder="0"></div>
+              <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="stPreloadFR" inputmode="decimal" step="0.25" placeholder="0"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:10px 0 8px">プリロード (周) - リア</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="stPreloadRL" inputmode="decimal" step="0.25" placeholder="0"></div>
+              <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="stPreloadRR" inputmode="decimal" step="0.25" placeholder="0"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:12px 0 8px">最低地上高 (mm)</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">前</div><input type="number" class="form-input" id="stMinClearF" inputmode="numeric" placeholder="例: 80"></div>
+              <div><div class="four-grid-label">後</div><input type="number" class="form-input" id="stMinClearR" inputmode="numeric" placeholder="例: 85"></div>
             </div>
           </div>
         </div>
@@ -725,7 +760,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.14.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.15.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1063,6 +1098,25 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editCsFL" step="0.1"></div>
       <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editCsFR" step="0.1"></div>
     </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">車高調 全長 ロア〜アッパー (mm)</p>
+    <div class="four-grid" style="margin-bottom:10px">
+      <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editShFL" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editShFR" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="editShRL" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="editShRR" inputmode="decimal" step="0.5"></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">プリロード (周)</p>
+    <div class="four-grid" style="margin-bottom:10px">
+      <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editPlFL" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editPlFR" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="editPlRL" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="editPlRR" inputmode="decimal" step="0.25"></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">最低地上高 (mm)</p>
+    <div class="four-grid" style="margin-bottom:14px">
+      <div><div class="four-grid-label">前</div><input type="number" class="form-input" id="editMcF" inputmode="numeric"></div>
+      <div><div class="four-grid-label">後</div><input type="number" class="form-input" id="editMcR" inputmode="numeric"></div>
+    </div>
     <div class="form-group" id="editMeasFreqRow" style="display:none">
       <label class="form-label">実測 固有振動数（編集不可）</label>
       <div id="editMeasFreqText" style="font-size:13px;color:#60a5fa;padding:8px 0"></div>
@@ -1139,10 +1193,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   </div>
 </div>
 
-<!-- モーダル: いじりログ追加/編集 -->
+<!-- モーダル: カスタムログ追加/編集 -->
 <div class="modal-overlay" id="tuningLogModal" onclick="hideModal('tuningLogModal',event)">
   <div class="modal">
-    <p class="modal-title" id="tuningLogModalTitle">いじりログ</p>
+    <p class="modal-title" id="tuningLogModalTitle">カスタムログ</p>
     <input type="hidden" id="tlId">
     <div class="two-col">
       <div class="form-group">
@@ -1170,14 +1224,14 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <label class="form-label">次の課題（任意）</label>
       <div style="display:flex;gap:8px">
         <input type="text" class="form-input" id="tlNext" placeholder="例: 次は温間1.9を試す" style="flex:1">
-        <button class="btn" type="button" style="background:var(--bg3);color:var(--text);width:auto;padding:0 14px;white-space:nowrap" onclick="addNextToTodo()">予定に追加</button>
+        <button class="btn" type="button" style="background:var(--bg3);color:var(--text);width:auto;padding:0 14px;white-space:nowrap" onclick="addNextToTodo()">やることに追加</button>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">「予定に追加」を押すと、いじり予定リストに入ります</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">「やることに追加」を押すと、やることリストに入ります</div>
     </div>
 
     <!-- 換算ヘルパー -->
     <details style="margin-bottom:14px;background:var(--bg3);border-radius:10px;padding:10px 12px">
-      <summary style="cursor:pointer;font-size:13px;color:var(--text2);font-weight:600">換算ヘルパー（周回↔mm↔角度）</summary>
+      <summary style="cursor:pointer;font-size:13px;color:var(--text2);font-weight:600">換算ヘルパー（車高調 周回↔mm）</summary>
       <div style="margin-top:10px">
         <div class="two-col">
           <div class="form-group">
@@ -1189,18 +1243,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <input type="number" class="form-input" id="cvPitch" inputmode="decimal" placeholder="1.5" oninput="calcConv()">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">ホイール径</label>
-          <select class="form-input" id="cvInch" onchange="calcConv()">
-            <option value="0.282">16インチ</option>
-            <option value="0.265">17インチ</option>
-            <option value="0.251" selected>18インチ</option>
-            <option value="0.237">19インチ</option>
-          </select>
-        </div>
         <div id="cvResult" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:8px"></div>
         <button class="btn btn-sm" style="background:var(--bg);color:var(--text);width:auto;padding:0 14px" onclick="insertConv()">数値・設定欄に貼る</button>
-        <p style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5">※係数は概算（1mmあたりの角度）。ピッチ・係数の値は車種により異なります。</p>
+        <p style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5">※ピッチの値は車種・車高調により異なります。</p>
       </div>
     </details>
 
@@ -1212,7 +1257,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.14.0';
+const APP_VERSION = '3.15.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1586,6 +1631,8 @@ function resetSettingForm(){
    'stPressFL','stPressFR','stPressRL','stPressRR',
    'stCamberFL','stCamberFR','stCamberRL','stCamberRR',
    'stToeFL','stToeFR','stToeRL','stToeRR','stCasterFL','stCasterFR',
+   'stShockLenFL','stShockLenFR','stShockLenRL','stShockLenRR',
+   'stPreloadFL','stPreloadFR','stPreloadRL','stPreloadRR','stMinClearF','stMinClearR',
    'stMeasFreqF','stMeasFreqR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const useHelper=document.getElementById('useHelper');
   const helperInputs=document.getElementById('helperInputs');
@@ -1620,6 +1667,11 @@ function fillSettingForm(){
     pf('stCamberRL',lastSetting.camberRL);pf('stCamberRR',lastSetting.camberRR);
     pf('stToeFL',lastSetting.toeFL);pf('stToeFR',lastSetting.toeFR);
     pf('stToeRL',lastSetting.toeRL);pf('stToeRR',lastSetting.toeRR);
+    pf('stShockLenFL',lastSetting.shockLenFL);pf('stShockLenFR',lastSetting.shockLenFR);
+    pf('stShockLenRL',lastSetting.shockLenRL);pf('stShockLenRR',lastSetting.shockLenRR);
+    pf('stPreloadFL',lastSetting.preloadFL);pf('stPreloadFR',lastSetting.preloadFR);
+    pf('stPreloadRL',lastSetting.preloadRL);pf('stPreloadRR',lastSetting.preloadRR);
+    pf('stMinClearF',lastSetting.minClearF);pf('stMinClearR',lastSetting.minClearR);
     const surface=document.getElementById('stSurface');
     if(surface&&lastSetting.surface)surface.value=lastSetting.surface;
     const eval_=document.getElementById('stEval');
@@ -2052,7 +2104,7 @@ function switchRecView(v){
   if(v==='tuning'){renderTodos();renderTuningLog();}
 }
 
-// ==== いじり予定 ====
+// ==== やることリスト ====
 function addTodo(){
   const el=document.getElementById('todoInput');
   const text=el.value.trim();
@@ -2084,7 +2136,7 @@ function renderTodos(){
     </div>`).join('');
 }
 
-// ==== いじりログ ====
+// ==== カスタムログ ====
 let _tlCarIdx=null; // 編集中ログの所有車インデックス
 function setTuningLogScope(all){
   state.tuningLogAll=!!all;save();renderTuningLog();
@@ -2096,7 +2148,7 @@ function openTuningLog(id){
   if(id){
     for(let i=0;i<state.cars.length;i++){const l=state.cars[i].tuningLog.find(x=>x.id===id);if(l){log=l;_tlCarIdx=i;break;}}
   }
-  document.getElementById('tuningLogModalTitle').textContent=log?'いじりログを編集':'いじりログ';
+  document.getElementById('tuningLogModalTitle').textContent=log?'カスタムログを編集':'カスタムログ';
   document.getElementById('tlId').value=log?log.id:'';
   document.getElementById('tlDate').value=log?log.date:today;
   document.getElementById('tlTarget').value=log?log.target:'';
@@ -2133,7 +2185,7 @@ function addNextToTodo(){
   const car=state.cars[_tlCarIdx]||getCar();
   car.todos.push({id:Date.now(),text,done:false,createdAt:Date.now()});
   save();renderTodos();
-  toast('いじり予定に追加しました ✓');
+  toast('やることリストに追加しました ✓');
 }
 function deleteTuningLog(){
   const id=document.getElementById('tlId').value;
@@ -2173,13 +2225,11 @@ function renderTuningLog(){
 function calcConv(){
   const turns=parseFloat(document.getElementById('cvTurns').value);
   const pitch=parseFloat(document.getElementById('cvPitch').value);
-  const coef=parseFloat(document.getElementById('cvInch').value);
   const out=document.getElementById('cvResult');
   if(isNaN(turns)||isNaN(pitch)){out.textContent='';return;}
   const mm=turns*pitch;
-  const deg=mm*coef;
-  out.innerHTML=`${turns}周 × ${pitch}mm = <b>${mm.toFixed(2)}mm</b> ／ 角度 約 <b>${deg.toFixed(2)}°</b>`;
-  out.dataset.text=`${turns}周(${mm.toFixed(1)}mm/約${deg.toFixed(2)}°)`;
+  out.innerHTML=`${turns}周 × ${pitch}mm = <b>${mm.toFixed(2)}mm</b>`;
+  out.dataset.text=`${turns}周(${mm.toFixed(1)}mm)`;
 }
 function insertConv(){
   const out=document.getElementById('cvResult');
@@ -2189,6 +2239,17 @@ function insertConv(){
   f.value=(f.value?f.value+' ':'')+t;
 }
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';}
+// セッティングの車高/車高調を1行に要約（全長mm・プリ周・最低地上高mm）
+function heightSummary(s){
+  const parts=[];
+  if([s.shockLenFL,s.shockLenFR,s.shockLenRL,s.shockLenRR].some(v=>v!=null))
+    parts.push(`全長 F:${s.shockLenFL??'-'}/${s.shockLenFR??'-'} R:${s.shockLenRL??'-'}/${s.shockLenRR??'-'}mm`);
+  if([s.preloadFL,s.preloadFR,s.preloadRL,s.preloadRR].some(v=>v!=null))
+    parts.push(`プリ F:${s.preloadFL??'-'}/${s.preloadFR??'-'} R:${s.preloadRL??'-'}/${s.preloadRR??'-'}周`);
+  if(s.minClearF!=null||s.minClearR!=null)
+    parts.push(`最低地上高 前${s.minClearF??'-'}/後${s.minClearR??'-'}mm`);
+  return parts.length?'📏 '+parts.join(' ｜ '):'';
+}
 
 // ---- グラフ ----
 let odomChartInst=null;
@@ -2232,6 +2293,7 @@ function renderHistory(){
   const f=histFilter();
   let allItems=car.records.map(r=>({...r,_type:'record'}));
   if(proOn)allItems=[...allItems,...car.settings.map(s=>({...s,_type:'setting'}))];
+  allItems=[...allItems,...car.tuningLog.map(t=>({...t,_type:'custom'}))];
   if(!allItems.length){
     el.innerHTML='';
     return;
@@ -2283,7 +2345,7 @@ function renderHistory(){
         <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
-              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 いじりログ</span>
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 カスタム</span>
               <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
               <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
             </div>
@@ -2300,6 +2362,7 @@ function renderHistory(){
       const pressStr=item.pressFL||item.pressFR?`空気圧F:${item.pressFL||''}/${item.pressFR||''}`:item.pressF?`空気圧F:${item.pressF}`:'';
       const pressRStr=item.pressRL||item.pressRR?`空気圧R:${item.pressRL||''}/${item.pressRR||''}`:item.pressR?`空気圧R:${item.pressR}`:'';
       const details=[springStr,springRStr,pressStr,pressRStr].filter(Boolean).join(' | ');
+      const heightStr=heightSummary(item);
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' purple':''}"></div>
         <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id})" style="cursor:pointer">
@@ -2311,6 +2374,7 @@ function renderHistory(){
             </div>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">${details}</div>`:''}
+          ${heightStr?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightStr}</div>`:''}
           ${(item.freqF||item.freqR)?`<div style="font-size:11px;color:var(--text3);margin-top:4px">固有振動数 F:${item.freqF?parseFloat(item.freqF).toFixed(2)+'Hz':'-'} R:${item.freqR?parseFloat(item.freqR).toFixed(2)+'Hz':'-'}</div>`:''}
           ${(item.measFreqF||item.measFreqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">📱 実測 F:${item.measFreqF?parseFloat(item.measFreqF).toFixed(2)+'Hz':'-'} R:${item.measFreqR?parseFloat(item.measFreqR).toFixed(2)+'Hz':'-'}</div>`:''}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
@@ -2335,11 +2399,12 @@ function histFilter(){
 }
 function histFilterBar(proOn){
   const f=histFilter();
-  const all=f.record&&(!proOn||f.setting);
+  const all=f.record&&(!proOn||f.setting)&&f.custom;
   const chip=(key,label)=>`<button class="seg-chip ${f[key]?'on':''}" onclick="toggleHistFilter('${key}')">${label}</button>`;
   return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
     ${chip('record','消耗品')}
     ${proOn?chip('setting','セッティング'):''}
+    ${chip('custom','カスタム')}
     <button class="seg-chip ${all?'on':''}" onclick="toggleHistFilter('all')">すべて</button>
   </div>`;
 }
@@ -2347,9 +2412,9 @@ function toggleHistFilter(key){
   const f=histFilter();
   const proOn=isProMode();
   if(key==='all'){
-    const all=f.record&&(!proOn||f.setting);
+    const all=f.record&&(!proOn||f.setting)&&f.custom;
     const next=!all; // すべてONなら全OFF、それ以外は全ON
-    f.record=next;f.setting=next;
+    f.record=next;f.setting=next;f.custom=next;
   }
   else f[key]=!f[key];
   save();renderHistory();
@@ -2363,6 +2428,7 @@ function renderHistoryAll(){
   state.cars.forEach((car,ci)=>{
     car.records.forEach(r=>allItems.push({...r,_type:'record',_carIdx:ci,_carName:car.name}));
     if(proOn)car.settings.forEach(s=>allItems.push({...s,_type:'setting',_carIdx:ci,_carName:car.name}));
+    car.tuningLog.forEach(t=>allItems.push({...t,_type:'custom',_carIdx:ci,_carName:car.name}));
   });
   if(!allItems.length){el.innerHTML='<div class="empty" style="padding-top:60px"><div class="empty-icon">📋</div><div class="empty-text">記録がありません</div></div>';return;}
   allItems=allItems.filter(it=>f[it._type]);
@@ -2376,7 +2442,7 @@ function renderHistoryAll(){
         <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
-              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 いじりログ</span>${carLabel}
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 カスタム</span>${carLabel}
               <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
               <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
             </div>
@@ -2432,6 +2498,7 @@ function renderHistoryAll(){
             <div class="timeline-sub">${item.date||''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${details}</div>`:''}
+          ${heightSummary(item)?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightSummary(item)}</div>`:''}
           <div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.note?` <span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}</div>
         </div>
       </div>`;
@@ -2550,6 +2617,9 @@ function showEditSetting(id,carIdx){
   pf('editCaFL',s.camberFL);pf('editCaFR',s.camberFR);pf('editCaRL',s.camberRL);pf('editCaRR',s.camberRR);
   pf('editToFL',s.toeFL);pf('editToFR',s.toeFR);pf('editToRL',s.toeRL);pf('editToRR',s.toeRR);
   pf('editCsFL',s.casterFL);pf('editCsFR',s.casterFR);
+  pf('editShFL',s.shockLenFL);pf('editShFR',s.shockLenFR);pf('editShRL',s.shockLenRL);pf('editShRR',s.shockLenRR);
+  pf('editPlFL',s.preloadFL);pf('editPlFR',s.preloadFR);pf('editPlRL',s.preloadRL);pf('editPlRR',s.preloadRR);
+  pf('editMcF',s.minClearF);pf('editMcR',s.minClearR);
   pf('editStNote',s.note);
   // 実測固有振動数（読み取り専用表示）
   const mfRow=document.getElementById('editMeasFreqRow');
@@ -2585,6 +2655,9 @@ function saveEditSetting(){
   s.camberFL=pf('editCaFL');s.camberFR=pf('editCaFR');s.camberRL=pf('editCaRL');s.camberRR=pf('editCaRR');
   s.toeFL=pf('editToFL');s.toeFR=pf('editToFR');s.toeRL=pf('editToRL');s.toeRR=pf('editToRR');
   s.casterFL=pf('editCsFL');s.casterFR=pf('editCsFR');
+  s.shockLenFL=pf('editShFL');s.shockLenFR=pf('editShFR');s.shockLenRL=pf('editShRL');s.shockLenRR=pf('editShRR');
+  s.preloadFL=pf('editPlFL');s.preloadFR=pf('editPlFR');s.preloadRL=pf('editPlRL');s.preloadRR=pf('editPlRR');
+  s.minClearF=pf('editMcF');s.minClearR=pf('editMcR');
   s.note=document.getElementById('editStNote').value;
   // 固有振動数を再計算（表示と同じバネ上重量基準）
   const avgSpF=s.springFL&&s.springFR?(s.springFL+s.springFR)/2:s.springFL||s.springFR||s.springF||null;
@@ -4144,6 +4217,16 @@ const GROUP_DETAIL_FIELDS=[
   {label:'トーFR',fn:s=>s.toeFR!=null?s.toeFR+'mm':null},
   {label:'トーRL',fn:s=>s.toeRL!=null?s.toeRL+'mm':null},
   {label:'トーRR',fn:s=>s.toeRR!=null?s.toeRR+'mm':null},
+  {label:'全長FL',fn:s=>s.shockLenFL!=null?s.shockLenFL+'mm':null},
+  {label:'全長FR',fn:s=>s.shockLenFR!=null?s.shockLenFR+'mm':null},
+  {label:'全長RL',fn:s=>s.shockLenRL!=null?s.shockLenRL+'mm':null},
+  {label:'全長RR',fn:s=>s.shockLenRR!=null?s.shockLenRR+'mm':null},
+  {label:'プリFL',fn:s=>s.preloadFL!=null?s.preloadFL+'周':null},
+  {label:'プリFR',fn:s=>s.preloadFR!=null?s.preloadFR+'周':null},
+  {label:'プリRL',fn:s=>s.preloadRL!=null?s.preloadRL+'周':null},
+  {label:'プリRR',fn:s=>s.preloadRR!=null?s.preloadRR+'周':null},
+  {label:'最低地上高前',fn:s=>s.minClearF!=null?s.minClearF+'mm':null},
+  {label:'最低地上高後',fn:s=>s.minClearR!=null?s.minClearR+'mm':null},
   {label:'固有振動F',fn:s=>s.freqF?parseFloat(s.freqF).toFixed(2)+' Hz':null},
   {label:'固有振動R',fn:s=>s.freqR?parseFloat(s.freqR).toFixed(2)+' Hz':null},
   {label:'車重',fn:s=>s.weight?s.weight+' kg':null},
@@ -4194,6 +4277,9 @@ function groupDetailCompare(){
     ['空気圧FL',s=>fmt(s.pressFL,'')],['空気圧FR',s=>fmt(s.pressFR,'')],['空気圧RL',s=>fmt(s.pressRL,'')],['空気圧RR',s=>fmt(s.pressRR,'')],
     ['キャンFL',s=>fmt(s.camberFL,'°')],['キャンFR',s=>fmt(s.camberFR,'°')],['キャンRL',s=>fmt(s.camberRL,'°')],['キャンRR',s=>fmt(s.camberRR,'°')],
     ['トーFL',s=>fmt(s.toeFL,'mm')],['トーFR',s=>fmt(s.toeFR,'mm')],['トーRL',s=>fmt(s.toeRL,'mm')],['トーRR',s=>fmt(s.toeRR,'mm')],
+    ['全長FL',s=>fmt(s.shockLenFL,'mm')],['全長FR',s=>fmt(s.shockLenFR,'mm')],['全長RL',s=>fmt(s.shockLenRL,'mm')],['全長RR',s=>fmt(s.shockLenRR,'mm')],
+    ['プリFL',s=>fmt(s.preloadFL,'周')],['プリFR',s=>fmt(s.preloadFR,'周')],['プリRL',s=>fmt(s.preloadRL,'周')],['プリRR',s=>fmt(s.preloadRR,'周')],
+    ['最低地上高前',s=>fmt(s.minClearF,'mm')],['最低地上高後',s=>fmt(s.minClearR,'mm')],
     ['固有振動F',s=>s.freqF?parseFloat(s.freqF).toFixed(2):'-'],['固有振動R',s=>s.freqR?parseFloat(s.freqR).toFixed(2):'-'],
   ];
   const rows=F.map(([label,fn])=>{
@@ -4410,6 +4496,12 @@ async function saveSetting(){
     toeRR:pfSafe('stToeRR'),
     casterFL:pfSafe('stCasterFL'),
     casterFR:pfSafe('stCasterFR'),
+    // 車高 / 車高調（全長mm・プリロード周・最低地上高mm）
+    shockLenFL:pfSafe('stShockLenFL'),shockLenFR:pfSafe('stShockLenFR'),
+    shockLenRL:pfSafe('stShockLenRL'),shockLenRR:pfSafe('stShockLenRR'),
+    preloadFL:pfSafe('stPreloadFL'),preloadFR:pfSafe('stPreloadFR'),
+    preloadRL:pfSafe('stPreloadRL'),preloadRR:pfSafe('stPreloadRR'),
+    minClearF:pfSafe('stMinClearF'),minClearR:pfSafe('stMinClearR'),
     eval:parseInt(document.getElementById('stEval').value),
     // 実測固有振動数
     measFreqF:pfSafe('stMeasFreqF'),
