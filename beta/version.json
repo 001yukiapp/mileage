@@ -1,5 +1,5 @@
 {
-  "version": "3.16.6",
+  "version": "3.16.7",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビをProject Controlと同方式に移植。固定heightをやめ、grid5分割＋ボタンのpaddingで高さを決定。safe-areaはpadding-bottomに取り込み、背景をぼかし入りに。文字だけナビは維持。"
+  "notes": "下部ナビが高く見える問題に対応。Project Control風の見た目は維持しつつ、ナビ全体をsafe-area分だけ下にオフセット（bottomを負値に）。grid auto-fitで表示ボタン数が変わっても均等配置。"
 }
