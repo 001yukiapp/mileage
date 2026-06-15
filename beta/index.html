@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.15.0</title>
+<title>Mileage 3.16.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -178,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.15.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.16.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -311,36 +311,19 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">セッティングを記録</p>
 
-        <!-- 必須項目 -->
+        <p style="font-size:11px;color:var(--text3);margin:-4px 0 12px">数値だけ記録します。コース・評価・所感は走行後にホームの履歴から「レビュー」してください。</p>
+
+        <!-- 基本 -->
         <div class="required-section">
-          <div class="required-section-title">必須項目</div>
-          <!-- 走行場所ジャンル -->
-          <div class="form-group">
-            <label class="form-label required">走行場所ジャンル</label>
-            <div id="courseGenreArea">
-              <div style="display:flex;gap:8px;margin-bottom:8px">
-                <button class="course-type-btn" id="genreStreet" onclick="selectGenre('street')">🛣 ストリート</button>
-                <button class="course-type-btn" id="genreCircuit" onclick="selectGenre('circuit')">🏁 サーキット</button>
-              </div>
-              <div id="subGenreArea" style="display:none">
-                <div class="course-type-grid" id="subGenreGrid"></div>
-              </div>
-            </div>
-            <input type="hidden" id="stGenre">
-            <input type="hidden" id="stSubGenre">
-          </div>
-          <div class="form-group">
-            <label class="form-label required">コース名</label>
-            <input type="text" class="form-input" id="stCourse" placeholder="例: 鈴鹿">
-          </div>
+          <div class="required-section-title">基本</div>
           <div class="two-col">
             <div class="form-group">
-              <label class="form-label required">日付</label>
+              <label class="form-label required">記録日</label>
               <input type="date" class="form-input" id="stDate">
             </div>
             <div class="form-group">
-              <label class="form-label">気温 (°C)</label>
-              <input type="number" class="form-input" id="stTemp" inputmode="numeric">
+              <label class="form-label">車重 (kg)</label>
+              <input type="number" class="form-input" id="stWeight" inputmode="numeric">
             </div>
           </div>
           <div class="two-col">
@@ -355,36 +338,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <!-- 任意項目 -->
-        <div class="two-col">
-          <div class="form-group">
-            <label class="form-label">車重 (kg)</label>
-            <input type="number" class="form-input" id="stWeight" inputmode="numeric">
-          </div>
-          <div class="form-group">
-            <label class="form-label">タイヤ銘柄</label>
-            <input type="text" class="form-input" id="stTire">
-          </div>
-        </div>
-        <div class="two-col">
-          <div class="form-group">
-            <label class="form-label">路面</label>
-            <select class="form-input" id="stSurface">
-              <option value="dry">ドライ</option>
-              <option value="wet">ウェット</option>
-              <option value="semi-wet">セミウェット</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">評価</label>
-            <select class="form-input" id="stEval">
-              <option value="5">⭐⭐⭐⭐⭐ 最高</option>
-              <option value="4">⭐⭐⭐⭐ 良い</option>
-              <option value="3" selected>⭐⭐⭐ 普通</option>
-              <option value="2">⭐⭐ 悪い</option>
-              <option value="1">⭐ 最悪</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label class="form-label">タイヤ銘柄</label>
+          <input type="text" class="form-input" id="stTire">
         </div>
 
         <!-- アコーディオン: タイヤ空気圧 -->
@@ -520,10 +476,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <input type="hidden" id="stMeasFreqF">
         <input type="hidden" id="stMeasFreqR">
         <div class="form-group" style="margin-top:12px">
-          <label class="form-label">コメント</label>
-          <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto"></textarea>
+          <label class="form-label">変更メモ</label>
+          <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto" placeholder="例: フロント1段柔らかく / 車高F2mm下げ"></textarea>
         </div>
-        <button class="btn btn-primary" onclick="saveSetting()">記録する</button>
+        <button class="btn btn-primary" onclick="saveSetting()">記録する（未レビュー）</button>
       </div>
       <!-- ===== 実測系（センサーで測る） ===== -->
       <div class="card">
@@ -760,7 +716,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.15.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.16.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1130,6 +1086,66 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   </div>
 </div>
 
+<!-- モーダル: 走行レビュー -->
+<div class="modal-overlay" id="reviewModal" onclick="hideModal('reviewModal',event)">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <p class="modal-title" style="margin-bottom:0">走行をレビュー</p>
+      <button onclick="hideModal('reviewModal')" style="background:none;border:none;color:var(--text3);font-size:1.5em;cursor:pointer;line-height:1">×</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px">このセッティングで走った結果を記録します。保存するとレビュー済みになります。</p>
+    <input type="hidden" id="reviewStId">
+    <input type="hidden" id="reviewCarIdx">
+    <div class="form-group">
+      <label class="form-label">走行場所ジャンル</label>
+      <select class="form-input" id="reviewGenre">
+        <option value="">未選択</option>
+        <option value="street">🛣 ストリート</option>
+        <option value="circuit">🏁 サーキット</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label required">コース名</label>
+      <input type="text" class="form-input" id="reviewCourse" placeholder="例: 鈴鹿">
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label required">走行日</label>
+        <input type="date" class="form-input" id="reviewDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">気温 (°C)</label>
+        <input type="number" class="form-input" id="reviewTemp" inputmode="numeric">
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">路面</label>
+        <select class="form-input" id="reviewSurface">
+          <option value="dry">ドライ</option>
+          <option value="wet">ウェット</option>
+          <option value="semi-wet">セミウェット</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">評価</label>
+        <select class="form-input" id="reviewEval">
+          <option value="5">⭐⭐⭐⭐⭐ 最高</option>
+          <option value="4">⭐⭐⭐⭐ 良い</option>
+          <option value="3" selected>⭐⭐⭐ 普通</option>
+          <option value="2">⭐⭐ 悪い</option>
+          <option value="1">⭐ 最悪</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">レビューコメント（走行所感）</label>
+      <textarea class="form-input" id="reviewNote" rows="3" style="resize:none;height:auto" placeholder="例: 進入は良くなったが立ち上がりでリアが流れる"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveReview()">レビューを保存</button>
+  </div>
+</div>
+
 <!-- モーダル: セッティング比較 -->
 <div class="modal-overlay" id="compareModal" onclick="hideModal('compareModal',event)">
   <div class="modal">
@@ -1257,7 +1273,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.15.0';
+const APP_VERSION = '3.16.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -1292,6 +1308,8 @@ function normalizeState(){
     if(!c.records)c.records=[];
     if(!c.tuningLog)c.tuningLog=[];
     if(!c.todos)c.todos=[];
+    // 既存セッティングはコースありならレビュー済みとして移行
+    c.settings.forEach(s=>{if(s.reviewed===undefined)s.reviewed=!!s.course;});
   });
   if(!state.groups)state.groups=[];
   if(!state.groupCache)state.groupCache={};
@@ -1625,8 +1643,8 @@ function updateGroupNav(){
 }
 
 function resetSettingForm(){
-  ['stCourse','stNick','stCar','stTire','stNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['stWeight','stTemp','stSpringFL','stSpringFR','stSpringRL','stSpringRR',
+  ['stNick','stCar','stTire','stNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['stWeight','stSpringFL','stSpringFR','stSpringRL','stSpringRR',
    'stHelperFL','stHelperFR','stHelperRL','stHelperRR',
    'stPressFL','stPressFR','stPressRL','stPressRR',
    'stCamberFL','stCamberFR','stCamberRL','stCamberRR',
@@ -1638,12 +1656,6 @@ function resetSettingForm(){
   const helperInputs=document.getElementById('helperInputs');
   if(useHelper)useHelper.checked=false;
   if(helperInputs)helperInputs.style.display='none';
-  const genre=document.getElementById('stGenre');
-  const subGenre=document.getElementById('stSubGenre');
-  if(genre)genre.value='';if(subGenre)subGenre.value='';
-  ['genreStreet','genreCircuit'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-  const subArea=document.getElementById('subGenreArea');
-  if(subArea)subArea.style.display='none';
 }
 function fillSettingForm(){
   const car=getCar();
@@ -1658,7 +1670,6 @@ function fillSettingForm(){
   if(lastSetting){
     const pf=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null&&val!=='')el.value=val;};
     pf('stWeight',lastSetting.weight);pf('stTire',lastSetting.tire);
-    pf('stTemp',lastSetting.temp);pf('stNote',lastSetting.note);
     pf('stSpringFL',lastSetting.springFL);pf('stSpringFR',lastSetting.springFR);
     pf('stSpringRL',lastSetting.springRL);pf('stSpringRR',lastSetting.springRR);
     pf('stPressFL',lastSetting.pressFL);pf('stPressFR',lastSetting.pressFR);
@@ -1672,12 +1683,6 @@ function fillSettingForm(){
     pf('stPreloadFL',lastSetting.preloadFL);pf('stPreloadFR',lastSetting.preloadFR);
     pf('stPreloadRL',lastSetting.preloadRL);pf('stPreloadRR',lastSetting.preloadRR);
     pf('stMinClearF',lastSetting.minClearF);pf('stMinClearR',lastSetting.minClearR);
-    const surface=document.getElementById('stSurface');
-    if(surface&&lastSetting.surface)surface.value=lastSetting.surface;
-    const eval_=document.getElementById('stEval');
-    if(eval_&&lastSetting.eval)eval_.value=lastSetting.eval;
-    if(lastSetting.genre)selectGenre(lastSetting.genre);
-    if(lastSetting.subGenre)selectSubGenre(lastSetting.subGenre);
   }else{
     // 車両情報から入力（バネは4輪欄へ）
     const pfc=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
@@ -1856,7 +1861,8 @@ function renderDashboard(){
   // 走行距離が長期間未更新なら入力をうながす
   const lastOdoDate=car.odomHistory.length?[...car.odomHistory].map(h=>h.date).sort().slice(-1)[0]:null;
   const odomStaleDays=lastOdoDate?(Date.now()-new Date(lastOdoDate))/86400000:9999;
-  const odomHint=(odomStaleDays>=14)?`<div class="alert alert-info" style="font-size:12px"><span>📏</span><div>現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div></div>`:'';
+  const hintDismissed=state.odomHintDismissedAt&&(Date.now()-state.odomHintDismissedAt<30*86400000);
+  const odomHint=(odomStaleDays>=14&&!hintDismissed)?`<div class="alert alert-info" style="font-size:12px"><span>📏</span><div style="flex:1">現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div><button onclick="dismissOdomHint(event)" style="background:none;border:none;color:var(--text3);font-size:1.3em;cursor:pointer;line-height:1;padding:0 0 0 8px;flex-shrink:0">×</button></div>`:'';
   const statusBar=car.records.length?`<div class="alert ${alerts?'alert-warn':'alert-ok'}" style="align-items:center;justify-content:space-between">
       <span style="display:flex;align-items:center;gap:8px">${alerts?'⚠️ 交換時期が近いパーツがあります':'✅ すべて良好です'}</span>
       ${countBadge}
@@ -2023,6 +2029,12 @@ function saveRecord(){
   document.getElementById('oilFilterCheck').checked=false;
   document.getElementById('oilFilterGroup').style.display='none';
   showPage('dashboard');
+}
+// ホームの走行距離サジェストを×で閉じる（30日後に再表示）
+function dismissOdomHint(e){
+  if(e)e.stopPropagation();
+  state.odomHintDismissedAt=Date.now();
+  save();renderDashboard();
 }
 function saveOdometer(){
   const km=parseInt(document.getElementById('odoKm').value);
@@ -2363,24 +2375,25 @@ function renderHistory(){
       const pressRStr=item.pressRL||item.pressRR?`空気圧R:${item.pressRL||''}/${item.pressRR||''}`:item.pressR?`空気圧R:${item.pressR}`:'';
       const details=[springStr,springRStr,pressStr,pressRStr].filter(Boolean).join(' | ');
       const heightStr=heightSummary(item);
+      const unrev=!item.reviewed;
       return`<div class="timeline-item">
-        <div class="timeline-dot${isLatest?' purple':''}"></div>
+        <div class="timeline-dot${isLatest?(unrev?' amber':' purple'):''}"></div>
         <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div>
-              <span class="badge badge-setting">🏎 セッティング</span>
-              <div class="timeline-title">📍 ${item.course||'?'}</div>
-              <div class="timeline-sub">${item.date||''}${item.temp?` · ${item.temp}°C`:''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}${item.genre?' · '+(item.genre==='street'?'ストリート':'サーキット'):''}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge badge-setting">🏎 セッティング</span>${unrev?'<span class="timeline-badge" style="background:rgba(251,191,36,.15);color:#fcd34d">⚠️ 未レビュー</span>':''}</div>
+              <div class="timeline-title">${unrev?'📝 セッティング記録':'📍 '+(item.course||'?')}</div>
+              <div class="timeline-sub">${item.date||''}${item.reviewDate&&item.reviewDate!==item.date?' → 走行 '+item.reviewDate:''}${!unrev&&item.temp?` · ${item.temp}°C`:''}${!unrev&&item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}${!unrev&&item.genre?' · '+(item.genre==='street'?'ストリート':'サーキット'):''}</div>
             </div>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">${details}</div>`:''}
           ${heightStr?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightStr}</div>`:''}
           ${(item.freqF||item.freqR)?`<div style="font-size:11px;color:var(--text3);margin-top:4px">固有振動数 F:${item.freqF?parseFloat(item.freqF).toFixed(2)+'Hz':'-'} R:${item.freqR?parseFloat(item.freqR).toFixed(2)+'Hz':'-'}</div>`:''}
           ${(item.measFreqF||item.measFreqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">📱 実測 F:${item.measFreqF?parseFloat(item.measFreqF).toFixed(2)+'Hz':'-'} R:${item.measFreqR?parseFloat(item.measFreqR).toFixed(2)+'Hz':'-'}</div>`:''}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            <span style="font-size:12px">${stars}</span>
-            ${item.note?`<span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}
-          </div>
+          ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px">💬 ${item.note}</div>`:''}
+          ${unrev
+            ?`<div style="margin-top:8px"><div style="font-size:11px;color:#fcd34d;margin-bottom:6px">走行後にレビューしてください</div><button class="btn btn-sm" onclick="event.stopPropagation();openReview(${item.id})" style="background:var(--blue);color:#fff;width:100%">📝 レビューする</button></div>`
+            :`<div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.reviewNote?` <span style="font-size:11px;color:var(--text3)">📝 ${esc(item.reviewNote)}</span>`:''}</div>`}
         </div>
       </div>`;
     }
@@ -2489,17 +2502,20 @@ function renderHistoryAll(){
       const springStr=item.springFL||item.springFR?`バネF:${item.springFL||''}/${item.springFR||''}`:item.springF?`バネF:${item.springF}`:'';
       const springRStr=item.springRL||item.springRR?`バネR:${item.springRL||''}/${item.springRR||''}`:item.springR?`バネR:${item.springR}`:'';
       const details=[springStr,springRStr].filter(Boolean).join(' | ');
+      const unrev=!item.reviewed;
       return`<div class="timeline-item">
-        <div class="timeline-dot${isLatest?' purple':''}"></div>
+        <div class="timeline-dot${isLatest?(unrev?' amber':' purple'):''}"></div>
         <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id},${item._carIdx})" style="cursor:pointer">
           <div class="timeline-header">
-            <div><span class="badge badge-setting">🏎 セッティング</span>${carLabel}
-            <div class="timeline-title">📍 ${item.course||'?'}</div>
-            <div class="timeline-sub">${item.date||''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
+            <div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="badge badge-setting">🏎 セッティング</span>${unrev?'<span class="timeline-badge" style="background:rgba(251,191,36,.15);color:#fcd34d">⚠️ 未レビュー</span>':''}${carLabel}</div>
+            <div class="timeline-title">${unrev?'📝 セッティング記録':'📍 '+(item.course||'?')}</div>
+            <div class="timeline-sub">${item.date||''}${!unrev&&item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${details}</div>`:''}
           ${heightSummary(item)?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightSummary(item)}</div>`:''}
-          <div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.note?` <span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}</div>
+          ${unrev
+            ?`<div style="margin-top:8px"><button class="btn btn-sm" onclick="event.stopPropagation();openReview(${item.id},${item._carIdx})" style="background:var(--blue);color:#fff;width:100%">📝 レビューする</button></div>`
+            :`<div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.reviewNote?` <span style="font-size:11px;color:var(--text3)">📝 ${esc(item.reviewNote)}</span>`:''}</div>`}
         </div>
       </div>`;
     }
@@ -2629,6 +2645,18 @@ function showEditSetting(id,carIdx){
   }else{mfRow.style.display='none';}
   document.getElementById('editSettingModal').classList.add('show');
 }
+// セッティングの数値項目（変更検知・フォーク用）
+const SETTING_NUM_KEYS=['weight','springFL','springFR','springRL','springRR',
+  'helperFL','helperFR','helperRL','helperRR',
+  'pressFL','pressFR','pressRL','pressRR',
+  'camberFL','camberFR','camberRL','camberRR','toeFL','toeFR','toeRL','toeRR','casterFL','casterFR',
+  'shockLenFL','shockLenFR','shockLenRL','shockLenRR','preloadFL','preloadFR','preloadRL','preloadRR','minClearF','minClearR'];
+function recalcSettingFreq(o,car){
+  const avgSpF=o.springFL&&o.springFR?(o.springFL+o.springFR)/2:o.springFL||o.springFR||o.springF||null;
+  const avgSpR=o.springRL&&o.springRR?(o.springRL+o.springRR)/2:o.springRL||o.springRR||o.springR||null;
+  o.freqF=(car.leverF&&avgSpF)?computeNaturalFreq(avgSpF,car.leverF,cornerMass(car,'F')):null;
+  o.freqR=(car.leverR&&avgSpR)?computeNaturalFreq(avgSpR,car.leverR,cornerMass(car,'R')):null;
+}
 function saveEditSetting(){
   const id=parseInt(document.getElementById('editStId').value);
   const ci=parseInt(document.getElementById('editStCarIdx').value);
@@ -2637,10 +2665,17 @@ function saveEditSetting(){
   if(!s)return;
   const course=document.getElementById('editStCourse').value.trim();
   const date=document.getElementById('editStDate').value;
-  if(!course||!date){toast('コース名と日付を入力してください');return;}
-  s.course=course;s.date=date;s.eval=parseInt(document.getElementById('editStEval').value);
+  if(!date){toast('日付を入力してください');return;}
+  if(s.reviewed&&!course){toast('コース名を入力してください');return;}
+  // 変更前の数値スナップショット（フォーク判定用）
+  const oldSnap={};SETTING_NUM_KEYS.forEach(k=>oldSnap[k]=s[k]??null);
+  // レビュー系（レビュー済みのみ反映）
+  if(s.reviewed){
+    s.course=course;s.eval=parseInt(document.getElementById('editStEval').value);
+    const surfEl=document.getElementById('editStSurface');if(surfEl)s.surface=surfEl.value;
+  }
+  s.date=date;
   const pf=eid=>{const v=parseFloat(document.getElementById(eid).value);return isNaN(v)?null:v;};
-  const surfEl=document.getElementById('editStSurface');if(surfEl)s.surface=surfEl.value;
   s.temp=pf('editStTemp');s.tire=document.getElementById('editStTire').value.trim()||null;
   s.weight=pf('editStWeight');
   s.springFL=pf('editSpFL');s.springFR=pf('editSpFR');s.springRL=pf('editSpRL');s.springRR=pf('editSpRR');
@@ -2659,13 +2694,89 @@ function saveEditSetting(){
   s.preloadFL=pf('editPlFL');s.preloadFR=pf('editPlFR');s.preloadRL=pf('editPlRL');s.preloadRR=pf('editPlRR');
   s.minClearF=pf('editMcF');s.minClearR=pf('editMcR');
   s.note=document.getElementById('editStNote').value;
-  // 固有振動数を再計算（表示と同じバネ上重量基準）
-  const avgSpF=s.springFL&&s.springFR?(s.springFL+s.springFR)/2:s.springFL||s.springFR||s.springF||null;
-  const avgSpR=s.springRL&&s.springRR?(s.springRL+s.springRR)/2:s.springRL||s.springRR||s.springR||null;
-  if(car.leverF&&avgSpF)s.freqF=computeNaturalFreq(avgSpF,car.leverF,cornerMass(car,'F'));
-  if(car.leverR&&avgSpR)s.freqR=computeNaturalFreq(avgSpR,car.leverR,cornerMass(car,'R'));
-  save();hideModal('editSettingModal');renderHistory();
-  toast('セッティングを更新しました');
+  // レビュー済みで数値が変わった → 新しいセッティングとして追加するか確認
+  const numChanged=SETTING_NUM_KEYS.some(k=>(s[k]??null)!==oldSnap[k]);
+  if(s.reviewed&&numChanged){
+    if(confirm('変更後の数値で新しいセッティングとして追加しますか？\n「いいえ」を押すと、この記録の数値をそのまま修正します。')){
+      // フォーク: 変更後の数値で未レビューの新規を作る。元のレビュー済みは数値を戻して温存
+      const fork={...s,id:Date.now(),ts:Date.now(),reviewed:false,
+        course:null,genre:null,subGenre:null,reviewDate:null,reviewNote:'',surface:null,temp:null,eval:null,date};
+      delete fork.fbIds;
+      SETTING_NUM_KEYS.forEach(k=>{s[k]=oldSnap[k];}); // 元を旧数値に戻す
+      recalcSettingFreq(s,car);recalcSettingFreq(fork,car);
+      car.settings.push(fork);
+      save();hideModal('editSettingModal');renderHistory();renderDashboard();
+      toast('新しいセッティングを追加しました ✓（未レビュー）');
+      return;
+    }
+  }
+  recalcSettingFreq(s,car);
+  save();hideModal('editSettingModal');renderHistory();renderDashboard();
+  toast(s.reviewed?'セッティングを更新しました':'数値を修正しました');
+}
+// ---- 走行レビュー ----
+function openReview(id,carIdx){
+  const car=carIdx!==undefined?state.cars[carIdx]:getCar();
+  const s=car.settings.find(x=>x.id===id);
+  if(!s)return;
+  document.getElementById('reviewStId').value=id;
+  document.getElementById('reviewCarIdx').value=carIdx!==undefined?carIdx:state.selectedCar;
+  document.getElementById('reviewGenre').value=s.genre||'';
+  document.getElementById('reviewCourse').value=s.course||'';
+  document.getElementById('reviewDate').value=s.reviewDate||new Date().toISOString().split('T')[0];
+  document.getElementById('reviewTemp').value=s.temp??'';
+  document.getElementById('reviewSurface').value=s.surface||'dry';
+  document.getElementById('reviewEval').value=s.eval||3;
+  document.getElementById('reviewNote').value=s.reviewNote||'';
+  document.getElementById('reviewModal').classList.add('show');
+}
+async function saveReview(){
+  const id=parseInt(document.getElementById('reviewStId').value);
+  const ci=parseInt(document.getElementById('reviewCarIdx').value);
+  const car=!isNaN(ci)?state.cars[ci]:getCar();
+  const s=car.settings.find(x=>x.id===id);
+  if(!s)return;
+  const course=document.getElementById('reviewCourse').value.trim();
+  const date=document.getElementById('reviewDate').value;
+  if(!course||!date){toast('コース名と走行日を入力してください');return;}
+  s.course=course;
+  s.genre=document.getElementById('reviewGenre').value||null;
+  s.reviewDate=date;
+  s.temp=parseFloat(document.getElementById('reviewTemp').value)||null;
+  s.surface=document.getElementById('reviewSurface').value;
+  s.eval=parseInt(document.getElementById('reviewEval').value);
+  s.reviewNote=document.getElementById('reviewNote').value.trim();
+  s.reviewed=true;
+  save();
+  await shareReviewToGroups(s,car);
+  hideModal('reviewModal');renderHistory();renderDashboard();renderGroupFreq();
+  toast('レビューを保存しました ✓');
+}
+// グループ共有: 同車・同日のレビュー済みのうち最高評価のみを共有
+async function shareReviewToGroups(s,car){
+  if(!state.groups.length)return;
+  const day=s.reviewDate||s.date;
+  const sameDay=car.settings.filter(x=>x.reviewed&&(x.reviewDate||x.date)===day);
+  if(!sameDay.length)return;
+  const best=sameDay.reduce((a,b)=>((b.eval||0)>(a.eval||0)?b:a),sameDay[0]);
+  for(const group of state.groups){
+    // best 以外で同日同車に共有済みがあれば取り下げ
+    for(const x of sameDay){
+      if(x!==best&&x.fbIds&&x.fbIds[group.code]){
+        if(navigator.onLine)await fbDelete(`groups/${group.code}/settings/${x.fbIds[group.code]}`);
+        delete x.fbIds[group.code];
+      }
+    }
+    if(best.fbIds&&best.fbIds[group.code])continue; // 既に共有済み
+    const fbData={...best,nick:group.nick||best.nick};
+    if(navigator.onLine){
+      const fbId=await fbPush(`groups/${group.code}/settings`,fbData);
+      if(fbId){if(!best.fbIds)best.fbIds={};best.fbIds[group.code]=fbId;}
+    }else{
+      pendingUploads.push({code:group.code,data:fbData,localId:best.id});
+    }
+  }
+  save();
 }
 function deleteSettingFromEdit(){
   const id=parseInt(document.getElementById('editStId').value);
@@ -2739,7 +2850,7 @@ function generateCode(){
 }
 function countUnsharedSettings(code){
   let n=0;
-  state.cars.forEach(car=>car.settings.forEach(s=>{if(!s.fbIds||!s.fbIds[code])n++;}));
+  state.cars.forEach(car=>car.settings.forEach(s=>{if(s.reviewed&&(!s.fbIds||!s.fbIds[code]))n++;}));
   return n;
 }
 async function uploadSettingsToGroup(code){
@@ -2748,6 +2859,7 @@ async function uploadSettingsToGroup(code){
   let count=0;
   for(const car of state.cars){
     for(const s of car.settings){
+      if(!s.reviewed)continue; // 未レビューは共有しない
       if(!s.fbIds||!s.fbIds[code]){
         const fbData={...s,nick:g.nick||state.nickname||''};
         const fbId=await fbPush(`groups/${code}/settings`,fbData);
@@ -4451,11 +4563,8 @@ function renderComparison(){
 // ---- セッティング保存 ----
 function pfSafe(id){const v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;}
 async function saveSetting(){
-  const course=document.getElementById('stCourse').value.trim();
   const date=document.getElementById('stDate').value;
-  const genre=document.getElementById('stGenre').value;
-  const subGenre=document.getElementById('stSubGenre').value;
-  if(!course||!date){toast('コース名と日付は必須です');return;}
+  if(!date){toast('記録日を入力してください');return;}
   const springFL=parseFloat(document.getElementById('stSpringFL').value)||null;
   const springFR=parseFloat(document.getElementById('stSpringFR').value)||null;
   const springRL=parseFloat(document.getElementById('stSpringRL').value)||null;
@@ -4467,9 +4576,8 @@ async function saveSetting(){
     nick:document.getElementById('stNick').value.trim()||state.nickname||'',
     car:document.getElementById('stCar').value.trim()||getCar().name,
     weight:parseFloat(document.getElementById('stWeight').value)||null,
-    genre,subGenre,course,date,
-    temp:parseFloat(document.getElementById('stTemp').value)||null,
-    surface:document.getElementById('stSurface').value,
+    date, // 記録日
+    reviewed:false, // 走行レビュー未実施（コース/評価/所感は後でレビューで付与）
     tire:document.getElementById('stTire').value.trim(),
     // スプリング（4輪）
     springFL,springFR,springRL,springRR,springF,springR,
@@ -4502,7 +4610,6 @@ async function saveSetting(){
     preloadFL:pfSafe('stPreloadFL'),preloadFR:pfSafe('stPreloadFR'),
     preloadRL:pfSafe('stPreloadRL'),preloadRR:pfSafe('stPreloadRR'),
     minClearF:pfSafe('stMinClearF'),minClearR:pfSafe('stMinClearR'),
-    eval:parseInt(document.getElementById('stEval').value),
     // 実測固有振動数
     measFreqF:pfSafe('stMeasFreqF'),
     measFreqR:pfSafe('stMeasFreqR'),
@@ -4532,25 +4639,11 @@ async function saveSetting(){
     }
   }
 
-  // グループに共有
-  const targetGroups=state.groups.length>1
-    ?confirm(`参加中のグループ（${state.groups.length}個）すべてに反映しますか？`)
-      ?state.groups:[]
-    :state.groups;
-  for(const group of targetGroups){
-    const fbData={...data,nick:group.nick||data.nick};
-    if(navigator.onLine){
-      const fbId=await fbPush(`groups/${group.code}/settings`,fbData);
-      if(fbId){if(!data.fbIds)data.fbIds={};data.fbIds[group.code]=fbId;}
-    }else{
-      pendingUploads.push({code:group.code,data:fbData,localId:data.id});
-    }
-  }
-
+  // 未レビューはグループ共有しない（レビュー時に共有）
   save();
-  const groupMsg=targetGroups.length?(navigator.onLine?'（グループに共有済み）':'（オフライン：復帰後に同期）'):'';
-  toast(`記録しました ✓ ${groupMsg}`);
-  document.getElementById('stCourse').value='';
+  toast('記録しました ✓（未レビュー）走行後にホームの履歴からレビューしてください');
+  resetSettingForm();
+  showPage('dashboard');
 }
 
 // ---- コミュニティ検索 ----
@@ -4780,28 +4873,6 @@ function toggleAccordion(id){
 function _accExpand(el){
   const body=el.closest('.accordion-body');
   if(body&&body.classList.contains('open'))body.style.maxHeight='none';
-}
-
-// 走行場所ジャンル選択
-const SUBGENRES={
-  street:[{val:'highway',label:'🛣 高速コース'},{val:'technical',label:'🔀 テクニカルコース'}],
-  circuit:[{val:'short',label:'🏎 ショートサーキット'},{val:'international',label:'🏁 国際サーキット'}]
-};
-function selectGenre(genre){
-  document.getElementById('stGenre').value=genre;
-  document.getElementById('stSubGenre').value='';
-  ['genreStreet','genreCircuit'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  document.getElementById(genre==='street'?'genreStreet':'genreCircuit').classList.add('active');
-  const sub=SUBGENRES[genre];
-  const grid=document.getElementById('subGenreGrid');
-  grid.innerHTML=sub.map(s=>`<button class="course-type-btn" id="sub_${s.val}" onclick="selectSubGenre('${s.val}')">${s.label}</button>`).join('');
-  document.getElementById('subGenreArea').style.display='block';
-}
-function selectSubGenre(val){
-  document.getElementById('stSubGenre').value=val;
-  document.querySelectorAll('#subGenreGrid .course-type-btn').forEach(b=>b.classList.remove('active'));
-  const btn=document.getElementById('sub_'+val);
-  if(btn)btn.classList.add('active');
 }
 
 function toast(msg){
