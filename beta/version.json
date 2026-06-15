@@ -1,5 +1,5 @@
 {
-  "version": "3.16.7",
+  "version": "3.16.8",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビが高く見える問題に対応。Project Control風の見た目は維持しつつ、ナビ全体をsafe-area分だけ下にオフセット（bottomを負値に）。grid auto-fitで表示ボタン数が変わっても均等配置。"
+  "notes": "下部ナビを根本修正。position:fixedをやめ、#appのflex最下段に通常配置（既存のflex構造を正しく利用）。bottomオフセットやsafe-area相殺などの位置合わせハックを全廃。safe-areaはナビ自身の下paddingのみ。これでホームバー直上に安定して収まる。"
 }
