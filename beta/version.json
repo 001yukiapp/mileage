@@ -1,5 +1,5 @@
 {
-  "version": "3.16.1",
+  "version": "3.16.2",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビバーを低くした（アイコン＋文字の見た目はそのまま、アイコンを少し小さくして高さ40px→32pxに）。画面下の表示領域を拡大。"
+  "notes": "下部ナビバーをsafe-area対応に。バーはbottom:0のまま背景をホームバーまで延ばし、タップ領域は46pxを確保。アイコン＋ラベルを少し下げてiPhoneのホームバーと干渉しないよう調整（env(safe-area-inset-bottom)使用）。"
 }
