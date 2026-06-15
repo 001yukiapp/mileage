@@ -1,5 +1,5 @@
 {
-  "version": "3.16.3",
+  "version": "3.16.4",
   "url": "https://001yukiapp.github.io/mileage/beta/",
-  "notes": "下部ナビバーの変更（3.16.1/3.16.2）を取りやめ、3.16.0の状態（元のナビ）に戻しました。"
+  "notes": "下部ナビをProject Control風の「文字だけの低いナビ」に変更。アイコンは非表示（HTMLは温存）、flex構造維持でボタン数が変わっても均等配置、safe-area(env)対応でiPhoneホームバーにもかからないように。"
 }
