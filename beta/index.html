@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.20.0</title>
+<title>Mileage 3.21.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -178,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.20.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.21.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -675,6 +675,13 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <button class="btn" id="lcStopBtn" onclick="stopLimitRunCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
           <div id="lcStatus" style="margin-top:10px"></div>
         </div>
+
+        <div class="owner-only" style="display:none;border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-top:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">📥 集まったデータ（土居用）</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">友達から送られてきた収録データの一覧。各項目をJSONでダウンロード、不要なら削除できます。</p>
+          <button class="btn btn-sm" onclick="loadCollectedData()" style="background:var(--bg3);color:var(--text)">読み込み / 更新</button>
+          <div id="collectedList" style="margin-top:10px"></div>
+        </div>
       </div>
 
       <div style="height:16px"></div>
@@ -755,14 +762,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <div id="devPwMsg" style="font-size:12px;margin-top:8px"></div>
         </div>
         <div id="devUnlockedBox" style="display:none">
-          <p style="font-size:13px;color:#34d399;margin-bottom:10px">✅ 解錠済み。セッティングタブに実測・データ収集が表示されます。</p>
+          <p style="font-size:13px;color:#34d399;margin-bottom:6px">✅ 解錠済み。セッティングタブに実測・データ収集が表示されます。</p>
+          <p id="devOwnerNote" style="display:none;font-size:12px;color:#c4b5fd;margin-bottom:10px">🔑 土居用モード：「📥 集まったデータ」も表示されます。</p>
           <button class="btn" onclick="lockDevMode()" style="background:var(--bg3);color:var(--text)">ロックする</button>
         </div>
       </div>
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.20.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.21.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1313,7 +1321,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.20.0';
+const APP_VERSION = '3.21.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3362,6 +3370,8 @@ function _recOpenSendModal(data,summary){
       const sbtn=ov.querySelector('#recSend');sbtn.disabled=true;msg('送信中…',null);
       const id=await fbPush(`datacollect/${data.mode||'raw'}`,data);
       if(id){
+        // 軽量メタを別ノードに（土居用ビューアが生データを読まず一覧できるように）
+        try{fbSet(`datacollect_meta/${id}`,{mode:data.mode||'raw',sender:data.sender||'',car:(data.car&&data.car.name)||'',comment:data.comment||'',axle:data.axle||null,at:data.uploadedAt,durationSec:data.durationSec||0,sampleCount:data.sampleCount||((data.samples&&data.samples.length)||0)});}catch(_){}
         sbtn.style.display='none';ov.querySelector('#recBack').style.display='none';ov.querySelector('#recDl').style.display='none';
         msg('✅ 土居に送信しました。ありがとう！','#34d399');
         const done=document.createElement('button');done.className='btn btn-primary';done.textContent='閉じる';done.style.cssText='width:100%;margin-top:14px';done.onclick=close;ov.querySelector('#recMsg').after(done);
@@ -5121,25 +5131,66 @@ async function uploadSelectedToGroup(){
 
 // ---- 設定 ----
 // ==== 開発者モード（実測・データ収集をパスワードで解錠。milage_v1とは別キーで保持） ====
-const DEV_PW='analysisdev';
+const DEV_PW='analysisdev';        // 実測＋データ収集(記録)を解錠
+const OWNER_PW='fullacces001only'; // 土居用：上記＋「📥集まったデータ」ビューアも解錠
 const DEV_KEY='mileage_devmode';
+const OWNER_KEY='mileage_owner';
 function isDevMode(){try{return localStorage.getItem(DEV_KEY)==='1';}catch(e){return false;}}
+function isOwnerMode(){try{return localStorage.getItem(OWNER_KEY)==='1';}catch(e){return false;}}
 function applyDevMode(){
-  const on=isDevMode();
-  document.querySelectorAll('.dev-only').forEach(el=>{el.style.display=on?'':'none';});
+  const dev=isDevMode()||isOwnerMode(); // 土居は記録機能も全部見える
+  const owner=isOwnerMode();
+  document.querySelectorAll('.dev-only').forEach(el=>{el.style.display=dev?'':'none';});
+  document.querySelectorAll('.owner-only').forEach(el=>{el.style.display=owner?'':'none';});
   const locked=document.getElementById('devLockedBox'),unlocked=document.getElementById('devUnlockedBox');
-  if(locked&&unlocked){locked.style.display=on?'none':'';unlocked.style.display=on?'':'none';}
+  if(locked&&unlocked){locked.style.display=dev?'none':'';unlocked.style.display=dev?'':'none';}
+  const ow=document.getElementById('devOwnerNote');if(ow)ow.style.display=owner?'':'none';
 }
 function unlockDevMode(){
   const inp=document.getElementById('devPwInput'),msg=document.getElementById('devPwMsg');
-  if((inp.value||'').trim()!==DEV_PW){msg.style.color='#f87171';msg.textContent='パスワードが違います';return;}
-  try{localStorage.setItem(DEV_KEY,'1');}catch(e){}
-  inp.value='';msg.textContent='';
-  applyDevMode();toast('開発者モードを解錠しました');
+  const pw=(inp.value||'').trim();
+  if(pw===OWNER_PW){try{localStorage.setItem(OWNER_KEY,'1');localStorage.setItem(DEV_KEY,'1');}catch(e){}inp.value='';msg.textContent='';applyDevMode();toast('土居用モードを解錠しました');return;}
+  if(pw===DEV_PW){try{localStorage.setItem(DEV_KEY,'1');}catch(e){}inp.value='';msg.textContent='';applyDevMode();toast('開発者モードを解錠しました');return;}
+  msg.style.color='#f87171';msg.textContent='パスワードが違います';
 }
 function lockDevMode(){
-  try{localStorage.removeItem(DEV_KEY);}catch(e){}
+  try{localStorage.removeItem(DEV_KEY);localStorage.removeItem(OWNER_KEY);}catch(e){}
   applyDevMode();toast('ロックしました');
+}
+// ==== 集まったデータのビューア（土居用・datacollect_metaを一覧→DL時だけ生データ取得） ====
+async function loadCollectedData(){
+  const el=document.getElementById('collectedList');if(!el)return;
+  el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:6px">読み込み中…</div>';
+  const meta=await fbGet('datacollect_meta');
+  if(!meta){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:6px">まだデータがありません。</div>';return;}
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const items=Object.entries(meta).map(([id,m])=>({id,...m})).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${items.length}件</div>`+items.map(m=>`
+    <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="font-size:13px;color:var(--text)"><b>${esc(m.sender)||'?'}</b> ／ ${esc(m.car)||'?'} <span style="color:var(--text3);font-size:11px">(${esc(m.mode)}${m.axle?'・'+(m.axle==='R'?'後':'前'):''})</span></div>
+      ${m.comment?`<div style="font-size:11px;color:var(--text2);margin:3px 0">${esc(m.comment)}</div>`:''}
+      <div style="font-size:10px;color:var(--text3)">${esc(String(m.at||'').slice(0,16).replace('T',' '))}・${m.durationSec||'?'}秒・${(m.sampleCount||0).toLocaleString()}件</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm" style="flex:1;background:var(--blue);color:#fff" onclick="downloadCollected('${m.mode}','${m.id}',this)">⬇ ダウンロード</button>
+        <button class="btn btn-sm" style="flex:0 0 auto;padding:4px 12px;background:var(--bg2);color:#f87171" onclick="deleteCollected('${m.mode}','${m.id}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+async function downloadCollected(mode,id,btn){
+  if(btn){btn.disabled=true;btn.textContent='取得中…';}
+  const d=await fbGet(`datacollect/${mode}/${id}`);
+  if(!d){toast('取得できませんでした');if(btn){btn.disabled=false;btn.textContent='⬇ ダウンロード';}return;}
+  const fname=`mileage-${mode}-${((d.car&&d.car.name)||'car').replace(/[^\w]/g,'')}-${(d.sender||'').replace(/[^\w]/g,'')}-${id.slice(-5)}.json`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>{try{URL.revokeObjectURL(url);}catch(_){}},3000);
+  if(btn){btn.disabled=false;btn.textContent='✓ DL済';}
+}
+async function deleteCollected(mode,id){
+  if(!confirm('このデータを削除しますか？（元に戻せません）'))return;
+  await fbDelete(`datacollect/${mode}/${id}`);
+  await fbDelete(`datacollect_meta/${id}`);
+  toast('削除しました');loadCollectedData();
 }
 function renderSettings(){
   document.getElementById('s-notify').value=state.notifyDays||30;
