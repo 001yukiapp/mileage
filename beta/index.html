@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.19.3</title>
+<title>Mileage 3.20.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -178,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.19.3</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.20.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -661,24 +661,16 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <p style="font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.7"><b>解析しません。</b>センサーの<b>生データをそのまま記録</b>し、1ファイルで書き出して開発用に送るためのモードです（測定精度を上げる情報収集用）。スマホを前軸／後軸付近の硬い場所に<b>しっかり固定</b>してください。<br><span style="color:#fbbf24">⚠️ 落下・固定に注意。長時間ほどファイルが大きくなります。</span></p>
 
         <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">① 固有振動（直進・一定速）</div>
-          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">加速度・ジャイロ・GPS速度を生記録。一定速度で何本か。</p>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">① 固有振動</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">前または後ろのストラットタワー付近に固定。<b>一定速度でなくてOK</b>（GPSを記録するので解析で一定速度の区間だけ使います）。終了後に<b>前/後</b>を選んで送信。</p>
           <button class="btn btn-primary" id="dcStartBtn" onclick="startDataCollect()">記録開始</button>
           <button class="btn" id="dcStopBtn" onclick="stopDataCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
           <div id="dcStatus" style="margin-top:10px"></div>
         </div>
 
         <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-top:14px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">② Gサークル（生G vs 表示G）</div>
-          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">どのくらいのGが、平滑化後どのくらい表示に反映されたかを毎サンプル記録。停車中に開始（自動ゼロ点校正）。</p>
-          <button class="btn btn-primary" id="gcStartBtn" onclick="startGMeterCollect()">記録開始</button>
-          <button class="btn" id="gcStopBtn" onclick="stopGMeterCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
-          <div id="gcStatus" style="margin-top:10px"></div>
-        </div>
-
-        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-top:14px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">③ 限界走行（フルセッション）</div>
-          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">加速度・ジャイロ・GPS（速度/位置）に加え、検出イベント（アンダー/オーバー・ばたつき）も同梱。停車中か直進で開始。</p>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">② 走行（本気アタック）</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">スマホをしっかり固定して本気で走行。加速度・ジャイロ・GPS（速度/位置）＋検出イベントを丸ごと記録（Gサークル/限界走行 兼用）。停車中か直進で開始。</p>
           <button class="btn btn-primary" id="lcStartBtn" onclick="startLimitRunCollect()">記録開始</button>
           <button class="btn" id="lcStopBtn" onclick="stopLimitRunCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
           <div id="lcStatus" style="margin-top:10px"></div>
@@ -770,7 +762,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.19.3</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.20.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1321,7 +1313,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.19.3';
+const APP_VERSION = '3.20.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3260,10 +3252,7 @@ function startDataCollect(){
     },1000);
     _dcStatusHtml('<div style="text-align:center;padding:8px;color:var(--text3)">記録を開始しました…</div>');
   };
-  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else toast('センサーへのアクセスが拒否されました');}).catch(()=>toast('センサー許可エラー'));
-  }else if(typeof DeviceMotionEvent!=='undefined'){go();}
-  else{toast('この端末は加速度センサーをサポートしていません');}
+  _ensureMotionPerm(()=>_condModal('固有振動 データ収集',COND_TXT.dcFreq,go));
 }
 function stopDataCollect(){
   if(!_dcActive)return;
@@ -3338,26 +3327,38 @@ function _recOpenSendModal(data,summary){
   };
   // ステージ2：ニックネーム＋コメント（必須）→送信
   const stageSend=(name)=>{
+    const isFreq=(data.mode==='freq');
+    const axleHtml=isFreq?`
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">スマホを固定した位置（必須）</div>
+      <div id="recAxle" style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" data-ax="F" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">前（フロント）</button>
+        <button type="button" data-ax="R" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">後（リア）</button>
+      </div>`:'';
     ov.innerHTML=card(`
       <div style="font-size:14px;color:var(--text2);text-align:center;margin-bottom:14px">車：<b style="color:var(--text)">${name}</b></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px">ニックネーム</div>
       <input id="recNick" class="form-input" placeholder="例：たろう" value="${(state.nickname||'').replace(/"/g,'&quot;')}" style="margin-bottom:12px">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">今の走行のコメント（必須）</div>
-      <textarea id="recComment" class="form-input" rows="3" placeholder="例：荒れた舗装路を40〜60km/h・後軸付近に固定・少し跳ねる感じ" style="resize:none"></textarea>
+      ${axleHtml}
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">どんな走行でしたか？（必須）</div>
+      <textarea id="recComment" class="form-input" rows="3" placeholder="例：荒れた舗装路を40〜60km/h・少し跳ねる感じ／攻めたコーナーでオーバー気味 など" style="resize:none"></textarea>
       <div id="recMsg" style="font-size:12px;color:var(--text3);text-align:center;margin:10px 0"></div>
       <button id="recSend" class="btn btn-primary" style="width:100%;font-size:16px;font-weight:700;padding:16px">📤 土居に送信</button>
       <button id="recDl" class="btn" style="width:100%;margin-top:8px;background:var(--bg3);color:var(--text)">保存（ダウンロード）</button>
       <button id="recBack" style="width:100%;margin-top:6px;background:none;border:none;color:var(--text3);font-size:12px;padding:6px;cursor:pointer">← 車を確認しなおす</button>`);
     const msg=(t,c)=>{const m=ov.querySelector('#recMsg');if(m){m.innerHTML=t;m.style.color=c||'var(--text3)';}};
+    let axle=null;
+    if(isFreq){const seg=ov.querySelector('#recAxle');seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{axle=b.dataset.ax;seg.querySelectorAll('button').forEach(x=>{const on=x.dataset.ax===axle;x.style.background=on?'var(--blue)':'var(--bg3)';x.style.color=on?'#fff':'var(--text)';});});}
     ov.querySelector('#recDl').onclick=dlFile;
     ov.querySelector('#recBack').onclick=stageConfirm;
     ov.querySelector('#recSend').onclick=async()=>{
       const nick=(ov.querySelector('#recNick').value||'').trim();
       const comment=(ov.querySelector('#recComment').value||'').trim();
       if(!nick){const n=ov.querySelector('#recNick');n.style.borderColor='#f87171';n.focus();msg('ニックネームを入力してください。','#f87171');return;}
-      if(!comment){const c=ov.querySelector('#recComment');c.style.borderColor='#f87171';c.focus();msg('今の走行のコメントを入力してください。','#f87171');return;}
+      if(isFreq&&!axle){msg('スマホを固定した位置（前／後）を選んでください。','#f87171');return;}
+      if(!comment){const c=ov.querySelector('#recComment');c.style.borderColor='#f87171';c.focus();msg('「どんな走行でしたか？」を入力してください。','#f87171');return;}
       if(nick&&!state.nickname){state.nickname=nick;save();}
       data.sender=nick;data.comment=comment;data.uploadedAt=new Date().toISOString();
+      if(isFreq)data.axle=axle;
       const sbtn=ov.querySelector('#recSend');sbtn.disabled=true;msg('送信中…',null);
       const id=await fbPush(`datacollect/${data.mode||'raw'}`,data);
       if(id){
@@ -3369,6 +3370,36 @@ function _recOpenSendModal(data,summary){
   };
   stageConfirm();
   document.body.appendChild(ov);
+}
+// 計測前の「収録条件」を大きく出すモーダル（OKで onOk＝実際の計測開始）。実測・データ収集の共通
+function _condModal(title,condHtml,onOk){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.innerHTML=`<div style="background:var(--bg2);border-radius:18px;padding:26px 22px;max-width:440px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.6)">
+    <div style="font-size:21px;font-weight:800;color:var(--text);text-align:center;margin-bottom:16px">${title}</div>
+    <div style="font-size:15px;color:var(--text);line-height:1.95">${condHtml}</div>
+    <button id="condOk" class="btn btn-primary" style="width:100%;font-size:16px;font-weight:700;padding:16px;margin-top:22px">OK・計測を始める</button>
+    <button id="condCancel" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text3);font-size:13px;padding:8px;cursor:pointer">やめる</button>
+  </div>`;
+  ov.querySelector('#condCancel').onclick=()=>ov.remove();
+  ov.querySelector('#condOk').onclick=()=>{ov.remove();onOk();};
+  document.body.appendChild(ov);
+}
+// 収録条件テキスト（用途別）
+const COND_TXT={
+  fmMeasure:'<b>📱 スマホを、なるべく<u>前または後ろのストラットタワーに近い硬い場所</u>にしっかり固定</b>してください。<br>・いろんな速度（30〜70km/h）で走るほど精度が上がります<br>・荒れた舗装路がおすすめ。急加減速・カーブ・段差は避けて<br>・上で<b>前軸寄り／後軸寄り</b>を選んでね<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>',
+  gMeter:'<b>📱 スマホをしっかり固定</b>（角度は自由・縦横OK、画面が運転席を向くように）。<br>・<b>停車中に開始</b>すると自動でゼロ点校正します<br><span style="color:#fbbf24">⚠️ 運転中は画面を注視しないで。落下注意。</span>',
+  limitRun:'<b>📱 スマホをしっかり固定し、停車中に開始</b>してください。<br>・<b>本気でコースを攻めて</b>走ると、アンダー/オーバー・最大Gを記録します<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。走行後に確認。屋外（GPS）で。</span>',
+  dcFreq:'<b>📱 なるべく前または後ろの<u>ストラットタワーに近い場所</u>にしっかり固定</b>してください。<br>・<b>一定速度でなくてOK</b>（GPSを記録するので、解析で一定速度の区間だけ拾います）<br>・荒れた舗装路を何本か走ってください<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外で。</span>',
+  dcRun:'<b>📱 スマホをしっかり固定して、本気で走ってください。</b><br>・加速・減速・コーナー、思い切り攻めてOK<br>・走行後にデータを土居に送信します<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>'
+};
+// 動作センサーの許可を取り、granted で cb を呼ぶ（記録開始→承認→（呼び出し側で条件モーダル）の順）
+function _ensureMotionPerm(cb,onDeny){
+  const deny=onDeny||(()=>toast('センサーへのアクセスが拒否されました'));
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?cb():deny();}).catch(deny);
+  }else if(typeof DeviceMotionEvent!=='undefined'){cb();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
 }
 // ==== ② Gサークル データ収集（生G vs 表示G）：既存のGメーター計算をそのまま記録 ====
 let _gmRecord=false,_gmRecLog=[],_gmRecT0=0,_gmRecTimer=null;
@@ -3406,12 +3437,15 @@ function stopGMeterCollect(){
 // ==== ③ 限界走行 データ収集（フルセッション）：既存の限界走行をそのまま記録 ====
 let _lrRecord=false,_lrRecLog=[],_lrRecT0=0,_lrRecTimer=null;
 function startLimitRunCollect(){
-  if(_lrActive){toast('すでに限界走行が動作中です');return;}
+  if(_lrActive){toast('すでに走行データ収集が動作中です');return;}
+  _ensureMotionPerm(()=>_condModal('走行データ収集',COND_TXT.dcRun,_lrCollectGo));
+}
+function _lrCollectGo(){
   _lrRecord=true;_lrRecLog=[];_lrRecT0=Date.now();
   document.getElementById('lcStartBtn').style.display='none';
   document.getElementById('lcStopBtn').style.display='';
   document.getElementById('lcStatus').innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>';
-  startLimitRun(); // 通常の限界走行（ゲート・GPS・イベント検出をそのまま使う）
+  startLimitRun(true); // 許可・条件モーダルは済。ゲート→GPS・イベント検出をそのまま使う
   _lrRecTimer=setInterval(()=>{
     if(!_lrActive){
       // 開始前ゲートで弾かれた等で走り出さないまま数秒経ったら収集状態を解除
@@ -3554,7 +3588,7 @@ function _fmPermDenied(){
 function setFreqAxle(ax){
   _fmAxle=(ax==='R')?'R':'F';
   const seg=document.getElementById('freqAxleSeg');
-  if(seg)seg.querySelectorAll('button').forEach(b=>{const on=b.dataset.ax===_fmAxle;b.style.background=on?'var(--accent)':'var(--bg3)';b.style.color=on?'#fff':'var(--text)';});
+  if(seg)seg.querySelectorAll('button').forEach(b=>{const on=b.dataset.ax===_fmAxle;b.style.background=on?'var(--blue)':'var(--bg3)';b.style.color=on?'#fff':'var(--text)';});
 }
 function startFreqMeasure(){
   setFreqAxle(_fmAxle); // セグメントの見た目を同期
@@ -3587,13 +3621,7 @@ function startFreqMeasure(){
     },1000);
     _fmTimers.push(setTimeout(()=>{if(_fmState==='watching')stopFreqMeasure(false,'timeout');},FM_TIMEOUT_MS));
   };
-  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else _fmPermDenied();}).catch(()=>_fmPermDenied());
-  }else if(typeof DeviceMotionEvent!=='undefined'){
-    go();
-  }else{
-    toast('この端末は加速度センサーをサポートしていません');
-  }
+  _ensureMotionPerm(()=>_condModal('固有振動数 実測',COND_TXT.fmMeasure,go),_fmPermDenied);
 }
 function _fmHandler(e){
   if(!_fmActive)return;
@@ -3910,7 +3938,7 @@ function calibrateGMeter(silent){
   _gmCalBuf=[];_gmCalCount=0;
   if(silent!==true)toast('ゼロ点校正中… 1秒そのまま静止');
 }
-function startGMeter(){
+function startGMeter(skipCond){
   const go=()=>{
     _gmActive=true;_gmGravInit=false;_gmLong=0;_gmLat=0;_gmTrail=[];
     resetGPeaks(true);
@@ -3929,13 +3957,7 @@ function startGMeter(){
     if(standalone&&el)el.innerHTML='<div style="font-size:13px;color:#fbbf24;padding:8px">ホーム画面から起動したアプリではセンサーの許可が取れない場合があります。<br><b>Safari でサイトのURLを直接開いて</b>お試しください。</div>';
     else toast('センサーへのアクセスが拒否されました');
   };
-  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else denied();}).catch(denied);
-  }else if(typeof DeviceMotionEvent!=='undefined'){
-    go();
-  }else{
-    toast('この端末は加速度センサーをサポートしていません');
-  }
+  _ensureMotionPerm(skipCond?go:()=>_condModal('Gサークル',COND_TXT.gMeter,go),denied);
 }
 function stopGMeter(){
   _gmActive=false;_gmCalCount=-1;_gmCalBuf=[];
@@ -4407,7 +4429,7 @@ function _lrGate(onPass){
     onPass();
   },900);
 }
-function startLimitRun(){
+function startLimitRun(skipCond){
   const go=()=>{
     if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
     _lrActive=true;_lrGravInit=false;_lrSpeed=null;_lrLastPos=null;_lrAcc=null;
@@ -4433,10 +4455,9 @@ function startLimitRun(){
   };
   const gate=()=>_lrGate(go);
   const denied=()=>toast('センサーへのアクセスが拒否されました');
-  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?gate():denied();}).catch(denied);
-  }else if(typeof DeviceMotionEvent!=='undefined'){gate();}
-  else{toast('この端末は加速度センサーをサポートしていません');}
+  // skipCond=データ収集の走行モードから呼ばれた時（許可・条件モーダルは呼び出し側で済）
+  if(skipCond){gate();return;}
+  _ensureMotionPerm(()=>_condModal('限界走行実測',COND_TXT.limitRun,gate),denied);
 }
 function stopLimitRun(){
   _lrActive=false;
