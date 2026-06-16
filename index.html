@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.7.0</title>
+<title>Mileage 3.18.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -87,6 +87,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .timeline-dot{position:absolute;left:-20px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--bg3);border:2px solid var(--text3)}
 .timeline-dot.blue{background:var(--blue);border-color:var(--blue)}
 .timeline-dot.purple{background:#a855f7;border-color:#a855f7}
+.timeline-dot.amber{background:#fbbf24;border-color:#fbbf24}
 .timeline-card{background:var(--bg2);border-radius:var(--radius);padding:12px 14px;border:1px solid rgba(255,255,255,.04)}
 .timeline-card.latest{border-color:rgba(59,130,246,.3)}
 .timeline-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
@@ -124,6 +125,11 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .pro-toggle.on{background:var(--green)}
 .pro-toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:transform .2s}
 .pro-toggle.on::after{transform:translateX(20px)}
+.pro-toggle-sm{width:34px;height:20px;border-radius:10px}
+.pro-toggle-sm::after{width:14px;height:14px;top:3px;left:3px}
+.pro-toggle-sm.on::after{transform:translateX(14px)}
+.seg-chip{font-size:12px;padding:5px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:var(--bg2);color:var(--text3);cursor:pointer;white-space:nowrap}
+.seg-chip.on{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.45);color:#93c5fd;font-weight:600}
 
 /* アップデートモーダル */
 .update-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -162,6 +168,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .modal-overlay.show{opacity:1;pointer-events:all}
 .modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px calc(env(safe-area-inset-bottom) + 20px);width:100%;transform:translateY(100%);transition:transform .3s;max-height:85vh;overflow-y:auto}
 .modal-overlay.show .modal{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.22);margin:-8px auto 14px;flex-shrink:0}
+.sheet-closebar{position:sticky;bottom:calc((env(safe-area-inset-bottom) + 20px) * -1);margin:14px -20px calc((env(safe-area-inset-bottom) + 20px) * -1);padding:10px 20px calc(env(safe-area-inset-bottom) + 12px);background:var(--bg2);border-top:1px solid rgba(255,255,255,.07);z-index:1}
+.sheet-closebar button{width:100%;background:var(--bg3);color:var(--text);border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer}
 .modal-title{font-size:1.14em;font-weight:600;margin-bottom:16px}
 </style>
 </head>
@@ -169,9 +178,15 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.7.0</span></span>
-      <div id="updateBadge" style="display:none">
-        <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
+      <span class="header-title">Mileage <span class="header-version">3.18.1</span></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="updateBadge" style="display:none">
+          <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:10px;color:var(--text3);letter-spacing:.3px">Pro</span>
+          <button class="pro-toggle pro-toggle-sm" id="proToggleHdr" onclick="toggleProMode()" title="Proモード（セッティング管理）"></button>
+        </div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -184,8 +199,17 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     <div id="page-dashboard" class="page active"></div>
 
     <div id="page-record" class="page">
+      <div class="card" style="padding-top:12px;padding-bottom:12px">
+        <select class="form-input" id="recViewSel" onchange="switchRecView(this.value)">
+          <option value="exchange">消耗品</option>
+          <option value="odo">走行距離</option>
+          <option value="tuning">やること・カスタムログ</option>
+        </select>
+      </div>
+
+      <div id="recView-exchange" class="rec-view">
       <div class="card">
-        <p class="section-title">交換を記録</p>
+        <p class="section-title">消耗品を記録</p>
         <div class="form-group">
           <label class="form-label">部品・オイルの種類</label>
           <select class="form-input" id="partType">
@@ -234,69 +258,72 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <button class="btn btn-primary" onclick="saveRecord()">保存する</button>
       </div>
-    </div>
+      </div><!-- /recView-exchange -->
 
-    <div id="page-odometer" class="page">
-      <div class="card">
-        <p class="section-title">走行距離を更新</p>
-        <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">定期的に入力すると次回交換まであと何日か推定できます</p>
-        <div class="form-group">
-          <label class="form-label">今日の走行距離 (km)</label>
-          <input type="number" class="form-input" id="odoKm" placeholder="例: 47500" inputmode="numeric">
+      <div id="recView-odo" class="rec-view" style="display:none">
+        <div class="card">
+          <p class="section-title">走行距離を更新</p>
+          <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">定期的に入力すると次回交換まであと何日か推定できます</p>
+          <div class="form-group">
+            <label class="form-label">今日の走行距離 (km)</label>
+            <input type="number" class="form-input" id="odoKm" placeholder="例: 47500" inputmode="numeric">
+          </div>
+          <div class="form-group">
+            <label class="form-label">日付</label>
+            <input type="date" class="form-input" id="odoDate">
+          </div>
+          <button class="btn btn-primary" onclick="saveOdometer()">更新する</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">日付</label>
-          <input type="date" class="form-input" id="odoDate">
+        <div class="card">
+          <p class="section-title">記録一覧</p>
+          <div id="odomHistoryList"></div>
         </div>
-        <button class="btn btn-primary" onclick="saveOdometer()">更新する</button>
-      </div>
-      <div class="card">
-        <p class="section-title">走行距離の推移</p>
-        <div class="chart-wrap"><canvas id="odomChart"></canvas></div>
-      </div>
-      <div class="card">
-        <p class="section-title">記録一覧</p>
-        <div id="odomHistoryList"></div>
-      </div>
-    </div>
+      </div><!-- /recView-odo -->
 
-    <div id="page-history" class="page"></div>
+      <div id="recView-tuning" class="rec-view" style="display:none">
+      <!-- やることリスト -->
+      <div class="card">
+        <p class="section-title">やることリスト</p>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" class="form-input" id="todoInput" placeholder="例: レバー比を測る" style="flex:1" onkeydown="if(event.key==='Enter')addTodo()">
+          <button class="btn btn-primary" style="width:auto;padding:0 18px;flex-shrink:0" onclick="addTodo()">追加</button>
+        </div>
+        <div id="todoList"></div>
+      </div>
+
+      <!-- カスタムログ -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <p class="section-title" style="margin:0">カスタムログ</p>
+          <button class="btn btn-primary" style="width:auto;padding:0 16px" onclick="openTuningLog()">＋ 追加</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="seg-chip" id="tlScopeCar" onclick="setTuningLogScope(false)">この車種</button>
+          <button class="seg-chip" id="tlScopeAll" onclick="setTuningLogScope(true)">すべて</button>
+        </div>
+        <div id="tuningLogList"></div>
+      </div>
+      </div><!-- /recView-tuning -->
+    </div>
 
     <div id="page-setting" class="page">
       <!-- セッティングを記録 -->
       <div class="card">
         <p class="section-title">セッティングを記録</p>
 
-        <!-- 必須項目 -->
+        <p style="font-size:11px;color:var(--text3);margin:-4px 0 12px">数値だけ記録します。コース・評価・所感は走行後にホームの履歴から「レビュー」してください。</p>
+
+        <!-- 基本 -->
         <div class="required-section">
-          <div class="required-section-title">必須項目</div>
-          <!-- 走行場所ジャンル -->
-          <div class="form-group">
-            <label class="form-label required">走行場所ジャンル</label>
-            <div id="courseGenreArea">
-              <div style="display:flex;gap:8px;margin-bottom:8px">
-                <button class="course-type-btn" id="genreStreet" onclick="selectGenre('street')">🛣 ストリート</button>
-                <button class="course-type-btn" id="genreCircuit" onclick="selectGenre('circuit')">🏁 サーキット</button>
-              </div>
-              <div id="subGenreArea" style="display:none">
-                <div class="course-type-grid" id="subGenreGrid"></div>
-              </div>
-            </div>
-            <input type="hidden" id="stGenre">
-            <input type="hidden" id="stSubGenre">
-          </div>
-          <div class="form-group">
-            <label class="form-label required">コース名</label>
-            <input type="text" class="form-input" id="stCourse" placeholder="例: 鈴鹿">
-          </div>
+          <div class="required-section-title">基本</div>
           <div class="two-col">
             <div class="form-group">
-              <label class="form-label required">日付</label>
+              <label class="form-label required">記録日</label>
               <input type="date" class="form-input" id="stDate">
             </div>
             <div class="form-group">
-              <label class="form-label">気温 (°C)</label>
-              <input type="number" class="form-input" id="stTemp" inputmode="numeric">
+              <label class="form-label">車重 (kg)</label>
+              <input type="number" class="form-input" id="stWeight" inputmode="numeric">
             </div>
           </div>
           <div class="two-col">
@@ -311,36 +338,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <!-- 任意項目 -->
-        <div class="two-col">
-          <div class="form-group">
-            <label class="form-label">車重 (kg)</label>
-            <input type="number" class="form-input" id="stWeight" inputmode="numeric">
-          </div>
-          <div class="form-group">
-            <label class="form-label">タイヤ銘柄</label>
-            <input type="text" class="form-input" id="stTire">
-          </div>
-        </div>
-        <div class="two-col">
-          <div class="form-group">
-            <label class="form-label">路面</label>
-            <select class="form-input" id="stSurface">
-              <option value="dry">ドライ</option>
-              <option value="wet">ウェット</option>
-              <option value="semi-wet">セミウェット</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">評価</label>
-            <select class="form-input" id="stEval">
-              <option value="5">⭐⭐⭐⭐⭐ 最高</option>
-              <option value="4">⭐⭐⭐⭐ 良い</option>
-              <option value="3" selected>⭐⭐⭐ 普通</option>
-              <option value="2">⭐⭐ 悪い</option>
-              <option value="1">⭐ 最悪</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label class="form-label">タイヤ銘柄</label>
+          <input type="text" class="form-input" id="stTire">
         </div>
 
         <!-- アコーディオン: タイヤ空気圧 -->
@@ -400,7 +400,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
 
         <!-- アコーディオン: アライメント -->
-        <div class="accordion-header" onclick="toggleAccordion('accAlign')" style="border-bottom:none">
+        <div class="accordion-header" onclick="toggleAccordion('accAlign')">
           <span class="accordion-title">📐 アライメント設定</span>
           <span class="accordion-arrow" id="arrowAlign">▼</span>
         </div>
@@ -434,24 +434,111 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <div class="two-col" style="margin-top:12px">
-          <div class="form-group">
-            <label class="form-label">実測 固有振動数 前 (Hz)</label>
-            <input type="number" class="form-input" id="stMeasFreqF" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
-          </div>
-          <div class="form-group">
-            <label class="form-label">実測 固有振動数 後 (Hz)</label>
-            <input type="number" class="form-input" id="stMeasFreqR" inputmode="decimal" step="0.01" placeholder="実測タブから反映可">
+        <!-- アコーディオン: 車高 / 車高調 -->
+        <div class="accordion-header" onclick="toggleAccordion('accHeight')" style="border-bottom:none">
+          <span class="accordion-title">📏 車高 / 車高調</span>
+          <span class="accordion-arrow" id="arrowHeight">▼</span>
+        </div>
+        <div class="accordion-body" id="accHeight">
+          <div class="accordion-inner">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">車高調 全長 ロア〜アッパー (mm) - フロント</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="stShockLenFL" inputmode="decimal" step="0.5"></div>
+              <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="stShockLenFR" inputmode="decimal" step="0.5"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:10px 0 8px">車高調 全長 ロア〜アッパー (mm) - リア</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="stShockLenRL" inputmode="decimal" step="0.5"></div>
+              <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="stShockLenRR" inputmode="decimal" step="0.5"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:12px 0 8px">プリロード (周) - フロント</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="stPreloadFL" inputmode="decimal" step="0.25" placeholder="0"></div>
+              <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="stPreloadFR" inputmode="decimal" step="0.25" placeholder="0"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:10px 0 8px">プリロード (周) - リア</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="stPreloadRL" inputmode="decimal" step="0.25" placeholder="0"></div>
+              <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="stPreloadRR" inputmode="decimal" step="0.25" placeholder="0"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin:12px 0 8px">最低地上高 (mm)</div>
+            <div class="four-grid">
+              <div><div class="four-grid-label">前</div><input type="number" class="form-input" id="stMinClearF" inputmode="numeric" placeholder="例: 80"></div>
+              <div><div class="four-grid-label">後</div><input type="number" class="form-input" id="stMinClearR" inputmode="numeric" placeholder="例: 85"></div>
+            </div>
           </div>
         </div>
+
         <div class="form-group" style="margin-top:12px">
-          <label class="form-label">コメント</label>
-          <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto"></textarea>
+          <label class="form-label">固有振動数（計算値）</label>
+          <div id="stFreqInline" style="font-size:13px;min-height:18px"></div>
         </div>
-        <button class="btn btn-primary" onclick="saveSetting()">記録する</button>
+        <input type="hidden" id="stMeasFreqF">
+        <input type="hidden" id="stMeasFreqR">
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">変更メモ</label>
+          <textarea class="form-input" id="stNote" rows="2" style="resize:none;height:auto" placeholder="例: フロント1段柔らかく / 車高F2mm下げ"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="saveSetting()">記録する（未レビュー）</button>
       </div>
-      <div class="card">
-        <p class="section-title">固有振動数 / バネレート計算</p>
+      <!-- ===== 実測系（センサーで測る）：開発者モードで解錠 ===== -->
+      <div class="card dev-only" style="display:none">
+        <p class="section-title">📡 実測（センサーで測る）</p>
+        <div style="font-size:11px;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.7">🛠️ 測定精度の向上に取り組んでいます。表示される測定値は<b>参考値</b>としてご利用ください。</div>
+
+        <div class="accordion-header" onclick="toggleAccordion('accLimitRun')">
+          <span class="accordion-title">🏁 限界走行実測（セッティングアドバイス）</span>
+          <span class="accordion-arrow" id="arrowLimitRun">▼</span>
+        </div>
+        <div class="accordion-body" id="accLimitRun">
+          <div class="accordion-inner">
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>固定し停車中に開始</b>。コースを攻めて走ると、<b>アンダー/オーバー・最大G</b>を時刻付きで記録し、走行後に<b>イベントログ＋本コースの課題と対策</b>を出します。GPS位置も記録します（地図は不要・オフライン可）。<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないでください。走行後に確認します。</span></p>
+            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRun()">限界走行 開始</button>
+            <button class="btn" id="limitRunStopBtn" onclick="_lrFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
+            <button class="btn" id="yawCardBtn" onclick="toggleYawCard()" style="background:var(--bg3);color:var(--text);margin-top:8px">🧭 セッティングカード表示</button>
+            <div id="limitRunResult" style="margin-top:12px"></div>
+
+            <!-- セッティングカード（ヨー診断）: 限界走行内に統合・戻れる -->
+            <div id="yawCardPanel" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:13px;font-weight:600;color:var(--text2)">🧭 セッティングカード（ヨー診断）</div>
+                <button class="btn btn-sm" onclick="toggleYawCard()" style="background:var(--bg3);color:var(--text);width:auto;padding:4px 12px">← 閉じる</button>
+              </div>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:10px">症状と局面を選ぶと、対策を<b>お手軽度順</b>（🟢すぐ→🔴部品交換）に提案します。各カードを押すと理由・注意が開きます。</p>
+              <div class="form-group">
+                <label class="form-label">駆動方式</label>
+                <div id="yawDriveSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-d="FF" onclick="setYawDrive('FF')" style="flex:1">FF</button>
+                  <button type="button" class="btn btn-sm" data-d="FR" onclick="setYawDrive('FR')" style="flex:1">FR</button>
+                  <button type="button" class="btn btn-sm" data-d="4WD" onclick="setYawDrive('4WD')" style="flex:1">4WD</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">症状</label>
+                <div id="yawSymSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-s="under" onclick="setYawSym('under')" style="flex:1">アンダー（曲がらない）</button>
+                  <button type="button" class="btn btn-sm" data-s="over" onclick="setYawSym('over')" style="flex:1">オーバー（リアが出る）</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">局面</label>
+                <div id="yawPhaseSeg" style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-sm" data-p="entry" onclick="setYawPhase('entry')" style="flex:1">進入</button>
+                  <button type="button" class="btn btn-sm" data-p="mid" onclick="setYawPhase('mid')" style="flex:1">中立</button>
+                  <button type="button" class="btn btn-sm" data-p="exit" onclick="setYawPhase('exit')" style="flex:1">立上り</button>
+                </div>
+              </div>
+              <div id="yawAdvice" style="margin-top:6px"></div>
+              <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+                <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📡 実測アンダー/オーバー判定</div>
+                <p style="font-size:11px;color:var(--text3);margin-bottom:8px">スマホを<b>固定</b>し、<b>停車中に開始</b>。一定速度（20km/h以上）でコーナーを走ると、<b>横G・実ヨーレート・GPS速度</b>から自動でアンダー/オーバーと強さを判定し、上の症状を自動セットします。<b>判定は限界付近（タイヤが滑り出すくらい）でのみ反応</b>します。<br><span style="color:#fbbf24">⚠️ GPS速度を使います（地図は不要・オフライン可）。屋根のある場所や測位直後は精度が出ません。運転中は画面を注視しないでください。</span></p>
+                <button class="btn btn-primary" id="yawMeasBtn" onclick="startYawMeasure()">実測開始</button>
+                <button class="btn" id="yawMeasStopBtn" onclick="_ymFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
+                <div id="yawMeasResult" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="accordion-header" onclick="toggleAccordion('accFreqMeasure')">
           <span class="accordion-title">📱 固有振動数 実測</span>
@@ -466,7 +553,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accGMeter')">
+        <div class="accordion-header" onclick="toggleAccordion('accGMeter')" style="border-bottom:none">
           <span class="accordion-title">🎯 Gサークル</span>
           <span class="accordion-arrow" id="arrowGMeter">▼</span>
         </div>
@@ -491,28 +578,60 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                 <button class="btn btn-sm" onclick="calibrateGMeter()" style="background:var(--bg3);color:var(--text);flex:1">📐 ゼロ点校正</button>
                 <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
               </div>
+              <button class="btn btn-sm" id="gTrailBtn" onclick="toggleGTrail()" style="background:var(--bg3);color:var(--text);width:100%;margin-top:8px">✏️ 軌跡を残す: OFF</button>
+              <div id="gAttitude" style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center"></div>
             </div>
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
         </div>
+      </div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accFreqDisp')">
-          <span class="accordion-title">📊 現在の固有振動数</span>
-          <span class="accordion-arrow" id="arrowFreqDisp">▼</span>
-        </div>
-        <div class="accordion-body" id="accFreqDisp">
-          <div class="accordion-inner">
-            <div id="freqCalcDisplay"></div>
+      <!-- ===== 計算系（数値から計算） ===== -->
+      <div class="card">
+        <p class="section-title">🧮 固有振動数 計算</p>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">選択中の車両の<b>最新セッティング</b>を読み込んで表示します。数値を変えるとリアルタイムで固有振動数が変わります。</p>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">車重 (kg)</label>
+            <input type="number" class="form-input" id="calcWeight" inputmode="numeric" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">前軸荷重比 (%)</label>
+            <input type="number" class="form-input" id="calcRatioF" inputmode="numeric" oninput="renderCalcFreq()" placeholder="例: 55">
           </div>
         </div>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">レバー比 前</label>
+            <input type="number" class="form-input" id="calcLeverF" inputmode="decimal" step="0.01" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">レバー比 後</label>
+            <input type="number" class="form-input" id="calcLeverR" inputmode="decimal" step="0.01" oninput="renderCalcFreq()">
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">バネレート 前 (kgf/mm)</label>
+            <input type="number" class="form-input" id="calcSpringF" inputmode="decimal" step="0.5" oninput="renderCalcFreq()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">バネレート 後 (kgf/mm)</label>
+            <input type="number" class="form-input" id="calcSpringR" inputmode="decimal" step="0.5" oninput="renderCalcFreq()">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm" onclick="resetCalcPanel()" style="background:var(--bg3);color:var(--text);flex:1">🔄 最新セッティングにリセット</button>
+          <button class="btn btn-sm" onclick="applyCalcToCar()" style="background:var(--bg3);color:var(--text);flex:1">💾 この値を車両にセット</button>
+        </div>
+        <div id="calcFreqDisplay"></div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accFreqCalc')">
-          <span class="accordion-title">🔄 バネレートを逆算</span>
+        <div class="accordion-header" onclick="toggleAccordion('accFreqCalc')" style="margin-top:14px">
+          <span class="accordion-title">🔄 目標固有振動数からバネレートを逆算</span>
           <span class="accordion-arrow" id="arrowFreqCalc">▼</span>
         </div>
         <div class="accordion-body" id="accFreqCalc">
           <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">目標固有振動数からバネレートを逆算</p>
             <div class="two-col">
               <div class="form-group">
                 <label class="form-label">目標 フロント (Hz)</label>
@@ -527,39 +646,38 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
             <div id="freqCalcResult"></div>
           </div>
         </div>
+      </div>
 
-        <div class="accordion-header" onclick="toggleAccordion('accFreqCheck')">
-          <span class="accordion-title">📐 固有振動数を確認</span>
-          <span class="accordion-arrow" id="arrowFreqCheck">▼</span>
-        </div>
-        <div class="accordion-body" id="accFreqCheck">
-          <div class="accordion-inner">
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">バネレートを入れて固有振動数を確認</p>
-            <div class="two-col">
-              <div class="form-group">
-                <label class="form-label">バネレート前 (kgf/mm)</label>
-                <input type="number" class="form-input" id="springToFreqF" inputmode="decimal" step="0.5" placeholder="例: 8.0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">バネレート後 (kgf/mm)</label>
-                <input type="number" class="form-input" id="springToFreqR" inputmode="decimal" step="0.5" placeholder="例: 6.0">
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="calcSpringToFreq()">固有振動数を確認</button>
-            <div id="springToFreqResult"></div>
-          </div>
+      <!-- ===== 🧪 開発者用（データ収集）：開発者モードで解錠 ===== -->
+      <div class="card dev-only" style="display:none;border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.05)">
+        <p class="section-title" style="color:#c4b5fd">🧪 開発者用 データ収集</p>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.7"><b>解析しません。</b>センサーの<b>生データをそのまま記録</b>し、1ファイルで書き出して開発用に送るためのモードです（測定精度を上げる情報収集用）。スマホを前軸／後軸付近の硬い場所に<b>しっかり固定</b>してください。<br><span style="color:#fbbf24">⚠️ 落下・固定に注意。長時間ほどファイルが大きくなります。</span></p>
+
+        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">① 固有振動（直進・一定速）</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">加速度・ジャイロ・GPS速度を生記録。一定速度で何本か。</p>
+          <button class="btn btn-primary" id="dcStartBtn" onclick="startDataCollect()">記録開始</button>
+          <button class="btn" id="dcStopBtn" onclick="stopDataCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
+          <div id="dcStatus" style="margin-top:10px"></div>
         </div>
 
-        <div class="accordion-header" id="accGroupFreqHeader" onclick="toggleAccordion('accGroupFreq')" style="border-bottom:none;display:none">
-          <span class="accordion-title">👥 グループメンバーの固有振動数</span>
-          <span class="accordion-arrow" id="arrowGroupFreq">▼</span>
+        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-top:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">② Gサークル（生G vs 表示G）</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">どのくらいのGが、平滑化後どのくらい表示に反映されたかを毎サンプル記録。停車中に開始（自動ゼロ点校正）。</p>
+          <button class="btn btn-primary" id="gcStartBtn" onclick="startGMeterCollect()">記録開始</button>
+          <button class="btn" id="gcStopBtn" onclick="stopGMeterCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
+          <div id="gcStatus" style="margin-top:10px"></div>
         </div>
-        <div class="accordion-body" id="accGroupFreq">
-          <div class="accordion-inner">
-            <div id="groupFreqDisplay"></div>
-          </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-top:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">③ 限界走行（フルセッション）</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">加速度・ジャイロ・GPS（速度/位置）に加え、検出イベント（アンダー/オーバー・ばたつき）も同梱。停車中か直進で開始。</p>
+          <button class="btn btn-primary" id="lcStartBtn" onclick="startLimitRunCollect()">記録開始</button>
+          <button class="btn" id="lcStopBtn" onclick="stopLimitRunCollect()" style="display:none;background:#ef4444;color:#fff">停止して書き出し</button>
+          <div id="lcStatus" style="margin-top:10px"></div>
         </div>
       </div>
+
       <div style="height:16px"></div>
     </div>
 
@@ -628,9 +746,24 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
       </div>
       <div class="card">
+        <p class="section-title">開発者モード</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.7">実測（センサー）機能とデータ収集は<b>精度向上のため調整中</b>です。パスワードを入力すると利用できます。表示される値は<b>参考値</b>です。</p>
+        <div id="devLockedBox">
+          <div class="form-group" style="margin-bottom:8px">
+            <input type="password" class="form-input" id="devPwInput" placeholder="パスワード" autocomplete="off">
+          </div>
+          <button class="btn btn-primary" onclick="unlockDevMode()">解錠</button>
+          <div id="devPwMsg" style="font-size:12px;margin-top:8px"></div>
+        </div>
+        <div id="devUnlockedBox" style="display:none">
+          <p style="font-size:13px;color:#34d399;margin-bottom:10px">✅ 解錠済み。セッティングタブに実測・データ収集が表示されます。</p>
+          <button class="btn" onclick="lockDevMode()" style="background:var(--bg3);color:var(--text)">ロックする</button>
+        </div>
+      </div>
+      <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.7.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.18.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -638,41 +771,23 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     </div>
 
     <div id="page-group" class="page">
-      <div class="card">
-        <p class="section-title">みんなのセッティングを検索</p>
-        <div class="two-col">
-          <div class="form-group">
-            <label class="form-label">車重 (kg)</label>
-            <input type="number" class="form-input" id="searchWeight" placeholder="例: 1140" inputmode="numeric">
-          </div>
-          <div class="form-group">
-            <label class="form-label">路面</label>
-            <select class="form-input" id="searchSurface">
-              <option value="">すべて</option>
-              <option value="dry">ドライ</option>
-              <option value="wet">ウェット</option>
-              <option value="semi-wet">セミウェット</option>
-            </select>
-          </div>
+      <div class="accordion-header" id="accGroupFreqHeader" onclick="toggleAccordion('accGroupFreq')" style="display:none;margin-top:4px">
+        <span class="accordion-title">👥 メンバーのセッティング</span>
+        <span class="accordion-arrow" id="arrowGroupFreq">▼</span>
+      </div>
+      <div class="accordion-body" id="accGroupFreq">
+        <div class="accordion-inner">
+          <div id="groupFreqDisplay"></div>
         </div>
-        <div class="form-group">
-          <label class="form-label">走行場所</label>
-          <input type="text" class="form-input" id="searchCourse" placeholder="例: 鈴鹿">
-        </div>
-        <button class="btn btn-primary" onclick="searchCommunity()">検索する</button>
-        <div id="communityResult" style="margin-top:12px"></div>
       </div>
       <div class="card">
-        <p class="section-title">みんなのセッティング比較</p>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">グループメンバーのセッティングに感覚を近づけるための調整値を計算します</p>
-        <div class="form-group">
-          <label class="form-label">比較したいセッティング</label>
-          <select class="form-input" id="groupCompareSelect"></select>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <p class="section-title" style="margin:0">みんなのセッティング</p>
+          <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);width:auto;padding:0 14px" onclick="refreshGroupTimeline()">更新</button>
         </div>
-        <button class="btn btn-primary" onclick="calcGroupCompare()">この感覚に近づける</button>
-        <div id="groupCompareResult" style="margin-top:12px"></div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.6">タップで詳細・自分のセッティングと比較できます</p>
+        <div id="groupTimeline"><div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">読み込み中…</div></div>
       </div>
-
       <div style="height:16px"></div>
     </div>
   </div>
@@ -685,14 +800,6 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     <button class="nav-btn" id="nav-record" onclick="showPage('record')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       記録
-    </button>
-    <button class="nav-btn" id="nav-odometer" onclick="showPage('odometer')">
-      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12 L17 7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
-      距離
-    </button>
-    <button class="nav-btn" id="nav-history" onclick="showPage('history')">
-      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-3"/><path d="M3 4v4h4"/></svg>
-      履歴
     </button>
     <button class="nav-btn" id="nav-setting" onclick="showPage('setting')" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -988,6 +1095,25 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editCsFL" step="0.1"></div>
       <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editCsFR" step="0.1"></div>
     </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">車高調 全長 ロア〜アッパー (mm)</p>
+    <div class="four-grid" style="margin-bottom:10px">
+      <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editShFL" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editShFR" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="editShRL" inputmode="decimal" step="0.5"></div>
+      <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="editShRR" inputmode="decimal" step="0.5"></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">プリロード (周)</p>
+    <div class="four-grid" style="margin-bottom:10px">
+      <div><div class="four-grid-label">FL</div><input type="number" class="form-input" id="editPlFL" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">FR</div><input type="number" class="form-input" id="editPlFR" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">RL</div><input type="number" class="form-input" id="editPlRL" inputmode="decimal" step="0.25"></div>
+      <div><div class="four-grid-label">RR</div><input type="number" class="form-input" id="editPlRR" inputmode="decimal" step="0.25"></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">最低地上高 (mm)</p>
+    <div class="four-grid" style="margin-bottom:14px">
+      <div><div class="four-grid-label">前</div><input type="number" class="form-input" id="editMcF" inputmode="numeric"></div>
+      <div><div class="four-grid-label">後</div><input type="number" class="form-input" id="editMcR" inputmode="numeric"></div>
+    </div>
     <div class="form-group" id="editMeasFreqRow" style="display:none">
       <label class="form-label">実測 固有振動数（編集不可）</label>
       <div id="editMeasFreqText" style="font-size:13px;color:#60a5fa;padding:8px 0"></div>
@@ -998,6 +1124,66 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     </div>
     <button class="btn btn-primary" onclick="saveEditSetting()">更新する</button>
     <button class="btn btn-danger" onclick="deleteSettingFromEdit()" style="margin-top:8px">削除する</button>
+  </div>
+</div>
+
+<!-- モーダル: 走行レビュー -->
+<div class="modal-overlay" id="reviewModal" onclick="hideModal('reviewModal',event)">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <p class="modal-title" style="margin-bottom:0">走行をレビュー</p>
+      <button onclick="hideModal('reviewModal')" style="background:none;border:none;color:var(--text3);font-size:1.5em;cursor:pointer;line-height:1">×</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px">このセッティングで走った結果を記録します。保存するとレビュー済みになります。</p>
+    <input type="hidden" id="reviewStId">
+    <input type="hidden" id="reviewCarIdx">
+    <div class="form-group">
+      <label class="form-label">走行場所ジャンル</label>
+      <select class="form-input" id="reviewGenre">
+        <option value="">未選択</option>
+        <option value="street">🛣 ストリート</option>
+        <option value="circuit">🏁 サーキット</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label required">コース名</label>
+      <input type="text" class="form-input" id="reviewCourse" placeholder="例: 鈴鹿">
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label required">走行日</label>
+        <input type="date" class="form-input" id="reviewDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">気温 (°C)</label>
+        <input type="number" class="form-input" id="reviewTemp" inputmode="numeric">
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">路面</label>
+        <select class="form-input" id="reviewSurface">
+          <option value="dry">ドライ</option>
+          <option value="wet">ウェット</option>
+          <option value="semi-wet">セミウェット</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">評価</label>
+        <select class="form-input" id="reviewEval">
+          <option value="5">⭐⭐⭐⭐⭐ 最高</option>
+          <option value="4">⭐⭐⭐⭐ 良い</option>
+          <option value="3" selected>⭐⭐⭐ 普通</option>
+          <option value="2">⭐⭐ 悪い</option>
+          <option value="1">⭐ 最悪</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">レビューコメント（走行所感）</label>
+      <textarea class="form-input" id="reviewNote" rows="3" style="resize:none;height:auto" placeholder="例: 進入は良くなったが立ち上がりでリアが流れる"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveReview()">レビューを保存</button>
   </div>
 </div>
 
@@ -1043,10 +1229,92 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   </div>
 </div>
 
+<!-- モーダル: グループメンバーのセッティング詳細 -->
+<div class="modal-overlay" id="groupDetailModal" onclick="hideModal('groupDetailModal',event)">
+  <div class="modal" style="max-height:88vh;overflow-y:auto">
+    <p class="modal-title" id="groupDetailTitle">セッティング詳細</p>
+    <div id="groupDetailBody"></div>
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">自分の車</label>
+      <select class="form-input" id="groupDetailCarSel" onchange="groupDetailSwitchCar(this.value)"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">比較する自分のセッティング</label>
+      <select class="form-input" id="groupDetailMySel"></select>
+    </div>
+    <div class="two-col">
+      <button class="btn btn-primary" onclick="groupDetailCompare()">自分の車と比較</button>
+      <button class="btn" style="background:var(--bg3);color:var(--text)" onclick="groupDetailConvert()">自分の車に換算</button>
+    </div>
+    <div id="groupDetailResult" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- モーダル: カスタムログ追加/編集 -->
+<div class="modal-overlay" id="tuningLogModal" onclick="hideModal('tuningLogModal',event)">
+  <div class="modal">
+    <p class="modal-title" id="tuningLogModalTitle">カスタムログ</p>
+    <input type="hidden" id="tlId">
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">日付</label>
+        <input type="date" class="form-input" id="tlDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">対象（どこを）</label>
+        <input type="text" class="form-input" id="tlTarget" placeholder="例: 車高調 / タイヤ空気圧">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">数値・設定</label>
+      <input type="text" class="form-input" id="tlSettings" placeholder="例: フロント全下げから6周戻し / エア1.6">
+    </div>
+    <div class="form-group">
+      <label class="form-label">コンディション（任意）</label>
+      <input type="text" class="form-input" id="tlCondition" placeholder="例: 外気温19℃ 路面ドライ 冷感">
+    </div>
+    <div class="form-group">
+      <label class="form-label">所感（任意）</label>
+      <textarea class="form-input" id="tlNote" rows="2" placeholder="例: そこそこ食うが端まで使えてない"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">次の課題（任意）</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" class="form-input" id="tlNext" placeholder="例: 次は温間1.9を試す" style="flex:1">
+        <button class="btn" type="button" style="background:var(--bg3);color:var(--text);width:auto;padding:0 14px;white-space:nowrap" onclick="addNextToTodo()">やることに追加</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">「やることに追加」を押すと、やることリストに入ります</div>
+    </div>
+
+    <!-- 換算ヘルパー -->
+    <details style="margin-bottom:14px;background:var(--bg3);border-radius:10px;padding:10px 12px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--text2);font-weight:600">換算ヘルパー（車高調 周回↔mm）</summary>
+      <div style="margin-top:10px">
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">周回数</label>
+            <input type="number" class="form-input" id="cvTurns" inputmode="decimal" placeholder="2" oninput="calcConv()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ピッチ (mm/回)</label>
+            <input type="number" class="form-input" id="cvPitch" inputmode="decimal" placeholder="1.5" oninput="calcConv()">
+          </div>
+        </div>
+        <div id="cvResult" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:8px"></div>
+        <button class="btn btn-sm" style="background:var(--bg);color:var(--text);width:auto;padding:0 14px" onclick="insertConv()">数値・設定欄に貼る</button>
+        <p style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5">※ピッチの値は車種・車高調により異なります。</p>
+      </div>
+    </details>
+
+    <button class="btn btn-primary" onclick="saveTuningLog()">保存する</button>
+    <button class="btn btn-danger" id="tlDeleteBtn" onclick="deleteTuningLog()" style="margin-top:8px;display:none">削除する</button>
+  </div>
+</div>
+
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.18.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/version.json';
 
@@ -1079,6 +1347,10 @@ function normalizeState(){
     if(!c.settings)c.settings=[];
     if(!c.odomHistory)c.odomHistory=[];
     if(!c.records)c.records=[];
+    if(!c.tuningLog)c.tuningLog=[];
+    if(!c.todos)c.todos=[];
+    // 既存セッティングはコースありならレビュー済みとして移行
+    c.settings.forEach(s=>{if(s.reviewed===undefined)s.reviewed=!!s.course;});
   });
   if(!state.groups)state.groups=[];
   if(!state.groupCache)state.groupCache={};
@@ -1090,11 +1362,13 @@ function load(){
   try{const s=localStorage.getItem('milage_v1');if(s)state=JSON.parse(s);}catch(e){}
   normalizeState();
   applyFontSize(state.fontSize);
+  initSheets();
   renderCarTabs();
   setTodayDates();
   renderDashboard();
   updateProNav();
   updateGroupNav();
+  applyDevMode();
   checkVersion();
   // オンライン復帰時に保留データを同期
   window.addEventListener('online', syncPendingUploads);
@@ -1133,6 +1407,27 @@ async function checkVersion(){
     }
   }catch(e){}
 }
+// 更新通知の内容を見やすく整形（差分が長い本番更新でも読めるように）
+// notes は文字列（改行 \n 区切り）または配列。■/【で始まる行は見出し、他は箇条書き。
+function renderUpdateNotes(notes){
+  if(!notes)return '';
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let lines=Array.isArray(notes)?notes:String(notes).split('\n');
+  lines=lines.map(l=>l.trim()).filter(l=>l!=='');
+  // 単一行なら従来どおりの一文表示
+  if(lines.length<=1)return `内容: ${esc(lines[0]||'')}`;
+  let html='<div style="max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch">';
+  for(const l of lines){
+    if(/^[■【▼◆●]/.test(l)){
+      html+=`<div style="font-weight:600;color:var(--text);margin:10px 0 4px">${esc(l)}</div>`;
+    }else{
+      const t=l.replace(/^[・\-‐･]\s*/,'');
+      html+=`<div style="display:flex;gap:6px;margin:3px 0"><span style="color:var(--text3)">・</span><span>${esc(t)}</span></div>`;
+    }
+  }
+  html+='</div>';
+  return html;
+}
 function showUpdateModal(version,notes){
   if(!version||version instanceof Event){
     if(version&&version.preventDefault)version.preventDefault();
@@ -1143,7 +1438,7 @@ function showUpdateModal(version,notes){
   const vEl=document.getElementById('updateVersionText');
   if(vEl)vEl.textContent=`v${version}`;
   const nEl=document.getElementById('updateNotes');
-  if(nEl)nEl.textContent=notes?`内容: ${notes}`:'';
+  if(nEl)nEl.innerHTML=renderUpdateNotes(notes);
   document.getElementById('updateOverlay').style.display='flex';
 }
 async function doUpdate(){
@@ -1188,6 +1483,8 @@ function toggleProMode(){
 function updateProNav(){
   const btn=document.getElementById('nav-setting');
   if(btn)btn.style.display=state.proMode?'flex':'none';
+  const pt=document.getElementById('proToggleHdr');
+  if(pt)pt.classList.toggle('on',!!state.proMode);
 }
 
 // ---- 車両 ----
@@ -1215,9 +1512,11 @@ function selectAll(){
 function selectCar(i){
   state.selectedCar=i;
   state.viewAll=false;
+  // 車両を切り替えたら固有振動の実測結果（前車の値）をクリア
+  _fmLastFreq=0;_fmLastZeta=null;
   save();renderCarTabs();renderDashboard();renderHistory();updateOdomChart();renderOdomHistory();
-  ['freqCalcResult','springToFreqResult'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
-  if(document.getElementById('page-setting').classList.contains('active')){fillSettingForm();renderFreqCalc();}
+  ['freqCalcResult','freqMeasureResult','bounceEngine'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  if(document.getElementById('page-setting').classList.contains('active')){fillSettingForm();renderCalcPanel();}
   if(document.getElementById('page-settings').classList.contains('active'))renderSettings();
   if(document.getElementById('page-record').classList.contains('active')){_updateOilFilterUI();fillRecOdo(true);}
 }
@@ -1327,8 +1626,44 @@ function updateCar(i){
 
 // ---- モーダル ----
 function hideModal(id,e){
-  if(!e||e.target===document.getElementById(id))
-    document.getElementById(id).classList.remove('show');
+  const ov=document.getElementById(id);
+  if(!e||e.target===ov){
+    const m=ov.querySelector('.modal');
+    if(m)m.style.transform=''; // プルダウン中のインラインtransformを解除
+    ov.classList.remove('show');
+  }
+}
+// ==== ボトムシート共通UI: 最下部の閉じるバー＋上端での下フリック破棄 ====
+function initSheets(){
+  document.querySelectorAll('.modal-overlay').forEach(ov=>{
+    const m=ov.querySelector('.modal');
+    if(!m||m.dataset.sheetInit)return;
+    m.dataset.sheetInit='1';
+    // 上部のドラッグハンドル
+    const handle=document.createElement('div');handle.className='sheet-handle';
+    m.insertBefore(handle,m.firstChild);
+    // 最下部の閉じるバー
+    const bar=document.createElement('div');bar.className='sheet-closebar';
+    const btn=document.createElement('button');btn.type='button';btn.textContent='閉じる';
+    btn.onclick=()=>hideModal(ov.id);
+    bar.appendChild(btn);m.appendChild(bar);
+    // 上端で下方向フリック → シュッと閉じる
+    let startY=0,cur=0,drag=false;
+    m.addEventListener('touchstart',e=>{
+      if(m.scrollTop<=0){startY=e.touches[0].clientY;drag=true;cur=0;m.style.transition='none';}
+      else drag=false;
+    },{passive:true});
+    m.addEventListener('touchmove',e=>{
+      if(!drag)return;
+      cur=e.touches[0].clientY-startY;
+      if(cur>0){m.style.transform='translateY('+cur+'px)';if(e.cancelable)e.preventDefault();}
+    },{passive:false});
+    m.addEventListener('touchend',()=>{
+      if(!drag)return;drag=false;m.style.transition='';
+      if(cur>110){m.style.transform='';hideModal(ov.id);}
+      else m.style.transform='';
+    });
+  });
 }
 function showJoinModal(){
   document.getElementById('joinCodeInput').value='';
@@ -1348,18 +1683,17 @@ function showPage(name){
   // セッティングタブを離れるとき固有振動数の計測・Gメーターを停止
   if(name!=='setting'&&_fmActive)stopFreqMeasure();
   if(name!=='setting'&&_gmActive)stopGMeter();
+  if(name!=='setting'&&_ymActive)stopYawMeasure();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   const nb=document.getElementById('nav-'+name);if(nb)nb.classList.add('active');
   document.getElementById('scrollArea').scrollTop=0;
   if(name==='dashboard')renderDashboard();
-  if(name==='history')renderHistory();
-  if(name==='odometer'){updateOdomChart();renderOdomHistory();setTodayDates();}
-  if(name==='record'){setTodayDates();_updateOilFilterUI();fillRecOdo(true);}
+  if(name==='record'){setTodayDates();_updateOilFilterUI();fillRecOdo(true);renderTodos();renderTuningLog();renderOdomHistory();switchRecView(document.getElementById('recViewSel').value);}
   if(name==='settings'){renderSettings();renderGroupList();}
-  if(name==='setting'){fillSettingForm();setTodayDates();renderFreqCalc();state.groups.forEach(g=>cacheGroupData(g.code));}
-  if(name==='group'){loadGroupCompareOptions();}
+  if(name==='setting'){fillSettingForm();setTodayDates();renderCalcPanel();updateInlineFreq();_yawInitDrive();state.groups.forEach(g=>cacheGroupData(g.code));}
+  if(name==='group'){renderGroupTimeline();}
   _updateAllTabState();
 }
 function setTodayDates(){
@@ -1374,23 +1708,19 @@ function updateGroupNav(){
 }
 
 function resetSettingForm(){
-  ['stCourse','stNick','stCar','stTire','stNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['stWeight','stTemp','stSpringFL','stSpringFR','stSpringRL','stSpringRR',
+  ['stNick','stCar','stTire','stNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['stWeight','stSpringFL','stSpringFR','stSpringRL','stSpringRR',
    'stHelperFL','stHelperFR','stHelperRL','stHelperRR',
    'stPressFL','stPressFR','stPressRL','stPressRR',
    'stCamberFL','stCamberFR','stCamberRL','stCamberRR',
    'stToeFL','stToeFR','stToeRL','stToeRR','stCasterFL','stCasterFR',
+   'stShockLenFL','stShockLenFR','stShockLenRL','stShockLenRR',
+   'stPreloadFL','stPreloadFR','stPreloadRL','stPreloadRR','stMinClearF','stMinClearR',
    'stMeasFreqF','stMeasFreqR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const useHelper=document.getElementById('useHelper');
   const helperInputs=document.getElementById('helperInputs');
   if(useHelper)useHelper.checked=false;
   if(helperInputs)helperInputs.style.display='none';
-  const genre=document.getElementById('stGenre');
-  const subGenre=document.getElementById('stSubGenre');
-  if(genre)genre.value='';if(subGenre)subGenre.value='';
-  ['genreStreet','genreCircuit'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-  const subArea=document.getElementById('subGenreArea');
-  if(subArea)subArea.style.display='none';
 }
 function fillSettingForm(){
   const car=getCar();
@@ -1405,7 +1735,6 @@ function fillSettingForm(){
   if(lastSetting){
     const pf=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null&&val!=='')el.value=val;};
     pf('stWeight',lastSetting.weight);pf('stTire',lastSetting.tire);
-    pf('stTemp',lastSetting.temp);pf('stNote',lastSetting.note);
     pf('stSpringFL',lastSetting.springFL);pf('stSpringFR',lastSetting.springFR);
     pf('stSpringRL',lastSetting.springRL);pf('stSpringRR',lastSetting.springRR);
     pf('stPressFL',lastSetting.pressFL);pf('stPressFR',lastSetting.pressFR);
@@ -1414,12 +1743,11 @@ function fillSettingForm(){
     pf('stCamberRL',lastSetting.camberRL);pf('stCamberRR',lastSetting.camberRR);
     pf('stToeFL',lastSetting.toeFL);pf('stToeFR',lastSetting.toeFR);
     pf('stToeRL',lastSetting.toeRL);pf('stToeRR',lastSetting.toeRR);
-    const surface=document.getElementById('stSurface');
-    if(surface&&lastSetting.surface)surface.value=lastSetting.surface;
-    const eval_=document.getElementById('stEval');
-    if(eval_&&lastSetting.eval)eval_.value=lastSetting.eval;
-    if(lastSetting.genre)selectGenre(lastSetting.genre);
-    if(lastSetting.subGenre)selectSubGenre(lastSetting.subGenre);
+    pf('stShockLenFL',lastSetting.shockLenFL);pf('stShockLenFR',lastSetting.shockLenFR);
+    pf('stShockLenRL',lastSetting.shockLenRL);pf('stShockLenRR',lastSetting.shockLenRR);
+    pf('stPreloadFL',lastSetting.preloadFL);pf('stPreloadFR',lastSetting.preloadFR);
+    pf('stPreloadRL',lastSetting.preloadRL);pf('stPreloadRR',lastSetting.preloadRR);
+    pf('stMinClearF',lastSetting.minClearF);pf('stMinClearR',lastSetting.minClearR);
   }else{
     // 車両情報から入力（バネは4輪欄へ）
     const pfc=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
@@ -1433,7 +1761,8 @@ function fillSettingForm(){
   const tfR=document.getElementById('targetFreqR');
   if(tfF)tfF.value='';
   if(tfR)tfR.value='';
-  renderFreqCalc();
+  renderCalcPanel();
+  updateInlineFreq();
 }
 
 // ---- ダッシュボード ----
@@ -1592,23 +1921,35 @@ function renderDashboard(){
   const kmText=currentKm!==null?currentKm.toLocaleString()+' km':'--';
   const dayText=dailyKm!==null?Math.round(dailyKm)+' km/日':'計測中';
   const proOn=isProMode();
+  const partCount=Object.keys(byPart).length;
+  const countBadge=`<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.08);color:var(--text2);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">記録パーツ ${partCount}</span>`;
+  // 走行距離が長期間未更新なら入力をうながす
+  const lastOdoDate=car.odomHistory.length?[...car.odomHistory].map(h=>h.date).sort().slice(-1)[0]:null;
+  const odomStaleDays=lastOdoDate?(Date.now()-new Date(lastOdoDate))/86400000:9999;
+  const hintDismissed=state.odomHintDismissedAt&&(Date.now()-state.odomHintDismissedAt<30*86400000);
+  const odomHint=(odomStaleDays>=14&&!hintDismissed)?`<div class="alert alert-info" style="font-size:12px"><span>📏</span><div style="flex:1">現在の走行距離を「記録」タブの<b>走行距離</b>から入力してください。平均走行距離から次回の部品交換日を予想できます。</div><button onclick="dismissOdomHint(event)" style="background:none;border:none;color:var(--text3);font-size:1.3em;cursor:pointer;line-height:1;padding:0 0 0 8px;flex-shrink:0">×</button></div>`:'';
+  const statusBar=car.records.length?`<div class="alert ${alerts?'alert-warn':'alert-ok'}" style="align-items:center;justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px">${alerts?'⚠️ 交換時期が近いパーツがあります':'✅ すべて良好です'}</span>
+      ${countBadge}
+    </div>`:'';
   document.getElementById('page-dashboard').innerHTML=`
-    <div class="pro-banner">
-      <div>
-        <div style="font-size:14px;font-weight:600">⚡ Proモード${proOn?' <span style="color:#86efac">ON</span>':''}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">${proOn?'セッティング管理が有効です':'タップしてセッティング管理を有効化'}</div>
-      </div>
-      <button class="pro-toggle ${proOn?'on':''}" onclick="toggleProMode()"></button>
-    </div>
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">走行距離</div><div class="metric-value">${kmText}</div></div>
-      <div class="metric"><div class="metric-label">平均走行</div><div class="metric-value">${dayText}</div></div>
-      <div class="metric"><div class="metric-label">記録数</div><div class="metric-value">${car.records.length}</div></div>
-    </div>
-    ${alerts}${!alerts&&car.records.length>0?'<div class="alert alert-ok"><span>✅</span>すべて良好です</div>':''}
+    ${odomHint}
+    ${statusBar}
+    ${alerts}
     <div class="card"><p class="section-title">パーツ状況</p>
       ${items||'<div class="empty"><div class="empty-icon">🔧</div><div class="empty-text">まだ記録がありません<br>「記録」タブから追加してください</div></div>'}
-    </div><div style="height:16px"></div>`;
+    </div>
+    <div class="card">
+      ${car.odomHistory.length?'<p class="section-title">走行距離の推移</p><div class="chart-wrap"><canvas id="odomChart"></canvas></div>':''}
+      <div style="display:flex;justify-content:space-between;align-items:center;${car.odomHistory.length?'margin-top:10px;':''}font-size:11px;color:var(--text3)">
+        <span>平均走行 <b style="color:var(--text2);font-weight:600;font-size:12px">${dayText}</b></span>
+        <span>走行距離 <b style="color:var(--text);font-weight:700;font-size:14px">${kmText}</b></span>
+      </div>
+    </div>
+    <div id="homeHistory"></div>
+    <div style="height:16px"></div>`;
+  if(car.odomHistory.length)updateOdomChart();
+  renderHistory();
 }
 
 function renderDashboardAll(){
@@ -1651,7 +1992,9 @@ function renderDashboardAll(){
       ${items||'<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">記録なし</div>'}
     </div>`;
   });
+  html+='<div id="homeHistory"></div><div style="height:16px"></div>';
   document.getElementById('page-dashboard').innerHTML=html;
+  renderHistory();
 }
 
 // ---- 交換記録 ----
@@ -1659,6 +2002,7 @@ document.getElementById('partType').addEventListener('change',function(){
   document.getElementById('otherNameGroup').style.display=this.value==='other'?'block':'none';
   _updateOilFilterUI();
 });
+['stSpringFL','stSpringFR','stSpringRL','stSpringRR'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('input',updateInlineFreq);});
 // 記録フォームのオイルフィルター欄を車のモードに応じて更新
 function _updateOilFilterUI(){
   const pt=document.getElementById('partType').value;
@@ -1751,6 +2095,12 @@ function saveRecord(){
   document.getElementById('oilFilterGroup').style.display='none';
   showPage('dashboard');
 }
+// ホームの走行距離サジェストを×で閉じる（30日後に再表示）
+function dismissOdomHint(e){
+  if(e)e.stopPropagation();
+  state.odomHintDismissedAt=Date.now();
+  save();renderDashboard();
+}
 function saveOdometer(){
   const km=parseInt(document.getElementById('odoKm').value);
   const date=document.getElementById('odoDate').value;
@@ -1776,13 +2126,13 @@ function renderOdomHistory(){
   const sorted=[...car.odomHistory].sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!sorted.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">記録なし</div>';return;}
   el.innerHTML=sorted.map(h=>`
-    <div class="part-item">
+    <div class="part-item" onclick="showEditOdom('${h.date}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:14px;font-weight:600">${h.km.toLocaleString()} km</div>
           <div style="font-size:11px;color:var(--text3)">${h.date}</div>
         </div>
-        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="showEditOdom('${h.date}')">編集</button>
+        <span style="font-size:11px;color:var(--text3)">タップで編集</span>
       </div>
     </div>`).join('');
 }
@@ -1820,6 +2170,164 @@ function deleteOdomEntry(){
   toast('削除しました');
 }
 
+// ==== 記録タブ プルダウン切替 ====
+function switchRecView(v){
+  v=v||'exchange';
+  ['exchange','odo','tuning'].forEach(k=>{
+    const el=document.getElementById('recView-'+k);
+    if(el)el.style.display=(k===v)?'block':'none';
+  });
+  if(v==='odo')renderOdomHistory();
+  if(v==='tuning'){renderTodos();renderTuningLog();}
+}
+
+// ==== やることリスト ====
+function addTodo(){
+  const el=document.getElementById('todoInput');
+  const text=el.value.trim();
+  if(!text)return;
+  const car=getCar();
+  car.todos.push({id:Date.now(),text,done:false,createdAt:Date.now()});
+  el.value='';save();renderTodos();
+}
+function toggleTodo(id){
+  const car=getCar();
+  const t=car.todos.find(x=>x.id===id);
+  if(t){t.done=!t.done;save();renderTodos();}
+}
+function deleteTodo(id){
+  const car=getCar();
+  car.todos=car.todos.filter(x=>x.id!==id);
+  save();renderTodos();
+}
+function renderTodos(){
+  const car=getCar();const el=document.getElementById('todoList');
+  if(!el)return;
+  const list=[...car.todos].sort((a,b)=>(a.done-b.done)||(b.createdAt-a.createdAt));
+  if(!list.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">予定なし</div>';return;}
+  el.innerHTML=list.map(t=>`
+    <div class="part-item" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo(${t.id})" style="width:18px;height:18px;accent-color:#3b82f6;flex-shrink:0">
+      <div style="flex:1;font-size:14px;${t.done?'text-decoration:line-through;color:var(--text3)':''}">${esc(t.text)}</div>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text3);width:auto;padding:0 10px" onclick="deleteTodo(${t.id})">×</button>
+    </div>`).join('');
+}
+
+// ==== カスタムログ ====
+let _tlCarIdx=null; // 編集中ログの所有車インデックス
+function setTuningLogScope(all){
+  state.tuningLogAll=!!all;save();renderTuningLog();
+}
+function openTuningLog(id){
+  const today=new Date().toISOString().split('T')[0];
+  let log=null;
+  _tlCarIdx=state.selectedCar;
+  if(id){
+    for(let i=0;i<state.cars.length;i++){const l=state.cars[i].tuningLog.find(x=>x.id===id);if(l){log=l;_tlCarIdx=i;break;}}
+  }
+  document.getElementById('tuningLogModalTitle').textContent=log?'カスタムログを編集':'カスタムログ';
+  document.getElementById('tlId').value=log?log.id:'';
+  document.getElementById('tlDate').value=log?log.date:today;
+  document.getElementById('tlTarget').value=log?log.target:'';
+  document.getElementById('tlSettings').value=log?log.settings:'';
+  document.getElementById('tlCondition').value=log?log.condition:'';
+  document.getElementById('tlNote').value=log?log.note:'';
+  document.getElementById('tlNext').value=log?log.nextTask:'';
+  document.getElementById('tlDeleteBtn').style.display=log?'block':'none';
+  document.getElementById('cvResult').textContent='';
+  document.getElementById('tuningLogModal').classList.add('show');
+}
+function saveTuningLog(){
+  const car=state.cars[_tlCarIdx]||getCar();
+  const id=document.getElementById('tlId').value;
+  const date=document.getElementById('tlDate').value;
+  const target=document.getElementById('tlTarget').value.trim();
+  const settings=document.getElementById('tlSettings').value.trim();
+  if(!date||(!target&&!settings)){toast('日付と、対象または数値設定を入力してください');return;}
+  const condition=document.getElementById('tlCondition').value.trim();
+  const note=document.getElementById('tlNote').value.trim();
+  const nextTask=document.getElementById('tlNext').value.trim();
+  if(id){
+    const log=car.tuningLog.find(x=>x.id==id);
+    if(log)Object.assign(log,{date,target,settings,condition,note,nextTask});
+  }else{
+    car.tuningLog.push({id:Date.now(),date,target,settings,condition,note,nextTask,createdAt:Date.now()});
+  }
+  save();hideModal('tuningLogModal');renderTuningLog();renderTodos();
+  toast('保存しました ✓');
+}
+function addNextToTodo(){
+  const text=document.getElementById('tlNext').value.trim();
+  if(!text){toast('次の課題を入力してください');return;}
+  const car=state.cars[_tlCarIdx]||getCar();
+  car.todos.push({id:Date.now(),text,done:false,createdAt:Date.now()});
+  save();renderTodos();
+  toast('やることリストに追加しました ✓');
+}
+function deleteTuningLog(){
+  const id=document.getElementById('tlId').value;
+  if(!id)return;
+  if(!confirm('このログを削除しますか？'))return;
+  const car=state.cars[_tlCarIdx]||getCar();
+  car.tuningLog=car.tuningLog.filter(x=>x.id!=id);
+  save();hideModal('tuningLogModal');renderTuningLog();
+  toast('削除しました');
+}
+function renderTuningLog(){
+  const el=document.getElementById('tuningLogList');
+  if(!el)return;
+  const all=!!state.tuningLogAll;
+  const cc=document.getElementById('tlScopeCar'),ca=document.getElementById('tlScopeAll');
+  if(cc)cc.classList.toggle('on',!all);
+  if(ca)ca.classList.toggle('on',all);
+  let list=[];
+  if(all){state.cars.forEach((c,ci)=>c.tuningLog.forEach(l=>list.push({...l,_carName:c.name})));}
+  else{list=getCar().tuningLog.map(l=>({...l}));}
+  list.sort((a,b)=>new Date(b.date)-new Date(a.date)||b.createdAt-a.createdAt);
+  if(!list.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">ログなし</div>';return;}
+  el.innerHTML=list.map(l=>`
+    <div class="part-item" onclick="openTuningLog(${l.id})" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div style="font-size:14px;font-weight:600">${esc(l.target)||'（対象なし）'}</div>
+        <div style="font-size:11px;color:var(--text3);flex-shrink:0">${l.date}</div>
+      </div>
+      ${all&&l._carName?`<div style="font-size:10px;color:#93c5fd;margin-top:2px">🚗 ${esc(l._carName)}</div>`:''}
+      ${l.settings?`<div style="font-size:13px;color:var(--text2);margin-top:3px">${esc(l.settings)}</div>`:''}
+      ${l.condition?`<div style="font-size:11px;color:var(--text3);margin-top:2px">🌡 ${esc(l.condition)}</div>`:''}
+      ${l.note?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(l.note)}</div>`:''}
+      ${l.nextTask?`<div style="font-size:12px;color:#fbbf24;margin-top:4px">→ ${esc(l.nextTask)}</div>`:''}
+    </div>`).join('');
+}
+// 換算ヘルパー
+function calcConv(){
+  const turns=parseFloat(document.getElementById('cvTurns').value);
+  const pitch=parseFloat(document.getElementById('cvPitch').value);
+  const out=document.getElementById('cvResult');
+  if(isNaN(turns)||isNaN(pitch)){out.textContent='';return;}
+  const mm=turns*pitch;
+  out.innerHTML=`${turns}周 × ${pitch}mm = <b>${mm.toFixed(2)}mm</b>`;
+  out.dataset.text=`${turns}周(${mm.toFixed(1)}mm)`;
+}
+function insertConv(){
+  const out=document.getElementById('cvResult');
+  const t=out.dataset.text;
+  if(!t){toast('先に周回数とピッチを入力してください');return;}
+  const f=document.getElementById('tlSettings');
+  f.value=(f.value?f.value+' ':'')+t;
+}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';}
+// セッティングの車高/車高調を1行に要約（全長mm・プリ周・最低地上高mm）
+function heightSummary(s){
+  const parts=[];
+  if([s.shockLenFL,s.shockLenFR,s.shockLenRL,s.shockLenRR].some(v=>v!=null))
+    parts.push(`全長 F:${s.shockLenFL??'-'}/${s.shockLenFR??'-'} R:${s.shockLenRL??'-'}/${s.shockLenRR??'-'}mm`);
+  if([s.preloadFL,s.preloadFR,s.preloadRL,s.preloadRR].some(v=>v!=null))
+    parts.push(`プリ F:${s.preloadFL??'-'}/${s.preloadFR??'-'} R:${s.preloadRL??'-'}/${s.preloadRR??'-'}周`);
+  if(s.minClearF!=null||s.minClearR!=null)
+    parts.push(`最低地上高 前${s.minClearF??'-'}/後${s.minClearR??'-'}mm`);
+  return parts.length?'📏 '+parts.join(' ｜ '):'';
+}
+
 // ---- グラフ ----
 let odomChartInst=null;
 function updateOdomChart(){
@@ -1841,13 +2349,21 @@ function updateOdomChart(){
     wrap.appendChild(msg);
     return;
   }
+  // x軸を実日数比例の数値軸にする（入力日だけ等間隔にならないように）
+  const t0=new Date(sorted[0].date).getTime();
+  const DAY=86400000;
+  const pts=sorted.map(h=>({x:(new Date(h.date).getTime()-t0)/DAY,y:h.km,_d:h.date}));
+  const fmtDate=d=>{const s=d.slice(5).replace('-','/');return s;};
   odomChartInst=new Chart(canvas,{
     type:'line',
-    data:{labels:sorted.map(h=>h.date.slice(5).replace('-','/')),
-      datasets:[{data:sorted.map(h=>h.km),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.15)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#3b82f6'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    data:{datasets:[{data:pts,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.15)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#3b82f6'}]},
+    options:{responsive:true,maintainAspectRatio:false,parsing:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{title:items=>items.length?fmtDate(pts[items[0].dataIndex]._d):'',label:c=>c.parsed.y.toLocaleString()+'km'}}},
       scales:{y:{ticks:{color:'#64748b',callback:v=>v.toLocaleString()+'km',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
-        x:{ticks:{color:'#64748b',autoSkip:true,maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+        x:{type:'linear',min:0,max:Math.max(1,(new Date(sorted[sorted.length-1].date).getTime()-t0)/DAY),
+          ticks:{color:'#64748b',autoSkip:true,maxRotation:45,font:{size:10},
+            callback:v=>{const d=new Date(t0+v*DAY);return (d.getMonth()+1)+'/'+d.getDate();}},
+          grid:{color:'rgba(255,255,255,.05)'}}}}
   });
 }
 
@@ -1856,14 +2372,18 @@ function renderHistory(){
   if(state.viewAll){renderHistoryAll();return;}
   const car=getCar();
   const currentKm=getCurrentKm(car),dailyKm=calcDailyKm(car);
-  const el=document.getElementById('page-history');
+  const el=document.getElementById('homeHistory');
+  if(!el)return;
   const proOn=isProMode();
+  const f=histFilter();
   let allItems=car.records.map(r=>({...r,_type:'record'}));
   if(proOn)allItems=[...allItems,...car.settings.map(s=>({...s,_type:'setting'}))];
+  allItems=[...allItems,...car.tuningLog.map(t=>({...t,_type:'custom'}))];
   if(!allItems.length){
-    el.innerHTML='<div class="empty" style="padding-top:60px"><div class="empty-icon">📋</div><div class="empty-text">記録がありません</div></div>';
+    el.innerHTML='';
     return;
   }
+  allItems=allItems.filter(it=>f[it._type]);
   allItems.sort((a,b)=>{
     const da=new Date(a.date||0).getTime();
     const db=new Date(b.date||0).getTime();
@@ -1888,7 +2408,7 @@ function renderHistory(){
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditRecord(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${isLatest?'<span class="timeline-badge tl-blue">最新</span>':''}</div>
@@ -1900,9 +2420,24 @@ function renderHistory(){
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
               ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
-              <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id})">編集</button>
             </div>
           </div>
+        </div>
+      </div>`;
+    }else if(item._type==='custom'){
+      return`<div class="timeline-item">
+        <div class="timeline-dot${isLatest?' amber':''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
+          <div class="timeline-header">
+            <div style="flex:1;min-width:0">
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 カスタム</span>
+              <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
+              <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
+            </div>
+          </div>
+          ${item.settings?`<div style="font-size:12px;color:var(--text2);margin-top:6px">${esc(item.settings)}</div>`:''}
+          ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px">💬 ${esc(item.note)}</div>`:''}
+          ${item.nextTask?`<div style="font-size:11px;color:#fbbf24;margin-top:4px">→ ${esc(item.nextTask)}</div>`:''}
         </div>
       </div>`;
     }else{
@@ -1912,48 +2447,97 @@ function renderHistory(){
       const pressStr=item.pressFL||item.pressFR?`空気圧F:${item.pressFL||''}/${item.pressFR||''}`:item.pressF?`空気圧F:${item.pressF}`:'';
       const pressRStr=item.pressRL||item.pressRR?`空気圧R:${item.pressRL||''}/${item.pressRR||''}`:item.pressR?`空気圧R:${item.pressR}`:'';
       const details=[springStr,springRStr,pressStr,pressRStr].filter(Boolean).join(' | ');
+      const heightStr=heightSummary(item);
+      const unrev=!item.reviewed;
       return`<div class="timeline-item">
-        <div class="timeline-dot${isLatest?' purple':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-dot${isLatest?(unrev?' amber':' purple'):''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id})" style="cursor:pointer">
           <div class="timeline-header">
             <div>
-              <span class="badge badge-setting">🏎 セッティング</span>
-              <div class="timeline-title">📍 ${item.course||'?'}</div>
-              <div class="timeline-sub">${item.date||''}${item.temp?` · ${item.temp}°C`:''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}${item.genre?' · '+(item.genre==='street'?'ストリート':'サーキット'):''}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge badge-setting">🏎 セッティング</span>${unrev?'<span class="timeline-badge" style="background:rgba(251,191,36,.15);color:#fcd34d">⚠️ 未レビュー</span>':''}</div>
+              <div class="timeline-title">${unrev?'📝 セッティング記録':'📍 '+(item.course||'?')}</div>
+              <div class="timeline-sub">${item.date||''}${item.reviewDate&&item.reviewDate!==item.date?' → 走行 '+item.reviewDate:''}${!unrev&&item.temp?` · ${item.temp}°C`:''}${!unrev&&item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}${!unrev&&item.genre?' · '+(item.genre==='street'?'ストリート':'サーキット'):''}</div>
             </div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditSetting(${item.id})">編集</button>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">${details}</div>`:''}
+          ${heightStr?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightStr}</div>`:''}
           ${(item.freqF||item.freqR)?`<div style="font-size:11px;color:var(--text3);margin-top:4px">固有振動数 F:${item.freqF?parseFloat(item.freqF).toFixed(2)+'Hz':'-'} R:${item.freqR?parseFloat(item.freqR).toFixed(2)+'Hz':'-'}</div>`:''}
           ${(item.measFreqF||item.measFreqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">📱 実測 F:${item.measFreqF?parseFloat(item.measFreqF).toFixed(2)+'Hz':'-'} R:${item.measFreqR?parseFloat(item.measFreqR).toFixed(2)+'Hz':'-'}</div>`:''}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            <span style="font-size:12px">${stars}</span>
-            ${item.note?`<span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}
-          </div>
+          ${item.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px">💬 ${item.note}</div>`:''}
+          ${unrev
+            ?`<div style="margin-top:8px"><div style="font-size:11px;color:#fcd34d;margin-bottom:6px">走行後にレビューしてください</div><button class="btn btn-sm" onclick="event.stopPropagation();openReview(${item.id})" style="background:var(--blue);color:#fff;width:100%">📝 レビューする</button></div>`
+            :`<div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.reviewNote?` <span style="font-size:11px;color:var(--text3)">📝 ${esc(item.reviewNote)}</span>`:''}</div>`}
         </div>
       </div>`;
     }
   }).join('');
   el.innerHTML=`<div style="padding:16px 16px 0">
     <p class="section-title">${proOn?'全記録タイムライン':'交換履歴'}</p>
+    ${histFilterBar(proOn)}
     ${proOn&&car.settings.length>=2?`<button class="btn" onclick="showCompareModal()" style="background:var(--bg3);color:var(--text);width:auto;padding:8px 16px;font-size:13px;margin-bottom:12px">📊 セッティングを比較</button>`:''}
-    <div class="timeline">${rows}</div>
+    <div class="timeline">${rows||'<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">表示する記録がありません</div>'}</div>
   </div><div style="height:16px"></div>`;
 }
+// 履歴フィルタ（消耗品/セッティング/カスタム）
+function histFilter(){
+  if(!state.histFilter)state.histFilter={record:true,setting:true,custom:true};
+  return state.histFilter;
+}
+function histFilterBar(proOn){
+  const f=histFilter();
+  const all=f.record&&(!proOn||f.setting)&&f.custom;
+  const chip=(key,label)=>`<button class="seg-chip ${f[key]?'on':''}" onclick="toggleHistFilter('${key}')">${label}</button>`;
+  return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    ${chip('record','消耗品')}
+    ${proOn?chip('setting','セッティング'):''}
+    ${chip('custom','カスタム')}
+    <button class="seg-chip ${all?'on':''}" onclick="toggleHistFilter('all')">すべて</button>
+  </div>`;
+}
+function toggleHistFilter(key){
+  const f=histFilter();
+  const proOn=isProMode();
+  if(key==='all'){
+    const all=f.record&&(!proOn||f.setting)&&f.custom;
+    const next=!all; // すべてONなら全OFF、それ以外は全ON
+    f.record=next;f.setting=next;f.custom=next;
+  }
+  else f[key]=!f[key];
+  save();renderHistory();
+}
 function renderHistoryAll(){
-  const el=document.getElementById('page-history');
+  const el=document.getElementById('homeHistory');
+  if(!el)return;
   const proOn=isProMode();
   let allItems=[];
+  const f=histFilter();
   state.cars.forEach((car,ci)=>{
     car.records.forEach(r=>allItems.push({...r,_type:'record',_carIdx:ci,_carName:car.name}));
     if(proOn)car.settings.forEach(s=>allItems.push({...s,_type:'setting',_carIdx:ci,_carName:car.name}));
+    car.tuningLog.forEach(t=>allItems.push({...t,_type:'custom',_carIdx:ci,_carName:car.name}));
   });
   if(!allItems.length){el.innerHTML='<div class="empty" style="padding-top:60px"><div class="empty-icon">📋</div><div class="empty-text">記録がありません</div></div>';return;}
+  allItems=allItems.filter(it=>f[it._type]);
   allItems.sort((a,b)=>new Date(b.date||0).getTime()-new Date(a.date||0).getTime());
   const rows=allItems.map((item,i)=>{
     const isLatest=i===0;
     const carLabel=state.cars.length>1?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${item._carName}</span>`:'';
-    if(item._type==='record'){
+    if(item._type==='custom'){
+      return`<div class="timeline-item">
+        <div class="timeline-dot${isLatest?' amber':''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="openTuningLog(${item.id})" style="cursor:pointer">
+          <div class="timeline-header">
+            <div style="flex:1;min-width:0">
+              <span class="badge" style="background:rgba(251,191,36,.15);color:#fcd34d">🔧 カスタム</span>${carLabel}
+              <div class="timeline-title">${esc(item.target)||'（対象なし）'}</div>
+              <div class="timeline-sub">${item.date||''}${item.condition?' · '+esc(item.condition):''}</div>
+            </div>
+          </div>
+          ${item.settings?`<div style="font-size:12px;color:var(--text2);margin-top:6px">${esc(item.settings)}</div>`:''}
+          ${item.nextTask?`<div style="font-size:11px;color:#fbbf24;margin-top:4px">→ ${esc(item.nextTask)}</div>`:''}
+        </div>
+      </div>`;
+    }else if(item._type==='record'){
       const _car=state.cars[item._carIdx]||getCar();
       const _latestByPart={};
       [..._car.records].sort((a,b)=>b.odomAtChange-a.odomAtChange).forEach(r=>{
@@ -1970,7 +2554,7 @@ function renderHistoryAll(){
       if(sameParts.length>=2){const ivs=[];for(let j=1;j<sameParts.length;j++)ivs.push(sameParts[j].odomAtChange-sameParts[j-1].odomAtChange);avgInterval=Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length);}
       return`<div class="timeline-item">
         <div class="timeline-dot${isLatest?' blue':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditRecord(${item.id},${item._carIdx})" style="cursor:pointer">
           <div class="timeline-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge ${bc}">${name}</span>${carLabel}</div>
@@ -1982,7 +2566,6 @@ function renderHistoryAll(){
             </div>
             <div style="text-align:right;min-width:70px;margin-left:12px;flex-shrink:0">
               ${ps.hasAny?`<div style="font-size:13px;font-weight:600">${ps.rightHtml}</div>${ps.estHtml}`:''}
-              <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);margin-top:8px;display:block;width:100%" onclick="showEditRecord(${item.id},${item._carIdx})">編集</button>
             </div>
           </div>
         </div>
@@ -1992,24 +2575,28 @@ function renderHistoryAll(){
       const springStr=item.springFL||item.springFR?`バネF:${item.springFL||''}/${item.springFR||''}`:item.springF?`バネF:${item.springF}`:'';
       const springRStr=item.springRL||item.springRR?`バネR:${item.springRL||''}/${item.springRR||''}`:item.springR?`バネR:${item.springR}`:'';
       const details=[springStr,springRStr].filter(Boolean).join(' | ');
+      const unrev=!item.reviewed;
       return`<div class="timeline-item">
-        <div class="timeline-dot${isLatest?' purple':''}"></div>
-        <div class="timeline-card${isLatest?' latest':''}">
+        <div class="timeline-dot${isLatest?(unrev?' amber':' purple'):''}"></div>
+        <div class="timeline-card${isLatest?' latest':''}" onclick="showEditSetting(${item.id},${item._carIdx})" style="cursor:pointer">
           <div class="timeline-header">
-            <div><span class="badge badge-setting">🏎 セッティング</span>${carLabel}
-            <div class="timeline-title">📍 ${item.course||'?'}</div>
-            <div class="timeline-sub">${item.date||''}${item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
-            <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex-shrink:0" onclick="showEditSetting(${item.id},${item._carIdx})">編集</button>
+            <div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="badge badge-setting">🏎 セッティング</span>${unrev?'<span class="timeline-badge" style="background:rgba(251,191,36,.15);color:#fcd34d">⚠️ 未レビュー</span>':''}${carLabel}</div>
+            <div class="timeline-title">${unrev?'📝 セッティング記録':'📍 '+(item.course||'?')}</div>
+            <div class="timeline-sub">${item.date||''}${!unrev&&item.surface?' · '+(SURFACE_LABELS[item.surface]||''):''}${item.tire?' · '+item.tire:''}</div></div>
           </div>
           ${details?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${details}</div>`:''}
-          <div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.note?` <span style="font-size:11px;color:var(--text3)">💬 ${item.note}</span>`:''}</div>
+          ${heightSummary(item)?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${heightSummary(item)}</div>`:''}
+          ${unrev
+            ?`<div style="margin-top:8px"><button class="btn btn-sm" onclick="event.stopPropagation();openReview(${item.id},${item._carIdx})" style="background:var(--blue);color:#fff;width:100%">📝 レビューする</button></div>`
+            :`<div style="margin-top:6px"><span style="font-size:12px">${stars}</span>${item.reviewNote?` <span style="font-size:11px;color:var(--text3)">📝 ${esc(item.reviewNote)}</span>`:''}</div>`}
         </div>
       </div>`;
     }
   }).join('');
   el.innerHTML=`<div style="padding:16px 16px 0">
     <p class="section-title">全記録タイムライン</p>
-    <div class="timeline">${rows}</div>
+    ${histFilterBar(proOn)}
+    <div class="timeline">${rows||'<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">表示する記録がありません</div>'}</div>
   </div><div style="height:16px"></div>`;
 }
 
@@ -2119,6 +2706,9 @@ function showEditSetting(id,carIdx){
   pf('editCaFL',s.camberFL);pf('editCaFR',s.camberFR);pf('editCaRL',s.camberRL);pf('editCaRR',s.camberRR);
   pf('editToFL',s.toeFL);pf('editToFR',s.toeFR);pf('editToRL',s.toeRL);pf('editToRR',s.toeRR);
   pf('editCsFL',s.casterFL);pf('editCsFR',s.casterFR);
+  pf('editShFL',s.shockLenFL);pf('editShFR',s.shockLenFR);pf('editShRL',s.shockLenRL);pf('editShRR',s.shockLenRR);
+  pf('editPlFL',s.preloadFL);pf('editPlFR',s.preloadFR);pf('editPlRL',s.preloadRL);pf('editPlRR',s.preloadRR);
+  pf('editMcF',s.minClearF);pf('editMcR',s.minClearR);
   pf('editStNote',s.note);
   // 実測固有振動数（読み取り専用表示）
   const mfRow=document.getElementById('editMeasFreqRow');
@@ -2128,6 +2718,18 @@ function showEditSetting(id,carIdx){
   }else{mfRow.style.display='none';}
   document.getElementById('editSettingModal').classList.add('show');
 }
+// セッティングの数値項目（変更検知・フォーク用）
+const SETTING_NUM_KEYS=['weight','springFL','springFR','springRL','springRR',
+  'helperFL','helperFR','helperRL','helperRR',
+  'pressFL','pressFR','pressRL','pressRR',
+  'camberFL','camberFR','camberRL','camberRR','toeFL','toeFR','toeRL','toeRR','casterFL','casterFR',
+  'shockLenFL','shockLenFR','shockLenRL','shockLenRR','preloadFL','preloadFR','preloadRL','preloadRR','minClearF','minClearR'];
+function recalcSettingFreq(o,car){
+  const avgSpF=o.springFL&&o.springFR?(o.springFL+o.springFR)/2:o.springFL||o.springFR||o.springF||null;
+  const avgSpR=o.springRL&&o.springRR?(o.springRL+o.springRR)/2:o.springRL||o.springRR||o.springR||null;
+  o.freqF=(car.leverF&&avgSpF)?computeNaturalFreq(avgSpF,car.leverF,cornerMass(car,'F')):null;
+  o.freqR=(car.leverR&&avgSpR)?computeNaturalFreq(avgSpR,car.leverR,cornerMass(car,'R')):null;
+}
 function saveEditSetting(){
   const id=parseInt(document.getElementById('editStId').value);
   const ci=parseInt(document.getElementById('editStCarIdx').value);
@@ -2136,10 +2738,17 @@ function saveEditSetting(){
   if(!s)return;
   const course=document.getElementById('editStCourse').value.trim();
   const date=document.getElementById('editStDate').value;
-  if(!course||!date){toast('コース名と日付を入力してください');return;}
-  s.course=course;s.date=date;s.eval=parseInt(document.getElementById('editStEval').value);
+  if(!date){toast('日付を入力してください');return;}
+  if(s.reviewed&&!course){toast('コース名を入力してください');return;}
+  // 変更前の数値スナップショット（フォーク判定用）
+  const oldSnap={};SETTING_NUM_KEYS.forEach(k=>oldSnap[k]=s[k]??null);
+  // レビュー系（レビュー済みのみ反映）
+  if(s.reviewed){
+    s.course=course;s.eval=parseInt(document.getElementById('editStEval').value);
+    const surfEl=document.getElementById('editStSurface');if(surfEl)s.surface=surfEl.value;
+  }
+  s.date=date;
   const pf=eid=>{const v=parseFloat(document.getElementById(eid).value);return isNaN(v)?null:v;};
-  const surfEl=document.getElementById('editStSurface');if(surfEl)s.surface=surfEl.value;
   s.temp=pf('editStTemp');s.tire=document.getElementById('editStTire').value.trim()||null;
   s.weight=pf('editStWeight');
   s.springFL=pf('editSpFL');s.springFR=pf('editSpFR');s.springRL=pf('editSpRL');s.springRR=pf('editSpRR');
@@ -2154,14 +2763,93 @@ function saveEditSetting(){
   s.camberFL=pf('editCaFL');s.camberFR=pf('editCaFR');s.camberRL=pf('editCaRL');s.camberRR=pf('editCaRR');
   s.toeFL=pf('editToFL');s.toeFR=pf('editToFR');s.toeRL=pf('editToRL');s.toeRR=pf('editToRR');
   s.casterFL=pf('editCsFL');s.casterFR=pf('editCsFR');
+  s.shockLenFL=pf('editShFL');s.shockLenFR=pf('editShFR');s.shockLenRL=pf('editShRL');s.shockLenRR=pf('editShRR');
+  s.preloadFL=pf('editPlFL');s.preloadFR=pf('editPlFR');s.preloadRL=pf('editPlRL');s.preloadRR=pf('editPlRR');
+  s.minClearF=pf('editMcF');s.minClearR=pf('editMcR');
   s.note=document.getElementById('editStNote').value;
-  // 固有振動数を再計算（表示と同じバネ上重量基準）
-  const avgSpF=s.springFL&&s.springFR?(s.springFL+s.springFR)/2:s.springFL||s.springFR||s.springF||null;
-  const avgSpR=s.springRL&&s.springRR?(s.springRL+s.springRR)/2:s.springRL||s.springRR||s.springR||null;
-  if(car.leverF&&avgSpF)s.freqF=computeNaturalFreq(avgSpF,car.leverF,cornerMass(car,'F'));
-  if(car.leverR&&avgSpR)s.freqR=computeNaturalFreq(avgSpR,car.leverR,cornerMass(car,'R'));
-  save();hideModal('editSettingModal');renderHistory();
-  toast('セッティングを更新しました');
+  // レビュー済みで数値が変わった → 新しいセッティングとして追加するか確認
+  const numChanged=SETTING_NUM_KEYS.some(k=>(s[k]??null)!==oldSnap[k]);
+  if(s.reviewed&&numChanged){
+    if(confirm('変更後の数値で新しいセッティングとして追加しますか？\n「いいえ」を押すと、この記録の数値をそのまま修正します。')){
+      // フォーク: 変更後の数値で未レビューの新規を作る。元のレビュー済みは数値を戻して温存
+      const fork={...s,id:Date.now(),ts:Date.now(),reviewed:false,
+        course:null,genre:null,subGenre:null,reviewDate:null,reviewNote:'',surface:null,temp:null,eval:null,date};
+      delete fork.fbIds;
+      SETTING_NUM_KEYS.forEach(k=>{s[k]=oldSnap[k];}); // 元を旧数値に戻す
+      recalcSettingFreq(s,car);recalcSettingFreq(fork,car);
+      car.settings.push(fork);
+      save();hideModal('editSettingModal');renderHistory();renderDashboard();
+      toast('新しいセッティングを追加しました ✓（未レビュー）');
+      return;
+    }
+  }
+  recalcSettingFreq(s,car);
+  save();hideModal('editSettingModal');renderHistory();renderDashboard();
+  toast(s.reviewed?'セッティングを更新しました':'数値を修正しました');
+}
+// ---- 走行レビュー ----
+function openReview(id,carIdx){
+  const car=carIdx!==undefined?state.cars[carIdx]:getCar();
+  const s=car.settings.find(x=>x.id===id);
+  if(!s)return;
+  document.getElementById('reviewStId').value=id;
+  document.getElementById('reviewCarIdx').value=carIdx!==undefined?carIdx:state.selectedCar;
+  document.getElementById('reviewGenre').value=s.genre||'';
+  document.getElementById('reviewCourse').value=s.course||'';
+  document.getElementById('reviewDate').value=s.reviewDate||new Date().toISOString().split('T')[0];
+  document.getElementById('reviewTemp').value=s.temp??'';
+  document.getElementById('reviewSurface').value=s.surface||'dry';
+  document.getElementById('reviewEval').value=s.eval||3;
+  document.getElementById('reviewNote').value=s.reviewNote||'';
+  document.getElementById('reviewModal').classList.add('show');
+}
+async function saveReview(){
+  const id=parseInt(document.getElementById('reviewStId').value);
+  const ci=parseInt(document.getElementById('reviewCarIdx').value);
+  const car=!isNaN(ci)?state.cars[ci]:getCar();
+  const s=car.settings.find(x=>x.id===id);
+  if(!s)return;
+  const course=document.getElementById('reviewCourse').value.trim();
+  const date=document.getElementById('reviewDate').value;
+  if(!course||!date){toast('コース名と走行日を入力してください');return;}
+  s.course=course;
+  s.genre=document.getElementById('reviewGenre').value||null;
+  s.reviewDate=date;
+  s.temp=parseFloat(document.getElementById('reviewTemp').value)||null;
+  s.surface=document.getElementById('reviewSurface').value;
+  s.eval=parseInt(document.getElementById('reviewEval').value);
+  s.reviewNote=document.getElementById('reviewNote').value.trim();
+  s.reviewed=true;
+  save();
+  await shareReviewToGroups(s,car);
+  hideModal('reviewModal');renderHistory();renderDashboard();renderGroupFreq();
+  toast('レビューを保存しました ✓');
+}
+// グループ共有: 同車・同日のレビュー済みのうち最高評価のみを共有
+async function shareReviewToGroups(s,car){
+  if(!state.groups.length)return;
+  const day=s.reviewDate||s.date;
+  const sameDay=car.settings.filter(x=>x.reviewed&&(x.reviewDate||x.date)===day);
+  if(!sameDay.length)return;
+  const best=sameDay.reduce((a,b)=>((b.eval||0)>(a.eval||0)?b:a),sameDay[0]);
+  for(const group of state.groups){
+    // best 以外で同日同車に共有済みがあれば取り下げ
+    for(const x of sameDay){
+      if(x!==best&&x.fbIds&&x.fbIds[group.code]){
+        if(navigator.onLine)await fbDelete(`groups/${group.code}/settings/${x.fbIds[group.code]}`);
+        delete x.fbIds[group.code];
+      }
+    }
+    if(best.fbIds&&best.fbIds[group.code])continue; // 既に共有済み
+    const fbData={...best,nick:group.nick||best.nick};
+    if(navigator.onLine){
+      const fbId=await fbPush(`groups/${group.code}/settings`,fbData);
+      if(fbId){if(!best.fbIds)best.fbIds={};best.fbIds[group.code]=fbId;}
+    }else{
+      pendingUploads.push({code:group.code,data:fbData,localId:best.id});
+    }
+  }
+  save();
 }
 function deleteSettingFromEdit(){
   const id=parseInt(document.getElementById('editStId').value);
@@ -2235,7 +2923,7 @@ function generateCode(){
 }
 function countUnsharedSettings(code){
   let n=0;
-  state.cars.forEach(car=>car.settings.forEach(s=>{if(!s.fbIds||!s.fbIds[code])n++;}));
+  state.cars.forEach(car=>car.settings.forEach(s=>{if(s.reviewed&&(!s.fbIds||!s.fbIds[code]))n++;}));
   return n;
 }
 async function uploadSettingsToGroup(code){
@@ -2244,6 +2932,7 @@ async function uploadSettingsToGroup(code){
   let count=0;
   for(const car of state.cars){
     for(const s of car.settings){
+      if(!s.reviewed)continue; // 未レビューは共有しない
       if(!s.fbIds||!s.fbIds[code]){
         const fbData={...s,nick:g.nick||state.nickname||''};
         const fbId=await fbPush(`groups/${code}/settings`,fbData);
@@ -2367,30 +3056,53 @@ function freqColor(f){
   if(f<2.8)return'#60a5fa';
   return'#fcd34d';
 }
-function renderFreqCalc(){
-  const car=getCar();
-  const el=document.getElementById('freqCalcDisplay');
-  if(!el)return;
-  const{weight,frontRatio,rearRatio,leverF,leverR,springF,springR}=car;
-  if(!weight||!frontRatio||!leverF||!springF){
-    el.innerHTML=`<div class="alert alert-info" style="font-size:12px">車両設定（車重・荷重比・レバー比・バネレート）を登録すると現在の固有振動数が表示されます</div>`;
-    renderGroupFreq();return;
+// 選択車の最新セッティング（記録）を返す
+function latestSetting(car){return (car&&car.settings&&car.settings.length)?[...car.settings].sort((a,b)=>(b.ts||0)-(a.ts||0))[0]:null;}
+// 計算系パネル: 最新セッティング/車両を読み込んで固有振動数を表示
+function renderCalcPanel(){
+  if(!document.getElementById('calcWeight')){renderGroupFreq();return;}
+  fillCalcInputs();
+  renderCalcFreq();
+  renderGroupFreq();
+}
+function fillCalcInputs(){
+  const car=getCar();const ls=latestSetting(car);
+  const setv=(id,v)=>{const e=document.getElementById(id);if(e)e.value=(v!=null&&v!=='')?v:'';};
+  const avg=(a,b)=>{a=parseFloat(a);b=parseFloat(b);if(!isNaN(a)&&!isNaN(b))return(a+b)/2;return!isNaN(a)?a:(!isNaN(b)?b:null);};
+  const lsW=ls&&ls.weight!=null&&ls.weight!==''?ls.weight:null;
+  const lsSpF=ls?avg(ls.springFL,ls.springFR):null;
+  const lsSpR=ls?avg(ls.springRL,ls.springRR):null;
+  setv('calcWeight',lsW!=null?lsW:(car.weight||''));
+  setv('calcRatioF',car.frontRatio||'');
+  setv('calcLeverF',car.leverF||'');
+  setv('calcLeverR',car.leverR||'');
+  setv('calcSpringF',lsSpF!=null?+lsSpF.toFixed(2):(car.springF||''));
+  setv('calcSpringR',lsSpR!=null?+lsSpR.toFixed(2):(car.springR||''));
+}
+// 入力値からリアルタイムに固有振動数を計算表示
+function renderCalcFreq(){
+  const el=document.getElementById('calcFreqDisplay');if(!el)return;
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  const weight=num('calcWeight'),ratioF=num('calcRatioF'),leverF=num('calcLeverF'),leverR=num('calcLeverR'),springF=num('calcSpringF'),springR=num('calcSpringR');
+  if(!weight||!ratioF||!leverF){
+    el.innerHTML=`<div class="alert alert-info" style="font-size:12px">車重・前軸荷重比・レバー比・バネレートを入力すると固有振動数が表示されます</div>`;
+    return;
   }
-  const unsprungF=car.unsprungF||0,unsprungR=car.unsprungR||0;
-  const massF=Math.max(1,weight*(frontRatio/100)/2-unsprungF);
-  const effRear=rearRatio||(100-frontRatio);
-  const massR=Math.max(1,weight*(effRear/100)/2-unsprungR);
-  const freqF=computeNaturalFreq(springF,leverF,massF);
-  const freqR=(leverR&&springR)?computeNaturalFreq(springR,leverR,massR):null;
-  const strokeF=car.strokeF,strokeR=car.strokeR;
+  const car=getCar();const unsF=car.unsprungF||0,unsR=car.unsprungR||0;
+  const ratioR=100-ratioF;
+  const massF=Math.max(1,weight*(ratioF/100)/2-unsF);
+  const massR=Math.max(1,weight*(ratioR/100)/2-unsR);
+  const freqF=springF?computeNaturalFreq(springF,leverF,massF):null;
+  const freqR=(springR&&leverR)?computeNaturalFreq(springR,leverR,massR):null;
+  const {strokeF,strokeR}=calcStrokeFromSpring(weight,ratioF,ratioR,leverF,leverR,springF,springR);
   el.innerHTML=`
     <div class="calc-result">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">現在の固有振動数${unsprungF||unsprungR?'（バネ上重量）':'（軸重近似）'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">現在の固有振動数${unsF||unsR?'（バネ上重量）':'（軸重近似）'}</div>
       <div class="calc-grid">
         <div class="calc-item">
           <div class="calc-item-label">フロント</div>
           <div class="calc-item-value" style="color:${freqColor(freqF)}">${freqF?freqF.toFixed(2)+' Hz':'--'}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${springF} kgf/mm / L=${leverF}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${springF||'-'} kgf/mm / L=${leverF}</div>
         </div>
         <div class="calc-item">
           <div class="calc-item-label">リア</div>
@@ -2407,15 +3119,51 @@ function renderFreqCalc(){
           <span style="color:var(--text);font-weight:600">${v.min}〜${v.max} Hz</span>
         </div>`).join('')}
     </div>
-    ${strokeF||strokeR?`<div style="font-size:11px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">1G縮み量: フロント ${strokeF?strokeF.toFixed(1)+'mm':'--'} / リア ${strokeR?strokeR.toFixed(1)+'mm':'--'}</div>`:''}
-    `;
+    ${strokeF||strokeR?`<div style="font-size:11px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">1G縮み量: フロント ${strokeF?strokeF.toFixed(1)+'mm':'--'} / リア ${strokeR?strokeR.toFixed(1)+'mm':'--'}</div>`:''}`;
   if(freqF&&!document.getElementById('targetFreqF').value)
     document.getElementById('targetFreqF').value=freqF.toFixed(1);
   if(freqR&&!document.getElementById('targetFreqR').value)
     document.getElementById('targetFreqR').value=freqR.toFixed(1);
-  document.getElementById('accFreqDisp').classList.add('open');
-  document.getElementById('arrowFreqDisp').classList.add('open');
-  renderGroupFreq();
+}
+function resetCalcPanel(){fillCalcInputs();renderCalcFreq();toast('最新セッティングを読み込みました');}
+function applyCalcToCar(){
+  const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  car.weight=num('calcWeight');
+  car.frontRatio=num('calcRatioF');
+  car.rearRatio=car.frontRatio!=null?100-car.frontRatio:null;
+  car.leverF=num('calcLeverF');car.leverR=num('calcLeverR');
+  car.springF=num('calcSpringF');car.springR=num('calcSpringR');
+  const {strokeF,strokeR}=calcStrokeFromSpring(car.weight,car.frontRatio,car.rearRatio,car.leverF,car.leverR,car.springF,car.springR);
+  car.strokeF=strokeF;car.strokeR=strokeR;
+  save();updateInlineFreq();
+  toast('この値を車両に保存しました ✓');
+}
+// セッティングカード（ヨー診断）の表示切替（限界走行実測内に統合）
+function toggleYawCard(){
+  const p=document.getElementById('yawCardPanel');if(!p)return;
+  const show=(p.style.display==='none'||!p.style.display);
+  p.style.display=show?'block':'none';
+  const btn=document.getElementById('yawCardBtn');
+  if(btn)btn.textContent=show?'🧭 セッティングカードを閉じる':'🧭 セッティングカード表示';
+  if(show){_yawInitDrive();renderYawAdvice();}
+}
+// セッティングフォーム内：固有振動数（計算値）のインライン表示
+function updateInlineFreq(){
+  const el=document.getElementById('stFreqInline');if(!el)return;
+  const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
+  const sFL=num('stSpringFL'),sFR=num('stSpringFR'),sRL=num('stSpringRL'),sRR=num('stSpringRR');
+  const springF=(sFL&&sFR)?(sFL+sFR)/2:(sFL||sFR||car.springF||null);
+  const springR=(sRL&&sRR)?(sRL+sRR)/2:(sRL||sRR||car.springR||null);
+  let freqF=null,freqR=null;
+  if(car.weight&&car.frontRatio&&car.leverF&&springF)freqF=computeNaturalFreq(springF,car.leverF,cornerMass(car,'F'));
+  if(car.weight&&car.frontRatio&&car.leverR&&springR)freqR=computeNaturalFreq(springR,car.leverR,cornerMass(car,'R'));
+  if(freqF||freqR){
+    el.innerHTML=`<span style="color:${freqColor(freqF)};font-weight:600">F: ${freqF?freqF.toFixed(2)+' Hz':'-'}</span>　<span style="color:${freqColor(freqR)};font-weight:600">R: ${freqR?freqR.toFixed(2)+' Hz':'-'}</span>`;
+  }else{
+    el.innerHTML=`<div style="font-size:11px;color:var(--text3)">設定 → 車両の ✏️ から 車重・レバー比・バネレート を入力すると表示されます</div>`;
+  }
 }
 function renderGroupFreq(){
   const el=document.getElementById('groupFreqDisplay');
@@ -2442,12 +3190,14 @@ function renderGroupFreq(){
 }
 function calcFromFreq(){
   const car=getCar();
+  const num=id=>{const e=document.getElementById(id);const v=e?parseFloat(e.value):NaN;return isNaN(v)?null:v;};
   const targetF=parseFloat(document.getElementById('targetFreqF').value);
   const targetR=parseFloat(document.getElementById('targetFreqR').value);
-  const{weight,frontRatio,leverF,leverR}=car;
-  if(!weight||!frontRatio||!leverF){toast('車両設定（車重・荷重比・レバー比）を先に登録してください');return;}
-  const massF=cornerMass(car,'F');
-  const massR=cornerMass(car,'R');
+  const weight=num('calcWeight'),frontRatio=num('calcRatioF'),leverF=num('calcLeverF'),leverR=num('calcLeverR');
+  if(!weight||!frontRatio||!leverF){toast('上の計算欄に車重・前軸荷重比・レバー比を入力してください');return;}
+  const unsF=car.unsprungF||0,unsR=car.unsprungR||0;
+  const massF=Math.max(1,weight*(frontRatio/100)/2-unsF);
+  const massR=Math.max(1,weight*((100-frontRatio)/100)/2-unsR);
   const recF=(targetF&&leverF)?computeSpringFromFreq(targetF,leverF,massF):null;
   const recR=(targetR&&leverR)?computeSpringFromFreq(targetR,leverR,massR):null;
   const el=document.getElementById('freqCalcResult');
@@ -2469,28 +3219,167 @@ function toggleHelper(checked){
   if(!checked){['stHelperFL','stHelperFR','stHelperRL','stHelperRR'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});}
 }
 
-function calcSpringToFreq(){
-  const car=getCar();
-  const spF=parseFloat(document.getElementById('springToFreqF').value);
-  const spR=parseFloat(document.getElementById('springToFreqR').value);
-  const{weight,frontRatio,rearRatio,leverF,leverR,unsprungF,unsprungR}=car;
-  const el=document.getElementById('springToFreqResult');
-  if(!weight||!frontRatio||!leverF){toast('車両設定（車重・荷重比・レバー比）を先に登録してください');return;}
-  const effRear=rearRatio||(100-frontRatio);
-  const massF=Math.max(1,weight*(frontRatio/100)/2-(unsprungF||0));
-  const massR=Math.max(1,weight*(effRear/100)/2-(unsprungR||0));
-  const freqF=spF?computeNaturalFreq(spF,leverF,massF):null;
-  const freqR=(spR&&leverR)?computeNaturalFreq(spR,leverR,massR):null;
-  if(!freqF&&!freqR){toast('バネレートを入力してください');return;}
-  el.innerHTML=`<div class="calc-result" style="margin-top:10px">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">固有振動数</div>
-    <div class="calc-grid">
-      ${freqF?`<div class="calc-item"><div class="calc-item-label">フロント (${spF} kgf/mm)</div><div class="calc-item-value" style="color:${freqColor(freqF)}">${freqF.toFixed(2)} Hz</div></div>`:''}
-      ${freqR?`<div class="calc-item"><div class="calc-item-label">リア (${spR} kgf/mm)</div><div class="calc-item-value" style="color:${freqColor(freqR)}">${freqR.toFixed(2)} Hz</div></div>`:''}
-    </div>
-  </div>`;
-}
 
+// ==== データ収集モード（β専用・解析なしの生データ採取。本番には入れない） ====
+let _dcActive=false,_dcSamples=[],_dcGps=[],_dcStartT=0,_dcWake=null,_dcTimer=null,_dcGeoId=null,_dcCap=300000;
+function _dcStatusHtml(msg){const el=document.getElementById('dcStatus');if(el)el.innerHTML=msg;}
+function _dcMotion(e){
+  if(!_dcActive)return;
+  const a=e.accelerationIncludingGravity||{};
+  const r=e.rotationRate||{};
+  _dcSamples.push({t:Date.now()-_dcStartT,
+    ax:+(a.x||0).toFixed(4),ay:+(a.y||0).toFixed(4),az:+(a.z||0).toFixed(4),
+    rx:+(r.alpha||0).toFixed(3),ry:+(r.beta||0).toFixed(3),rz:+(r.gamma||0).toFixed(3)});
+  if(_dcSamples.length>=_dcCap){toast('上限に達したため記録を停止します');stopDataCollect();}
+}
+function startDataCollect(){
+  const go=()=>{
+    _dcActive=true;_dcSamples=[];_dcGps=[];_dcStartT=Date.now();
+    try{if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(w=>_dcWake=w).catch(()=>{});}catch(_){}
+    document.getElementById('dcStartBtn').style.display='none';
+    document.getElementById('dcStopBtn').style.display='';
+    window.addEventListener('devicemotion',_dcMotion);
+    // GPS速度も（許可されれば）記録。拒否されても加速度のみで続行
+    if('geolocation' in navigator){
+      try{_dcGeoId=navigator.geolocation.watchPosition(p=>{
+        _dcGps.push({t:Date.now()-_dcStartT,spd:p.coords.speed,lat:+p.coords.latitude.toFixed(6),lon:+p.coords.longitude.toFixed(6)});
+      },()=>{},{enableHighAccuracy:true,maximumAge:1000});}catch(_){}
+    }
+    _dcTimer=setInterval(()=>{
+      const sec=Math.floor((Date.now()-_dcStartT)/1000);
+      const fs=_dcSamples.length/Math.max(1,sec);
+      _dcStatusHtml(`<div style="text-align:center;padding:8px"><div style="font-size:20px;font-weight:700;color:#34d399">●REC ${Math.floor(sec/60)}:${('0'+sec%60).slice(-2)}</div><div style="font-size:12px;color:var(--text3);margin-top:4px">サンプル ${_dcSamples.length.toLocaleString()}件・約${fs.toFixed(0)}Hz・GPS ${_dcGps.length}点</div><div style="font-size:11px;color:var(--text3);margin-top:2px">何本でも走ってOK。停止すると1ファイルで書き出します。</div></div>`);
+    },1000);
+    _dcStatusHtml('<div style="text-align:center;padding:8px;color:var(--text3)">記録を開始しました…</div>');
+  };
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')go();else toast('センサーへのアクセスが拒否されました');}).catch(()=>toast('センサー許可エラー'));
+  }else if(typeof DeviceMotionEvent!=='undefined'){go();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
+}
+function stopDataCollect(){
+  if(!_dcActive)return;
+  _dcActive=false;
+  window.removeEventListener('devicemotion',_dcMotion);
+  if(_dcTimer){clearInterval(_dcTimer);_dcTimer=null;}
+  if(_dcGeoId!=null&&'geolocation' in navigator){try{navigator.geolocation.clearWatch(_dcGeoId);}catch(_){}_dcGeoId=null;}
+  try{if(_dcWake){_dcWake.release();_dcWake=null;}}catch(_){}
+  document.getElementById('dcStartBtn').style.display='';
+  document.getElementById('dcStopBtn').style.display='none';
+  const car=getCar()||{};
+  const durMs=_dcSamples.length?_dcSamples[_dcSamples.length-1].t:0;
+  const fs=durMs?_dcSamples.length/(durMs/1000):0;
+  const data={
+    app:'mileage-datacollect',mode:'freq',ver:APP_VERSION,car:_recCarMeta(car),
+    recordedAt:new Date().toISOString(),
+    durationSec:+(durMs/1000).toFixed(1),sampleRateHz:+fs.toFixed(1),
+    sampleCount:_dcSamples.length,gpsCount:_dcGps.length,
+    note:'解析なし生データ。t=ms(開始基準)、a*=加速度(重力込みm/s²)、r*=角速度(deg/s)、gps.spd=m/s',
+    samples:_dcSamples,gps:_dcGps
+  };
+  _recShare('dcStatus',data,`${data.sampleCount.toLocaleString()}サンプル・約${fs.toFixed(0)}Hz`);
+}
+// ---- 共有ヘルパー（3モード共通） ----
+function _recCarMeta(car){car=car||{};return{name:car.name,weight:car.weight,frontRatio:car.frontRatio,rearRatio:car.rearRatio,leverF:car.leverF,leverR:car.leverR,springF:car.springF,springR:car.springR,unsprungF:car.unsprungF,unsprungR:car.unsprungR};}
+function _recShare(statusId,data,summary){
+  const el=document.getElementById(statusId);if(!el)return;
+  const json=JSON.stringify(data);
+  const stamp=new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+  const fname=`mileage-${data.mode||'raw'}-${((data.car&&data.car.name)||'car').replace(/[^\w]/g,'')}-${stamp}.json`;
+  const blob=new Blob([json],{type:'application/json'});
+  const file=new File([blob],fname,{type:'application/json'});
+  const sizeKB=(blob.size/1024).toFixed(0);
+  el.innerHTML=`<div style="padding:8px 0"><div style="font-size:13px;color:var(--text);margin-bottom:8px">記録完了：${data.durationSec}秒・${summary}・${sizeKB}KB</div><div style="display:flex;gap:8px"><button class="btn btn-sm btn-primary" data-act="share" style="flex:1">共有/送る</button><button class="btn btn-sm" data-act="dl" style="flex:1;background:var(--bg3);color:var(--text)">保存(ダウンロード)</button></div><div style="font-size:11px;color:var(--text3);margin-top:8px">このファイルを送ってください。もう一度「記録開始」で別の本数も取れます。</div></div>`;
+  const url=URL.createObjectURL(blob);
+  const dl=el.querySelector('[data-act="dl"]');
+  if(dl)dl.onclick=()=>{const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();};
+  const sh=el.querySelector('[data-act="share"]');
+  if(sh)sh.onclick=async()=>{
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:fname});}
+      else if(navigator.share){await navigator.share({title:fname,text:json.length<100000?json:'(データが大きいため保存ボタンを使ってください)'});}
+      else{const a=document.createElement('a');a.href=url;a.download=fname;a.click();}
+    }catch(_){}
+  };
+}
+// ==== ② Gサークル データ収集（生G vs 表示G）：既存のGメーター計算をそのまま記録 ====
+let _gmRecord=false,_gmRecLog=[],_gmRecT0=0,_gmRecTimer=null;
+function startGMeterCollect(){
+  if(_gmActive){toast('すでにGメーターが動作中です');return;}
+  _gmRecord=true;_gmRecLog=[];_gmRecT0=Date.now();
+  document.getElementById('gcStartBtn').style.display='none';
+  document.getElementById('gcStopBtn').style.display='';
+  startGMeter(); // 通常のGメーターを起動（計算・校正をそのまま使う）
+  _gmRecTimer=setInterval(()=>{
+    const sec=Math.floor((Date.now()-_gmRecT0)/1000);
+    const el=document.getElementById('gcStatus');
+    if(el)el.innerHTML=`<div style="text-align:center;padding:8px"><div style="font-size:18px;font-weight:700;color:#34d399">●REC ${Math.floor(sec/60)}:${('0'+sec%60).slice(-2)}</div><div style="font-size:12px;color:var(--text3);margin-top:4px">サンプル ${_gmRecLog.length.toLocaleString()}件・最大合成G ${_gmPeaks.total.toFixed(2)}</div></div>`;
+  },1000);
+}
+function stopGMeterCollect(){
+  if(!_gmRecord)return;
+  _gmRecord=false;
+  if(_gmRecTimer){clearInterval(_gmRecTimer);_gmRecTimer=null;}
+  stopGMeter();
+  document.getElementById('gcStartBtn').style.display='';
+  document.getElementById('gcStopBtn').style.display='none';
+  const log=_gmRecLog;_gmRecLog=[];
+  const durMs=log.length?log[log.length-1].t:0;
+  const fs=durMs?log.length/(durMs/1000):0;
+  const data={
+    app:'mileage-datacollect',mode:'gcircle',ver:APP_VERSION,car:_recCarMeta(getCar()),
+    recordedAt:new Date().toISOString(),durationSec:+(durMs/1000).toFixed(1),sampleRateHz:+fs.toFixed(1),
+    smoothing:GM_SMOOTH,sampleCount:log.length,
+    note:'t=ms。x/y/z=生加速度(m/s²)、lon/lat=瞬時G(射影後・未平滑)、dispLon/dispLat=表示用(平滑後)G、total=表示合成G。生Gと表示Gの差＝平滑化の効き。',
+    peaks:_gmPeaks,samples:log
+  };
+  _recShare('gcStatus',data,`${log.length.toLocaleString()}サンプル・約${fs.toFixed(0)}Hz・最大合成G ${_gmPeaks.total.toFixed(2)}`);
+}
+// ==== ③ 限界走行 データ収集（フルセッション）：既存の限界走行をそのまま記録 ====
+let _lrRecord=false,_lrRecLog=[],_lrRecT0=0,_lrRecTimer=null;
+function startLimitRunCollect(){
+  if(_lrActive){toast('すでに限界走行が動作中です');return;}
+  _lrRecord=true;_lrRecLog=[];_lrRecT0=Date.now();
+  document.getElementById('lcStartBtn').style.display='none';
+  document.getElementById('lcStopBtn').style.display='';
+  document.getElementById('lcStatus').innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>';
+  startLimitRun(); // 通常の限界走行（ゲート・GPS・イベント検出をそのまま使う）
+  _lrRecTimer=setInterval(()=>{
+    if(!_lrActive){
+      // 開始前ゲートで弾かれた等で走り出さないまま数秒経ったら収集状態を解除
+      if(Date.now()-_lrRecT0>3500&&_lrRecLog.length===0){
+        _lrRecord=false;if(_lrRecTimer){clearInterval(_lrRecTimer);_lrRecTimer=null;}
+        document.getElementById('lcStartBtn').style.display='';
+        document.getElementById('lcStopBtn').style.display='none';
+        document.getElementById('lcStatus').innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">開始できませんでした（停車中か直進で再開してください）。</div>';
+      }
+      return;
+    }
+    const sec=Math.floor((Date.now()-_lrRecT0)/1000);
+    const el=document.getElementById('lcStatus');
+    if(el)el.innerHTML=`<div style="text-align:center;padding:8px"><div style="font-size:18px;font-weight:700;color:#34d399">●REC ${Math.floor(sec/60)}:${('0'+sec%60).slice(-2)}</div><div style="font-size:12px;color:var(--text3);margin-top:4px">サンプル ${_lrRecLog.length.toLocaleString()}件・イベント ${_lrEvents.length}件・最大G ${_lrMaxG.toFixed(2)}</div></div>`;
+  },1000);
+}
+function stopLimitRunCollect(){
+  if(!_lrRecord)return;
+  _lrRecord=false;
+  if(_lrRecTimer){clearInterval(_lrRecTimer);_lrRecTimer=null;}
+  const events=_lrEvents.slice(),track=_lrTrack.slice();
+  stopLimitRun();
+  document.getElementById('lcStartBtn').style.display='';
+  document.getElementById('lcStopBtn').style.display='none';
+  const log=_lrRecLog;_lrRecLog=[];
+  const durMs=log.length?log[log.length-1].t:0;
+  const fs=durMs?log.length/(durMs/1000):0;
+  const data={
+    app:'mileage-datacollect',mode:'limitrun',ver:APP_VERSION,car:_recCarMeta(getCar()),
+    recordedAt:new Date().toISOString(),durationSec:+(durMs/1000).toFixed(1),sampleRateHz:+fs.toFixed(1),
+    sampleCount:log.length,
+    note:'t=ms。ax/ay/az=生加速度(m/s²)、rx/ry/rz=角速度alpha/beta/gamma(deg/s)、sp=GPS速度(m/s)、la/lo=位置。events=アプリ検出イベント(yaw=under/over・bounce=減衰過多/不足)。track=GPS軌跡。',
+    events,track,samples:log
+  };
+  _recShare('lcStatus',data,`${log.length.toLocaleString()}サンプル・イベント${events.length}件・最大G ${_lrMaxG.toFixed(2)}`);
+}
 
 // ---- 固有振動数 実測（良走行区間だけを累積60秒 → セグメント平均スペクトル：Welch法）----
 let _fmActive=false,_fmState='idle',_fmBuffer=[],_fmSeg=[],_fmTimers=[],_fmWatchInterval=null,_fmWakeLock=null;
@@ -2498,6 +3387,7 @@ let _fmPsdSum=null,_fmSegCount=0,_fmValidS=0,_fmFsSum=0,_fmChart=null;
 const FM_DETECT_LO=1.5,FM_DETECT_HI=4.0;  // 走行検知の周波数帯(Hz)
 const FM_SCAN_LO=0.5,FM_SCAN_HI=6.0,FM_SCAN_STEP=0.05; // スペクトル算出帯(Hz)
 const FM_PEAK_LO=0.8,FM_PEAK_HI=4.0;      // ピーク探索帯(Hz)
+const FM_PROM_MIN=0.15;                    // 有効な共振と認めるピークの最小プロミネンス（これ未満は山なし＝ゴミとして弾く）
 const FM_BAND_TH=0.08;     // 走行検知のバンドパスRMS閾値(m/s²)
 const FM_CONFIRM_S=5;      // 走行開始の確認時間(秒)
 const FM_DROP_S=15;        // 走行検知のドロップアウト許容時間(秒)
@@ -2689,7 +3579,7 @@ function stopFreqMeasure(completed,reason){
   if(completed){_analyzeFreq(false);}
   else if(el){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px">計測を中止しました。</div>';}
 }
-let _fmLastFreq=0;
+let _fmLastFreq=0,_fmLastZeta=null;
 function _analyzeFreq(partial){
   const el=document.getElementById('freqMeasureResult');
   if(!_fmPsdSum||_fmSegCount<2){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分でした。もう一度お試しください。</div>';return;}
@@ -2701,6 +3591,15 @@ function _analyzeFreq(partial){
   let pi=-1,pv=-1;
   freqs.forEach((f,i)=>{if(f>=FM_PEAK_LO&&f<=FM_PEAK_HI&&wgt[i]>pv){pv=wgt[i];pi=i;}});
   if(pi<0||pv<=0){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。設置・固定を確認してください。</div>';return;}
+  // 有効な共振ピークか判定：探索帯の端に張り付いた/明確な山が無い（右肩下がり）場合はゴミとして弾く
+  const _loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
+  let _hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){_hiIdx=i;break;}}
+  let _rmin=pv;for(let i=pi;i<=_hiIdx;i++){if(wgt[i]<_rmin)_rmin=wgt[i];} // ピークより高域側の谷
+  const _prom=pv>0?(pv-_rmin)/pv:0; // 山のプロミネンス（右肩下がり=山なしだと小さくなる）
+  if(pi<=_loIdx||pi>=_hiIdx||_prom<FM_PROM_MIN){
+    if(el)el.innerHTML='<div style="color:#fbbf24;font-size:13px;line-height:1.7">⚠️ 有効な共振ピークを検出できませんでした。<br><span style="color:var(--text3);font-size:12px">スペクトルに明確な山が立っていません（路面が滑らか／速度が一定でない等）。<b>荒れた舗装路を40〜60km/hの一定速度</b>で、急加減速・カーブ・段差を避けて再測定してください。</span></div>';
+    return;
+  }
   // ピークを含む山（半値以上の連続領域）の重心で読む。減衰で山が幅広くても安定
   const th=pv*0.5;
   let lo=pi,hi=pi;
@@ -2719,6 +3618,10 @@ function _analyzeFreq(partial){
     }
   }
   _fmLastFreq=freq;
+  // 山の半値幅(FWHM)から減衰比ζを推定（ζ≈Δf/2f0）。山が鋭い=減衰不足で跳ねやすい
+  const _bw=freqs[hi]-freqs[lo];
+  const _zeta=freq>0?_bw/(2*freq):null;
+  _fmLastZeta=_zeta;
   const fsAvg=_fmFsSum/_fmSegCount;
   // 車両設定からの理論値を並記（実測との比較用）
   const _car=getCar();
@@ -2727,6 +3630,19 @@ function _analyzeFreq(partial){
   const calcNote=(calcF||calcR)?`<div style="font-size:11px;color:var(--text3);margin-top:6px">計算値（バネレートから）: F ${calcF?calcF.toFixed(2)+'Hz':'-'} / R ${calcR?calcR.toFixed(2)+'Hz':'-'}　※実測は減衰の影響でやや低めに出ます</div>`:'';
   const warn=(freq<=FM_PEAK_LO+0.05||freq>=FM_PEAK_HI-0.05)?'<div style="font-size:11px;color:#fbbf24;margin-top:8px">⚠️ 探索範囲の端の値です。エンジン振動や設置・固定の影響の可能性があります。位置を見直して再計測してください。</div>':'';
   const partialNote=partial?`<div style="font-size:11px;color:#fbbf24;margin-bottom:6px">⚠️ 5分経過のため有効${_fmValidS}秒分で解析しました</div>`:'';
+  // 減衰（跳ね/突っ張り）診断：山の鋭さ ζ から
+  let dampNote='';
+  if(_zeta!=null&&!warn){
+    let dlabel,dcolor,dadvice;
+    if(_zeta<0.2){dlabel='跳ねやすい（減衰不足）';dcolor='#f87171';dadvice='固有振動数が良くてもバンプで跳ねやすい状態です。ダンパーの伸び側（リバウンド）減衰を強めると収まりが良くなります。';}
+    else if(_zeta>0.5){dlabel='突っ張り気味（減衰過多）';dcolor='#fbbf24';dadvice='減衰が効きすぎて動きが渋い状態です。減衰を弱めるとバンプの当たりが柔らかくなります。';}
+    else{dlabel='適正';dcolor='#34d399';dadvice='山の鋭さから見て減衰バランスは良好です。';}
+    dampNote=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="font-size:12px"><span style="color:var(--text3)">減衰の傾向（参考）:</span> <b style="color:${dcolor}">${dlabel}</b> <span style="color:var(--text3);font-size:11px">(山の鋭さ ζ≈${_zeta.toFixed(2)})</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">${dadvice}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">※スペクトルの山の幅からの推定（参考値）。固有振動数が良くても跳ねる/突っ張る場合の目安です。</div>
+    </div>`;
+  }
   el.innerHTML=`<div class="calc-result">
     ${partialNote}
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">測定結果（有効${_fmValidS}秒・${_fmSegCount}区間平均・${fsAvg.toFixed(0)}Hzサンプリング）</div>
@@ -2736,13 +3652,64 @@ function _analyzeFreq(partial){
     </div>
     ${second?'<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピークは前後どちらかの軸の共振の可能性があります</div>':''}
     ${calcNote}
+    ${dampNote}
     <div class="chart-wrap"><canvas id="fmChart"></canvas></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">縦軸＝揺れの強さ／横軸＝周波数。山が立つ周波数ほど揺れやすく、<b>赤い点が固有振動数</b>。山が鋭いほど減衰不足で跳ねやすい。</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">フロントに反映</button>
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">リアに反映</button>
     </div>${warn}
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">減衰を弱めて（または硬くして）ばたつき始めた走行で、感じた種類のボタンを押すと「ばたつき限界」を記録します（プロ向け）。</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1;font-size:11px" onclick="markBounceLimit('min')">ボヨン(減衰不足)を限界に</button>
+        <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1;font-size:11px" onclick="markBounceLimit('max')">ガタガタ(減衰過多)を限界に</button>
+      </div>
+      <div id="bounceEngine"></div>
+    </div>
   </div>`;
   _fmRenderChart(freqs,wgt,freq,pv,second);
+  renderBounceEngine();
+}
+// ==== ばたつき限界エンジン（ζ帯）：k_max=k0×(ζ0/ζ_min)² で「ばたつかない限界の硬さ」を逆算 ====
+function markBounceLimit(side){
+  if(_fmLastZeta==null){toast('先に固有振動数を実測してください');return;}
+  const car=getCar();if(!car){toast('車両が選択されていません');return;}
+  if(side==='min')car.zetaMin=_fmLastZeta; else car.zetaMax=_fmLastZeta;
+  save();
+  toast(side==='min'?`ばたつき下限 ζ_min=${_fmLastZeta.toFixed(2)} を記録`:`ばたつき上限 ζ_max=${_fmLastZeta.toFixed(2)} を記録`);
+  renderBounceEngine();
+}
+function clearBounceLimit(){
+  const car=getCar();if(!car)return;
+  delete car.zetaMin;delete car.zetaMax;
+  save();renderBounceEngine();
+  toast('ばたつき限界の記録をクリアしました');
+}
+function renderBounceEngine(){
+  const el=document.getElementById('bounceEngine');if(!el)return;
+  const car=getCar();if(!car){el.innerHTML='';return;}
+  const z0=_fmLastZeta,f0=_fmLastFreq,zmin=car.zetaMin,zmax=car.zetaMax;
+  let h=`<div style="margin-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:12px;font-weight:600">🏁 ばたつき限界エンジン</div>`;
+  if(zmin!=null||zmax!=null)h+=`<button class="btn btn-sm" style="background:transparent;color:var(--text3);font-size:11px;padding:2px 8px" onclick="clearBounceLimit()">記録をクリア</button>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:11px;color:var(--text3)">記録済み: 下限ζ_min ${zmin!=null?zmin.toFixed(2):'未'} ／ 上限ζ_max ${zmax!=null?zmax.toFixed(2):'未'}　今の実測ζ ${z0!=null?z0.toFixed(2):'-'}</div>`;
+  if(z0!=null&&zmin!=null&&zmin>0){
+    const ratio=Math.pow(z0/zmin,2);   // バネ倍率（k_max/k0）
+    const fMax=f0*(z0/zmin);            // 上限での固有振動数
+    h+=`<div style="font-size:12px;color:var(--text2);margin-top:6px">今の減衰のまま、バネは今の<b style="color:#fbbf24"> ×${ratio.toFixed(2)} </b>（固有振動数 約${fMax.toFixed(2)}Hz相当）まで。それ以上はボヨン側でばたつきます。`;
+    if(car.springF)h+=`<br>F ${car.springF}→<b>${(car.springF*ratio).toFixed(1)}</b>kgf/mm`;
+    if(car.springR)h+=`${car.springF?' / ':'<br>'}R ${car.springR}→<b>${(car.springR*ratio).toFixed(1)}</b>kgf/mm`;
+    h+=`</div>`;
+    if(ratio>1.03)h+=`<div style="font-size:11px;color:#34d399;margin-top:3px">→ まだ硬くできます（＝もっと速く）。バネを上げるとζが下がるので、減衰も上げ気味にして限界を割らないように。</div>`;
+    else if(ratio<0.97)h+=`<div style="font-size:11px;color:#f87171;margin-top:3px">→ 今すでに限界より軟らかい減衰バランス。減衰を上げるかバネを下げて。</div>`;
+    else h+=`<div style="font-size:11px;color:#fbbf24;margin-top:3px">→ ほぼ限界。今が美味しいところ。</div>`;
+    if(zmax!=null&&z0>=zmax)h+=`<div style="font-size:11px;color:#fbbf24;margin-top:3px">⚠️ 今のζは上限ζ_max以上＝減衰過多側のガタガタ領域。減衰を弱める方向も検討。</div>`;
+  }else{
+    h+=`<div style="font-size:11px;color:var(--text3);margin-top:4px">「ボヨン(減衰不足)を限界に」を記録すると、ここに『あと何kgf/mm硬くできるか』が出ます。</div>`;
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
 }
 function _fmRenderChart(freqs,spec,peakF,peakV,second){
   const canvas=document.getElementById('fmChart');
@@ -2759,7 +3726,7 @@ function _fmRenderChart(freqs,spec,peakF,peakV,second){
     plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>items[0].parsed.x.toFixed(2)+' Hz',label:item=>item.dataset.label}}},
     scales:{
       x:{type:'linear',min:FM_SCAN_LO,max:FM_SCAN_HI,title:{display:true,text:'周波数 (Hz)',color:'#64748b',font:{size:10}},ticks:{stepSize:1,color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}},
-      y:{display:false,min:0}
+      y:{display:true,min:0,title:{display:true,text:'揺れの強さ',color:'#64748b',font:{size:10}},ticks:{display:false},grid:{display:false}}
     }
   }});
 }
@@ -2778,11 +3745,13 @@ function applyMeasuredFreq(target){
 // ---- Gサークル（走行G・最大Gの円形表示）----
 let _gmActive=false,_gmWakeLock=null,_gmRaf=null,_gmFrame=0;
 let _gmGrav={x:0,y:0,z:9.81},_gmGravInit=false;
-let _gmLong=0,_gmLat=0,_gmTrail=[];
+let _gmLong=0,_gmLat=0,_gmTrail=[],_gmTrailHold=false;
 let _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
 let _gmCalCount=-1,_gmCalBuf=[],_gmU={x:0,y:1}; // ゼロ点校正と「画面上方向」（縦横対応）
 const GM_BASE_RANGE=1.0; // 表示レンジ(G)。ピークに応じて自動拡大
 let _gmRange=GM_BASE_RANGE;
+const GM_SMOOTH=0.12; // 表示Gの平滑化係数（小さいほど強くローパス＝持続Gのみ残し単発振動を削る）
+let _gmAtt=null; // ゼロ点校正時のスマホ姿勢（前後傾き/左右傾き 度）
 // 画面の上方向を端末座標で返す（縦=Y軸 / 横=±X軸）
 function _gmOrientU(){
   let a=0;
@@ -2794,6 +3763,22 @@ function _gmOrientU(){
   return {x:Math.sin(r),y:Math.cos(r)};
 }
 async function _gmAcquireWake(){try{if('wakeLock' in navigator)_gmWakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
+// ゼロ点校正時のスマホ姿勢（重力ベクトルから前後傾き/左右傾きを算出）。斜め置きで縦Gが前後Gに化ける原因の切り分け用
+function _gmComputeAtt(){
+  const gm=Math.hypot(_gmGrav.x,_gmGrav.y,_gmGrav.z)||9.81;
+  const nx=_gmGrav.x/gm,ny=_gmGrav.y/gm,nz=_gmGrav.z/gm;
+  const pitch=Math.round(Math.atan2(ny,nz)*180/Math.PI); // 0°=画面水平 / 90°=画面垂直（前後の起き角）
+  const roll=Math.round(Math.atan2(nx,nz)*180/Math.PI);   // 左右の傾き
+  _gmAtt={pitch,roll};
+  _gmRenderAtt();
+}
+function _gmRenderAtt(){
+  const el=document.getElementById('gAttitude');if(!el)return;
+  if(!_gmAtt){el.innerHTML='';return;}
+  const{pitch,roll}=_gmAtt;
+  const warn=Math.abs(roll)>=10?' <span style="color:#fbbf24">⚠️左右に傾いています。前後Gに横方向が混じる場合は左右傾きを0に近づけてください</span>':'';
+  el.innerHTML=`ゼロ点姿勢　前後の起き ${pitch}° ／ 左右の傾き ${roll}°　<span style="color:var(--text3)">(0°=水平置き)</span>${warn}`;
+}
 // ゼロ点校正: 約1秒分の静止サンプル平均で重力（＝取付姿勢）を確定
 function calibrateGMeter(silent){
   if(!_gmActive){toast('先にGサークルを開始してください');return;}
@@ -2838,8 +3823,13 @@ function stopGMeter(){
 }
 function resetGPeaks(silent){
   _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
-  _gmRange=GM_BASE_RANGE;
+  _gmRange=GM_BASE_RANGE;_gmTrail=[];
   if(silent!==true)toast('ピークをリセットしました');
+}
+function toggleGTrail(){
+  _gmTrailHold=!_gmTrailHold;
+  const b=document.getElementById('gTrailBtn');
+  if(b){b.textContent='✏️ 軌跡を残す: '+(_gmTrailHold?'ON':'OFF');b.classList.toggle('btn-primary',_gmTrailHold);if(_gmTrailHold){b.style.background='';b.style.color='';}else{b.style.background='var(--bg3)';b.style.color='var(--text)';}}
 }
 function _gmHandler(e){
   if(!_gmActive)return;
@@ -2863,6 +3853,7 @@ function _gmHandler(e){
       }else{
         _gmGrav={x:mx,y:my,z:mz};_gmGravInit=true;
         _gmLong=0;_gmLat=0;_gmTrail=[];
+        _gmComputeAtt();
         toast(dev>0.8?'ゼロ点校正完了（振動大・停車中の再校正を推奨）':'ゼロ点校正完了 ✓');
       }
     }
@@ -2893,10 +3884,15 @@ function _gmHandler(e){
   const G=9.80665;
   const lon=(dx*fx+dy*fy+dz*fz)/G; // ＋加速 / −減速
   const lat=(dx*lx+dy*ly+dz*lz)/G; // ＋右旋回 / −左旋回（表示は左旋回で玉が右へ動く）
-  // 表示用に軽い平滑化（路面ノイズ除去）
-  _gmLong+=(lon-_gmLong)*0.25;
-  _gmLat+=(lat-_gmLat)*0.25;
+  // 表示用に平滑化（路面の単発振動を削り、持続Gのみ残す）
+  _gmLong+=(lon-_gmLong)*GM_SMOOTH;
+  _gmLat+=(lat-_gmLat)*GM_SMOOTH;
   const total=Math.hypot(_gmLong,_gmLat);
+  if(_gmRecord){
+    _gmRecLog.push({t:Date.now()-_gmRecT0,x:+x.toFixed(4),y:+y.toFixed(4),z:+z.toFixed(4),
+      lon:+lon.toFixed(4),lat:+lat.toFixed(4),dispLon:+_gmLong.toFixed(4),dispLat:+_gmLat.toFixed(4),total:+total.toFixed(4)});
+    if(_gmRecLog.length>=_dcCap){toast('上限到達でGサークル収集を停止');stopGMeterCollect();return;}
+  }
   if(_gmLong>_gmPeaks.acc)_gmPeaks.acc=_gmLong;
   if(-_gmLong>_gmPeaks.brk)_gmPeaks.brk=-_gmLong;
   if(-_gmLat>_gmPeaks.left)_gmPeaks.left=-_gmLat;  // 左旋回G（左旋回中は lat<0）
@@ -2904,7 +3900,8 @@ function _gmHandler(e){
   if(total>_gmPeaks.total){_gmPeaks.total=total;_gmPeaks.totalLong=_gmLong;_gmPeaks.totalLat=_gmLat;}
   while(_gmRange<2.5&&_gmPeaks.total>_gmRange*0.92)_gmRange+=0.5;
   _gmTrail.push({lon:_gmLong,lat:_gmLat});
-  if(_gmTrail.length>90)_gmTrail.splice(0,30);
+  const _cap=_gmTrailHold?4000:90;
+  if(_gmTrail.length>_cap)_gmTrail.splice(0,_gmTrailHold?500:30);
 }
 function _gmDraw(){
   if(!_gmActive)return;
@@ -2940,7 +3937,7 @@ function _gmDraw(){
     for(let i=1;i<_gmTrail.length;i++){
       const p0=toXY(_gmTrail[i-1].lon,_gmTrail[i-1].lat);
       const p1=toXY(_gmTrail[i].lon,_gmTrail[i].lat);
-      ctx.strokeStyle=`rgba(96,165,250,${(i/_gmTrail.length)*0.5})`;
+      ctx.strokeStyle=`rgba(96,165,250,${_gmTrailHold?0.35:(i/_gmTrail.length)*0.5})`;
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
   }
@@ -2970,36 +3967,662 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     if(_fmActive)_fmAcquireWake();
     if(_gmActive)_gmAcquireWake();
+    if(_ymActive)_ymWakeAcq();
   }
 });
 
-async function loadGroupCompareOptions(){
-  const el=document.getElementById('groupCompareSelect');
-  if(!el)return;
-  let allSettings=[];
-  for(const group of state.groups){
-    const settings=await getGroupSettings(group.code);
-    settings.forEach(s=>{if(!allSettings.find(a=>a._uid===s.fbId))allSettings.push({...s,_uid:s.fbId||s.id,_group:group.code});});
-  }
-  allSettings=allSettings.filter(s=>s.nick!==state.nickname);
-  if(!allSettings.length){el.innerHTML='<option>グループメンバーのセッティングがありません</option>';return;}
-  el.innerHTML=allSettings.sort((a,b)=>(b.ts||0)-(a.ts||0))
-    .map(s=>`<option value="${s._uid}_${s._group}">${s.nick||'?'} | ${s.course||'?'} | ${s.date||''} ${'⭐'.repeat(s.eval||3)}</option>`)
-    .join('');
+// ---- ヨー診断（アンダー/オーバー対策アドバイス）----
+// s:症状 under/over, p:局面 entry(進入)/mid(中立)/exit(立ち上がり)
+// d:駆動 any/FF/FR/4WD, ease:お手軽度 1🟢/2🟡/3🔴
+const YAW_RULES=[
+  // アンダー：進入
+  {s:'under',p:'entry',d:'any',item:'空気圧',ease:1,dir:'F↓ / R↑',why:'前接地を稼ぎ初期応答を上げる',cau:'下げ過ぎは腰砕け・偏摩耗'},
+  {s:'under',p:'entry',d:'any',item:'減衰',ease:1,dir:'Fバンプ柔く or Fリバウンド硬く',why:'バンプ柔く=前荷重を乗せる／リバウンド硬く=応答を上げる',cau:'リバウンド硬過ぎでバタつき'},
+  {s:'under',p:'entry',d:'any',item:'アライメント',ease:2,dir:'Fキャンバー増 / Fトーアウト',why:'旋回初期の前グリップを増やす',cau:'トーアウト過大で直進フラつき'},
+  {s:'under',p:'entry',d:'any',item:'スタビ',ease:2,dir:'F柔く / R硬く',why:'前ロール許容で荷重移動を作る',cau:'リア硬過ぎでリアが跳ねる'},
+  {s:'under',p:'entry',d:'any',item:'バネレート',ease:3,dir:'F↓ / R↑',why:'前を沈ませ接地荷重を増やす',cau:'要部品交換・全体バランス再調整'},
+  // アンダー：中立
+  {s:'under',p:'mid',d:'any',item:'空気圧',ease:1,dir:'F最適化（温度差を見る）',why:'定常グリップを左右均一に',cau:'前後同時にいじらない'},
+  {s:'under',p:'mid',d:'any',item:'スタビ',ease:2,dir:'F柔く / R硬く',why:'定常ロールバランスの主役',cau:'リア硬過ぎで巻き込み'},
+  {s:'under',p:'mid',d:'any',item:'アライメント',ease:2,dir:'Fキャンバー増',why:'旋回中の前タイヤ接地を最大化',cau:'増やし過ぎで直進時の内減り'},
+  {s:'under',p:'mid',d:'any',item:'減衰',ease:1,dir:'F柔く / R硬く',why:'前を動かしグリップを引き出す',cau:'過渡で曖昧になり過ぎ注意'},
+  {s:'under',p:'mid',d:'any',item:'バネレート',ease:3,dir:'F↓ / R↑',why:'前後のロール剛性配分を前寄りに',cau:'要部品交換'},
+  // アンダー：立ち上がり
+  {s:'under',p:'exit',d:'FF',item:'減衰',ease:1,dir:'Rリバウンド柔く',why:'リアを伸ばしリフトオフ気味で巻く',cau:'柔過ぎはリア不安定'},
+  {s:'under',p:'exit',d:'FF',item:'空気圧',ease:1,dir:'F駆動輪を最適化',why:'前のトラクションと舵を両立',cau:'低過ぎで腰砕け'},
+  {s:'under',p:'exit',d:'FF',item:'スタビ/車高',ease:2,dir:'Rスタビ硬く / R車高↑',why:'リアを動かしフロント荷重を残す',cau:'やり過ぎでオーバー化'},
+  {s:'under',p:'exit',d:'FF',item:'LSD（前）',ease:3,dir:'機械式LSD投入',why:'パワーオン時の前トラクション確保',cau:'高コスト・挙動が大きく変わる'},
+  {s:'under',p:'exit',d:'FR',item:'空気圧',ease:1,dir:'R↑ / F↓',why:'前グリップを相対的に上げる',cau:'リア上げ過ぎでオーバー'},
+  {s:'under',p:'exit',d:'FR',item:'減衰',ease:1,dir:'F柔く',why:'加速時に残る前荷重を活かす',cau:'過渡の応答が緩む'},
+  {s:'under',p:'exit',d:'FR',item:'アライメント/スタビ',ease:2,dir:'Fキャンバー増 / Rスタビ硬く',why:'前接地増＋リアへ荷重移動',cau:'バランス崩れに注意'},
+  {s:'under',p:'exit',d:'4WD',item:'空気圧/減衰',ease:1,dir:'F↓ / F柔く',why:'4WDの押し出しアンダーを前で稼ぐ',cau:'トルク配分があれば併用'},
+  {s:'under',p:'exit',d:'4WD',item:'アライメント',ease:2,dir:'Fキャンバー増 / Fトーアウト',why:'前タイヤのグリップを増やす',cau:'直進安定とのトレード'},
+  // オーバー：進入
+  {s:'over',p:'entry',d:'any',item:'空気圧',ease:1,dir:'R↓ / F↑',why:'後接地を稼ぎ巻きを抑える',cau:'下げ過ぎでヨレ'},
+  {s:'over',p:'entry',d:'any',item:'減衰',ease:1,dir:'Fバンプ硬く or Fリバウンド柔く / Rバンプ柔く',why:'前荷重を急に乗せず後を安定させる',cau:'硬過ぎで初期アンダー'},
+  {s:'over',p:'entry',d:'any',item:'アライメント',ease:2,dir:'Rトーイン増 / Fキャンバー控えめ',why:'直進安定とリア接地を増やす',cau:'トーイン過大でだるい'},
+  {s:'over',p:'entry',d:'any',item:'スタビ',ease:2,dir:'R柔く / F硬く',why:'リアのロール許容で接地確保',cau:'前硬過ぎでアンダー化'},
+  {s:'over',p:'entry',d:'any',item:'バネレート',ease:3,dir:'R↓ / F↑',why:'リアを沈ませ接地荷重を増やす',cau:'要部品交換'},
+  // オーバー：中立
+  {s:'over',p:'mid',d:'any',item:'空気圧',ease:1,dir:'R最適化',why:'定常リアグリップを安定させる',cau:'前後同時にいじらない'},
+  {s:'over',p:'mid',d:'any',item:'スタビ',ease:2,dir:'R柔く / F硬く',why:'定常ロールバランスをリア寄りに',cau:'前硬過ぎでアンダー'},
+  {s:'over',p:'mid',d:'any',item:'アライメント',ease:2,dir:'Rトーイン増 / Rキャンバー最適化',why:'旋回中のリア接地を最大化',cau:'内減り注意'},
+  {s:'over',p:'mid',d:'any',item:'減衰',ease:1,dir:'R柔く / F硬く',why:'リアを動かしグリップを引き出す',cau:'曖昧になり過ぎ注意'},
+  {s:'over',p:'mid',d:'any',item:'バネレート',ease:3,dir:'R↓ / F↑',why:'ロール剛性配分をリア寄りに',cau:'要部品交換'},
+  // オーバー：立ち上がり
+  {s:'over',p:'exit',d:'FR',item:'空気圧',ease:1,dir:'R駆動輪を最適化',why:'後輪トラクションを確保',cau:'高過ぎ/低過ぎ両方で滑る'},
+  {s:'over',p:'exit',d:'FR',item:'減衰',ease:1,dir:'Rリバウンド柔く',why:'駆動輪を路面に押し付ける',cau:'柔過ぎでリアが落ち着かない'},
+  {s:'over',p:'exit',d:'FR',item:'アライメント/スタビ',ease:2,dir:'Rトーイン増 / Rスタビ柔く',why:'加速時のリア安定とロール許容',cau:'だるさとのトレード'},
+  {s:'over',p:'exit',d:'FR',item:'LSD（後）/バネ',ease:3,dir:'機械式LSD / Rバネ↓',why:'トラクションを路面に逃さず伝える',cau:'高コスト・挙動が激変'},
+  {s:'over',p:'exit',d:'4WD',item:'空気圧/減衰',ease:1,dir:'R↑ / 減衰見直し',why:'4WDの後輪トラクションを確保',cau:'トルク配分があれば併用'},
+  {s:'over',p:'exit',d:'4WD',item:'アライメント',ease:2,dir:'Rトーイン増',why:'加速時のリアを安定させる',cau:'だるさとのトレード'},
+  {s:'over',p:'exit',d:'FF',item:'（参考）',ease:1,dir:'FFは立上りオーバー稀',why:'全開でアンダーに転じるのが通常。アンダー側を参照',cau:'リフトオフでの巻きはアンダー(FF)対策の逆方向で調整'},
+];
+let _yawSel={s:'under',p:'entry',d:'FF'}; // 初回デフォルト: FF・アンダー・進入（全セグ左端）
+function _yawSave(){state.yawSel={s:_yawSel.s,p:_yawSel.p,d:_yawSel.d};save();}
+function _yawInitDrive(){
+  if(state.yawSel){if(state.yawSel.s)_yawSel.s=state.yawSel.s;if(state.yawSel.p)_yawSel.p=state.yawSel.p;if(state.yawSel.d)_yawSel.d=state.yawSel.d;}
+  const c=getCar();if(c&&c.drive)_yawSel.d=c.drive; // 駆動方式は車ごとの設定を優先
+  _yawSyncSeg();renderYawAdvice();
+}
+function setYawDrive(d){_yawSel.d=d;const c=getCar();if(c)c.drive=d;_yawSave();_yawSyncSeg();renderYawAdvice();}
+function setYawSym(s){_yawSel.s=s;_yawSave();_yawSyncSeg();renderYawAdvice();}
+function setYawPhase(p){_yawSel.p=p;_yawSave();_yawSyncSeg();renderYawAdvice();}
+function _yawSyncSeg(){
+  [['yawDriveSeg','d'],['yawSymSeg','s'],['yawPhaseSeg','p']].forEach(([sid,key])=>{
+    const seg=document.getElementById(sid);if(!seg)return;
+    seg.querySelectorAll('button').forEach(b=>{
+      const on=b.dataset[key]===_yawSel[key];
+      if(on){b.classList.add('btn-primary');b.style.background='';b.style.color='';}
+      else{b.classList.remove('btn-primary');b.style.background='var(--bg3)';b.style.color='var(--text)';}
+    });
+  });
+}
+function renderYawAdvice(){
+  const el=document.getElementById('yawAdvice');if(!el)return;
+  const{s,p,d}=_yawSel;
+  let list=YAW_RULES.filter(r=>r.s===s&&r.p===p&&(r.d==='any'||r.d===d));
+  if(!list.length)list=YAW_RULES.filter(r=>r.s===s&&r.p===p);
+  list=list.slice().sort((a,b)=>a.ease-b.ease);
+  const badge=e=>e===1?'🟢':e===2?'🟡':'🔴';
+  const sname=s==='under'?'アンダー（曲がらない）':'オーバー（リアが出る）';
+  const pname={entry:'進入',mid:'中立',exit:'立上り'}[p];
+  el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin:8px 0 6px">${sname} ／ ${pname} ／ ${d}</div>`+
+    (list.map(r=>`<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="const x=this.querySelector('.yaw-detail');x.style.display=x.style.display==='none'?'block':'none';_accExpand(this)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">${badge(r.ease)}</span>
+        <span style="font-weight:600;font-size:13px">${r.item}</span>
+        <span style="margin-left:auto;font-size:12px;color:#60a5fa;text-align:right">${r.dir}</span>
+      </div>
+      <div class="yaw-detail" style="display:none;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.6">
+        <div>💡 ${r.why}</div>
+        <div style="color:#fbbf24;margin-top:2px">⚠️ ${r.cau}</div>
+      </div>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>');
 }
 
-async function calcGroupCompare(){
-  const val=document.getElementById('groupCompareSelect').value;
-  if(!val||val.indexOf('_')===-1){toast('セッティングを選択してください');return;}
-  const sep=val.lastIndexOf('_');
-  const uid=val.substring(0,sep);
-  const groupCode=val.substring(sep+1);
-  const settings=await getGroupSettings(groupCode);
-  const their=settings.find(s=>String(s.fbId)===uid||String(s.id)===uid);
-  if(!their){toast('セッティングが見つかりません');return;}
+// ---- ヨー実測（GPS速度＋横G＋実ヨーレートでアンダー/オーバー判定）----
+let _ymActive=false,_ymWake=null,_ymGeo=null,_ymTimer=null;
+let _ymGrav={x:0,y:0,z:9.81},_ymGravInit=false,_ymU={x:0,y:1};
+let _ymSpeed=null,_ymAcc=null,_ymLastPos=null,_ymSamples=[],_ymCount=0;
+let _ymLog=null,_ymStreak=null; // 局面×症状の回数ログ／連続検出ストリーク
+const YM_VMIN=5.5,YM_LATMIN=0.15,YM_ACCMAX=35,YM_EVENT=6; // EVENT=1イベント確定に必要な連続サンプル数
+function _ymNewLog(){return{entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};}
+function _ymRenderLog(){
+  const pn={entry:'進入',mid:'中立',exit:'立上り'};
+  return['entry','mid','exit'].map(ph=>{
+    const u=_ymLog[ph].under,o=_ymLog[ph].over;
+    return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text2)">${pn[ph]}</span><span><span style="color:#60a5fa">アンダー ${u}</span> ／ <span style="color:#f87171">オーバー ${o}</span></span></div>`;
+  }).join('');
+}
+async function _ymWakeAcq(){try{if('wakeLock' in navigator)_ymWake=await navigator.wakeLock.request('screen');}catch(_){}}
+function _ymSetResult(html){const el=document.getElementById('yawMeasResult');if(el)el.innerHTML=html;}
+function _haversine(la1,lo1,la2,lo2){
+  const R=6371000,d=Math.PI/180;
+  const dLa=(la2-la1)*d,dLo=(lo2-lo1)*d;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+const YM_GATE_LAT=0.12; // 開始ゲート：これ未満の横Gなら開始可（停車 or 直進）
+// 開始前に約0.8秒だけ横Gを覗き、Gが乗っていれば開始を弾く（停車中/直進中のみ開始可）
+function _ymGate(onPass){
+  const U=_gmOrientU();let g=null,gInit=false,sum=0,n=0;
+  const h=(e)=>{
+    const a=e.accelerationIncludingGravity;if(!a)return;
+    const x=a.x||0,y=a.y||0,z=a.z||0;
+    if(!gInit){g={x,y,z};gInit=true;return;}
+    const al=Math.hypot(x-g.x,y-g.y,z-g.z)<0.6?0.05:0.0005;
+    g.x+=(x-g.x)*al;g.y+=(y-g.y)*al;g.z+=(z-g.z)*al;
+    const gm=Math.hypot(g.x,g.y,g.z)||9.81;
+    const gx=g.x/gm,gy=g.y/gm,gz=g.z/gm;
+    let dx=x-g.x,dy=y-g.y,dz=z-g.z;
+    const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+    const ux=U.x,uy=U.y,ug=ux*gx+uy*gy;
+    let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+    const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+    fx/=fmag;fy/=fmag;fz/=fmag;
+    const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+    const lat=(dx*lx+dy*ly+dz*lz)/9.80665;
+    sum+=Math.abs(lat);n++;
+  };
+  window.addEventListener('devicemotion',h);
+  _ymSetResult('<div style="font-size:12px;color:var(--text3)">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>');
+  setTimeout(()=>{
+    window.removeEventListener('devicemotion',h);
+    const avg=n>0?sum/n:0;
+    if(n<3){toast('センサー値が取れませんでした。もう一度お試しください');_ymSetResult('');return;}
+    if(avg>=YM_GATE_LAT){toast('Gがかかっています。停車中か直進走行中に開始してください');_ymSetResult('');return;}
+    onPass();
+  },900);
+}
+function startYawMeasure(){
+  const go=()=>{
+    if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
+    _ymActive=true;_ymGravInit=false;_ymSamples=[];_ymCount=0;_ymSpeed=null;_ymLastPos=null;_ymAcc=null;
+    _ymLog=_ymNewLog();_ymStreak={ph:null,sym:null,c:0};
+    _ymU=_gmOrientU();
+    _ymWakeAcq();
+    document.getElementById('yawMeasBtn').style.display='none';
+    document.getElementById('yawMeasStopBtn').style.display='';
+    _ymSetResult('<div style="font-size:12px;color:var(--text3)">📡 測位中… <b>20km/h以上でコーナーを走行</b>してください。<br><span style="color:#fbbf24">アンダー/オーバーは<b>限界付近（タイヤが滑り出すくらい）</b>でしか検出できません。しっかり攻めて走ってください。</span></div>');
+    window.addEventListener('devicemotion',_ymHandler);
+    _ymGeo=navigator.geolocation.watchPosition(pos=>{
+      _ymAcc=pos.coords.accuracy;
+      if(typeof pos.coords.speed==='number'&&pos.coords.speed>=0){_ymSpeed=pos.coords.speed;}
+      else if(_ymLastPos){
+        const dt=(pos.timestamp-_ymLastPos.t)/1000;
+        if(dt>0)_ymSpeed=_haversine(_ymLastPos.lat,_ymLastPos.lon,pos.coords.latitude,pos.coords.longitude)/dt;
+      }
+      _ymLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    // 走行データが全く取れないまま2分なら案内（取れていれば停止ボタンまで継続）
+    _ymTimer=setTimeout(()=>{
+      if(!_ymActive)return;
+      if(_ymSamples.length<8){stopYawMeasure();_ymSetResult('<div style="font-size:12px;color:#fbbf24">有効な走行データが集まりませんでした。GPS速度・コーナーG・スマホの固定をご確認ください。</div>');}
+    },120000);
+  };
+  const gate=()=>_ymGate(go);
+  const denied=()=>toast('センサーへのアクセスが拒否されました');
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?gate():denied();}).catch(denied);
+  }else if(typeof DeviceMotionEvent!=='undefined'){gate();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
+}
+function stopYawMeasure(){
+  _ymActive=false;
+  window.removeEventListener('devicemotion',_ymHandler);
+  if(_ymGeo!=null){try{navigator.geolocation.clearWatch(_ymGeo);}catch(_){}_ymGeo=null;}
+  if(_ymTimer){clearTimeout(_ymTimer);_ymTimer=null;}
+  try{if(_ymWake){_ymWake.release();_ymWake=null;}}catch(_){}
+  const b=document.getElementById('yawMeasBtn'),s=document.getElementById('yawMeasStopBtn');
+  if(b)b.style.display='';if(s)s.style.display='none';
+}
+function _ymHandler(e){
+  if(!_ymActive)return;
+  const a=e.accelerationIncludingGravity;if(!a)return;
+  const x=a.x||0,y=a.y||0,z=a.z||0;
+  if(!_ymGravInit){_ymGrav={x,y,z};_ymGravInit=true;return;}
+  const al=Math.hypot(x-_ymGrav.x,y-_ymGrav.y,z-_ymGrav.z)<0.6?0.02:0.0005;
+  _ymGrav.x+=(x-_ymGrav.x)*al;_ymGrav.y+=(y-_ymGrav.y)*al;_ymGrav.z+=(z-_ymGrav.z)*al;
+  const gm=Math.hypot(_ymGrav.x,_ymGrav.y,_ymGrav.z)||9.81;
+  const gx=_ymGrav.x/gm,gy=_ymGrav.y/gm,gz=_ymGrav.z/gm;
+  let dx=x-_ymGrav.x,dy=y-_ymGrav.y,dz=z-_ymGrav.z;
+  const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+  const ux=_ymU.x,uy=_ymU.y;
+  const ug=ux*gx+uy*gy;
+  let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+  const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+  fx/=fmag;fy/=fmag;fz/=fmag;
+  const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+  const G=9.80665;
+  const lon=(dx*fx+dy*fy+dz*fz)/G;   // ＋加速/−減速
+  const lat=(dx*lx+dy*ly+dz*lz)/G;   // ＋右旋回/−左旋回
+  const rr=e.rotationRate;if(!rr)return;
+  const yawRate=((rr.beta||0)*gx+(rr.gamma||0)*gy+(rr.alpha||0)*gz)*Math.PI/180; // rad/s 鉛直まわり
+  const V=_ymSpeed;
+  if(V==null||V<YM_VMIN)return;
+  if(_ymAcc!=null&&_ymAcc>YM_ACCMAX)return;
+  if(Math.abs(lat)<YM_LATMIN)return;
+  const rTh=(lat*G)/V;               // 理論ヨーレート rad/s（＋右旋回）
+  if(Math.abs(rTh)<0.02)return;
+  const ratio=Math.abs(yawRate)/Math.abs(rTh);
+  if(!isFinite(ratio)||ratio>4)return;
+  _ymSamples.push({ratio,lon});_ymCount++;
+  // 局面と瞬間症状を判定し、同じ症状が連続したら1イベントとしてログに加算
+  const ph=lon<-0.1?'entry':lon>0.1?'exit':'mid';
+  const inst=ratio<0.85?'under':ratio>1.18?'over':null;
+  if(inst&&_ymStreak.ph===ph&&_ymStreak.sym===inst){
+    _ymStreak.c++;
+    if(_ymStreak.c===YM_EVENT)_ymLog[ph][inst]++; // 確定した瞬間だけ+1（長いコーナーで二重加算しない）
+  }else{
+    _ymStreak={ph,sym:inst,c:inst?1:0};
+  }
+  if(_ymCount%5===0)_ymSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 計測中（「停止」で確定）… 速度 ${(V*3.6).toFixed(0)}km/h</div>${_ymRenderLog()}</div>`);
+}
+function _ymFinish(){
+  stopYawMeasure();
+  const n=_ymSamples.length;
+  const pn={entry:'進入',mid:'中立',exit:'立上り'};
+  // 最も多く検出された局面×症状を「最も強い傾向」として選択にセット
+  let best=null;
+  ['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{
+    const c=_ymLog?_ymLog[ph][sym]:0;
+    if(c>0&&(!best||c>best.c))best={ph,sym,c};
+  }));
+  let html=`<div style="background:var(--bg3);border-radius:10px;padding:12px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">局面別ログ（有効${n}サンプル）</div>
+    ${_ymLog?_ymRenderLog():''}`;
+  if(best){
+    const label=best.sym==='under'?'アンダー':'オーバー';
+    const col=best.sym==='under'?'#60a5fa':'#f87171';
+    _yawSel.s=best.sym;_yawSel.p=best.ph;_yawSave();_yawSyncSeg();renderYawAdvice();
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">最も強い傾向「<b style="color:${col}">${pn[best.ph]}・${label}</b>」（${best.c}回）を選択にセットしました。↓の対策をご確認ください。</div>`;
+  }else{
+    html+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">アンダー・オーバーは検出されませんでした。<br><span style="color:var(--text3)">この判定は<b>限界付近（タイヤが滑り出すくらい）</b>でのみ反応します。もっと攻めて走ると検出できます。</span></div>`;
+  }
+  _ymSetResult(html+'</div>');
+}
+
+// ==== 限界走行実測（セッティングアドバイス・フェーズ1）====
+// ヨー実測(アンダー/オーバー)＋Gピークを1セッション化。走行後に時系列イベントログ＋本コース課題サマリを出す。
+// GPS位置も記録しておく（フェーズ3のコーナー別マップ用）。既存の単機能（ヨー実測/Gサークル/固有振動）はそのまま残す。
+let _lrActive=false,_lrWake=null,_lrGeo=null,_lrTimer=null;
+let _lrGrav={x:0,y:0,z:9.81},_lrGravInit=false,_lrU={x:0,y:1};
+let _lrSpeed=null,_lrAcc=null,_lrLastPos=null;
+let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
+const LR_EVENT=6; // 連続サンプルでイベント確定（ヨー実測と同じ）
+// ばたつき検知（縦加速度の低周波リング=減衰不足 / 高周波チャタ=減衰過多）。閾値は実走で要調整
+let _lrVertLP=0,_lrLowE=0,_lrHighE=0,_lrBounceStreak=null,_lrBounceCool=0;
+// 縦G実効値(RMS)の閾値。RMSはサイン波振幅の約0.6倍に出る点を考慮。合成データ検証で調整(2026-06-14)
+const LR_BOUNCE_TH_LOW=0.15;  // 減衰不足(低周波リング)＝信頼できるので敏感に
+const LR_BOUNCE_TH_HIGH=0.30; // 減衰過多(高周波チャタ)＝エンジン/駆動系振動の誤検出リスクで保守的に
+const LR_BOUNCE_HOLD=8;      // 連続サンプルで確定（単発バンプを除外）
+const LR_BOUNCE_COOL=1500;   // 同種イベントの最小間隔(ms)・二重計上防止
+const _LR_PN={entry:'進入',mid:'中立',exit:'立上り'};
+async function _lrWakeAcq(){try{if('wakeLock' in navigator)_lrWake=await navigator.wakeLock.request('screen');}catch(_){}}
+function _lrSetResult(html){const el=document.getElementById('limitRunResult');if(el)el.innerHTML=html;}
+function _lrClock(ts){const d=new Date(ts);const z=n=>String(n).padStart(2,'0');return`${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;}
+// YAW_RULESから助言HTMLを生成（renderYawAdviceと同じ並びロジック・限界走行サマリ用）
+function _lrAdviceHtml(s,p,d){
+  let list=YAW_RULES.filter(r=>r.s===s&&r.p===p&&(r.d==='any'||r.d===d));
+  if(!list.length)list=YAW_RULES.filter(r=>r.s===s&&r.p===p);
+  list=list.slice().sort((a,b)=>a.ease-b.ease);
+  const badge=e=>e===1?'🟢':e===2?'🟡':'🔴';
+  return list.map(r=>`<div style="background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+    <div style="display:flex;align-items:center;gap:6px"><span>${badge(r.ease)}</span><b>${r.item}</b><span style="margin-left:auto;color:#60a5fa">${r.dir}</span></div>
+  </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">該当する助言がありません</div>';
+}
+// 開始前ゲート（停車中/直進のみ・横Gがかかっていたら弾く。ヨー実測と同じ思想）
+function _lrGate(onPass){
+  const U=_gmOrientU();let g=null,gInit=false,sum=0,n=0;
+  const h=(e)=>{
+    const a=e.accelerationIncludingGravity;if(!a)return;
+    const x=a.x||0,y=a.y||0,z=a.z||0;
+    if(!gInit){g={x,y,z};gInit=true;return;}
+    const al=Math.hypot(x-g.x,y-g.y,z-g.z)<0.6?0.05:0.0005;
+    g.x+=(x-g.x)*al;g.y+=(y-g.y)*al;g.z+=(z-g.z)*al;
+    const gm=Math.hypot(g.x,g.y,g.z)||9.81;
+    const gx=g.x/gm,gy=g.y/gm,gz=g.z/gm;
+    let dx=x-g.x,dy=y-g.y,dz=z-g.z;
+    const dot=dx*gx+dy*gy+dz*gz;dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+    const ux=U.x,uy=U.y,ug=ux*gx+uy*gy;
+    let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+    const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+    fx/=fmag;fy/=fmag;fz/=fmag;
+    const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+    const lat=(dx*lx+dy*ly+dz*lz)/9.80665;
+    sum+=Math.abs(lat);n++;
+  };
+  window.addEventListener('devicemotion',h);
+  _lrSetResult('<div style="font-size:12px;color:var(--text3)">⏳ 開始前チェック中…（停車中か直進のままお待ちください）</div>');
+  setTimeout(()=>{
+    window.removeEventListener('devicemotion',h);
+    const avg=n>0?sum/n:0;
+    if(n<3){toast('センサー値が取れませんでした。もう一度お試しください');_lrSetResult('');return;}
+    if(avg>=YM_GATE_LAT){toast('Gがかかっています。停車中か直進走行中に開始してください');_lrSetResult('');return;}
+    onPass();
+  },900);
+}
+function startLimitRun(){
+  const go=()=>{
+    if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
+    _lrActive=true;_lrGravInit=false;_lrSpeed=null;_lrLastPos=null;_lrAcc=null;
+    _lrStartTs=Date.now();_lrEvents=[];_lrTrack=[];_lrStreak={ph:null,sym:null,c:0};_lrMaxG=0;_lrCount=0;
+    _lrVertLP=0;_lrLowE=0;_lrHighE=0;_lrBounceStreak={kind:null,c:0};_lrBounceCool=0;
+    _lrU=_gmOrientU();_lrWakeAcq();
+    document.getElementById('limitRunBtn').style.display='none';
+    document.getElementById('limitRunStopBtn').style.display='';
+    _lrSetResult('<div style="font-size:12px;color:var(--text3)">📡 計測中… コースを攻めて走ってください。アンダー/オーバー・最大Gを記録します。<br><span style="color:#fbbf24">運転中は画面を見ないで。走行後に結果を確認してください。</span></div>');
+    window.addEventListener('devicemotion',_lrHandler);
+    _lrGeo=navigator.geolocation.watchPosition(pos=>{
+      _lrAcc=pos.coords.accuracy;
+      if(typeof pos.coords.speed==='number'&&pos.coords.speed>=0){_lrSpeed=pos.coords.speed;}
+      else if(_lrLastPos){
+        const dt=(pos.timestamp-_lrLastPos.t)/1000;
+        if(dt>0)_lrSpeed=_haversine(_lrLastPos.lat,_lrLastPos.lon,pos.coords.latitude,pos.coords.longitude)/dt;
+      }
+      _lrLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
+      if(_lrTrack.length<8000)_lrTrack.push({t:pos.timestamp,lat:pos.coords.latitude,lon:pos.coords.longitude,sp:_lrSpeed});
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  };
+  const gate=()=>_lrGate(go);
+  const denied=()=>toast('センサーへのアクセスが拒否されました');
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{s==='granted'?gate():denied();}).catch(denied);
+  }else if(typeof DeviceMotionEvent!=='undefined'){gate();}
+  else{toast('この端末は加速度センサーをサポートしていません');}
+}
+function stopLimitRun(){
+  _lrActive=false;
+  window.removeEventListener('devicemotion',_lrHandler);
+  if(_lrGeo!=null){try{navigator.geolocation.clearWatch(_lrGeo);}catch(_){}_lrGeo=null;}
+  if(_lrTimer){clearTimeout(_lrTimer);_lrTimer=null;}
+  try{if(_lrWake){_lrWake.release();_lrWake=null;}}catch(_){}
+  const b=document.getElementById('limitRunBtn'),s=document.getElementById('limitRunStopBtn');
+  if(b)b.style.display='';if(s)s.style.display='none';
+}
+function _lrHandler(e){
+  if(!_lrActive)return;
+  const a=e.accelerationIncludingGravity;if(!a)return;
+  const x=a.x||0,y=a.y||0,z=a.z||0;
+  if(_lrRecord){
+    const _rr=e.rotationRate||{};
+    _lrRecLog.push({t:Date.now()-_lrRecT0,ax:+x.toFixed(4),ay:+y.toFixed(4),az:+z.toFixed(4),
+      rx:+(_rr.alpha||0).toFixed(3),ry:+(_rr.beta||0).toFixed(3),rz:+(_rr.gamma||0).toFixed(3),
+      sp:_lrSpeed,la:_lrLastPos?+_lrLastPos.lat.toFixed(6):null,lo:_lrLastPos?+_lrLastPos.lon.toFixed(6):null});
+    if(_lrRecLog.length>=_dcCap){toast('上限到達で限界走行収集を停止');stopLimitRunCollect();return;}
+  }
+  if(!_lrGravInit){_lrGrav={x,y,z};_lrGravInit=true;return;}
+  const al=Math.hypot(x-_lrGrav.x,y-_lrGrav.y,z-_lrGrav.z)<0.6?0.02:0.0005;
+  _lrGrav.x+=(x-_lrGrav.x)*al;_lrGrav.y+=(y-_lrGrav.y)*al;_lrGrav.z+=(z-_lrGrav.z)*al;
+  const gm=Math.hypot(_lrGrav.x,_lrGrav.y,_lrGrav.z)||9.81;
+  const gx=_lrGrav.x/gm,gy=_lrGrav.y/gm,gz=_lrGrav.z/gm;
+  let dx=x-_lrGrav.x,dy=y-_lrGrav.y,dz=z-_lrGrav.z;
+  const dot=dx*gx+dy*gy+dz*gz;
+  const vert=dot/9.80665; // 重力方向の動加速度＝バンプ/縦揺れ信号(G)
+  dx-=dot*gx;dy-=dot*gy;dz-=dot*gz;
+  // --- ばたつき検知：縦揺れを低周波(リング)/高周波(チャタ)に分けてエネルギー監視 ---
+  _lrVertLP+=(vert-_lrVertLP)*0.18;        // 低周波成分（おおむね数Hz以下）
+  const vHigh=vert-_lrVertLP;               // 高周波成分
+  _lrLowE+=(_lrVertLP*_lrVertLP-_lrLowE)*0.08;
+  _lrHighE+=(vHigh*vHigh-_lrHighE)*0.08;
+  const lowRMS=Math.sqrt(Math.max(0,_lrLowE)),highRMS=Math.sqrt(Math.max(0,_lrHighE));
+  const Vb=_lrSpeed;
+  if(Vb!=null&&Vb>=YM_VMIN){ // 走行中のみ（停車中のエンジン振動を除外）
+    let bk=null;
+    if(lowRMS>=LR_BOUNCE_TH_LOW&&lowRMS>highRMS*1.3)bk='bunder';      // 低周波リング＝減衰不足
+    else if(highRMS>=LR_BOUNCE_TH_HIGH&&highRMS>lowRMS*1.2)bk='bover'; // 高周波チャタ＝減衰過多（誤検出避けで閾値高め）
+    if(bk&&_lrBounceStreak.kind===bk){
+      _lrBounceStreak.c++;
+      if(_lrBounceStreak.c===LR_BOUNCE_HOLD&&Date.now()-_lrBounceCool>LR_BOUNCE_COOL){
+        _lrEvents.push({t:Date.now(),cat:'bounce',kind:bk,speed:Vb*3.6,la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});_lrBounceCool=Date.now();
+      }
+    }else{_lrBounceStreak={kind:bk,c:bk?1:0};}
+  }
+  const ux=_lrU.x,uy=_lrU.y,ug=ux*gx+uy*gy;
+  let fx=ux-ug*gx+gz*gx,fy=uy-ug*gy+gz*gy,fz=-ug*gz+gz*gz-1;
+  const fmag=Math.hypot(fx,fy,fz);if(fmag<0.05)return;
+  fx/=fmag;fy/=fmag;fz/=fmag;
+  const lx=fy*gz-fz*gy,ly=fz*gx-fx*gz,lz=fx*gy-fy*gx;
+  const G=9.80665;
+  const lon=(dx*fx+dy*fy+dz*fz)/G;
+  const lat=(dx*lx+dy*ly+dz*lz)/G;
+  // 最大合成Gを記録
+  const tot=Math.hypot(lon,lat);
+  if(tot>_lrMaxG)_lrMaxG=tot;
+  const rr=e.rotationRate;if(!rr)return;
+  const yawRate=((rr.beta||0)*gx+(rr.gamma||0)*gy+(rr.alpha||0)*gz)*Math.PI/180;
+  const V=_lrSpeed;
+  if(V==null||V<YM_VMIN)return;
+  if(_lrAcc!=null&&_lrAcc>YM_ACCMAX)return;
+  if(Math.abs(lat)<YM_LATMIN)return;
+  const rTh=(lat*G)/V;
+  if(Math.abs(rTh)<0.02)return;
+  const ratio=Math.abs(yawRate)/Math.abs(rTh);
+  if(!isFinite(ratio)||ratio>4)return;
+  _lrCount++;
+  // 局面と瞬間症状を判定。同症状がLR_EVENT連続したら1イベントとして時刻付きで記録
+  const ph=lon<-0.1?'entry':lon>0.1?'exit':'mid';
+  const inst=ratio<0.85?'under':ratio>1.18?'over':null;
+  if(inst&&_lrStreak.ph===ph&&_lrStreak.sym===inst){
+    _lrStreak.c++;
+    if(_lrStreak.c===LR_EVENT)_lrEvents.push({t:Date.now(),cat:'yaw',kind:inst,ph,speed:V*3.6,g:Math.abs(lat),la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});
+  }else{
+    _lrStreak={ph,sym:inst,c:inst?1:0};
+  }
+  if(_lrCount%5===0){
+    const el=Math.floor((Date.now()-_lrStartTs)/1000);
+    _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${(V*3.6).toFixed(0)}km/h ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div></div>`);
+  }
+}
+function _lrFinish(){
+  stopLimitRun();
+  const ev=_lrEvents;
+  // 局面×症状の集計
+  const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
+  ev.forEach(e=>{if(e.cat==='yaw'&&agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
+  const bounce={bunder:0,bover:0};
+  ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
+  let best=null;
+  ['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{
+    const c=agg[ph][sym];if(c>0&&(!best||c>best.c))best={ph,sym,c};
+  }));
+  const elapsed=Math.floor((Date.now()-_lrStartTs)/1000);
+  // 時系列イベントログ
+  let logHtml='';
+  if(ev.length){
+    logHtml=ev.slice(-40).map(e=>{
+      let label,col,mid,right;
+      if(e.cat==='bounce'){
+        label=e.kind==='bunder'?'ばたつき(減衰不足)':'ばたつき(減衰過多)';
+        col=e.kind==='bunder'?'#f87171':'#fbbf24';mid='';right=`${e.speed.toFixed(0)}km/h`;
+      }else{
+        label=e.kind==='under'?'アンダー':'オーバー';
+        col=e.kind==='under'?'#60a5fa':'#f87171';mid=`<span style="color:var(--text3)"> ${_LR_PN[e.ph]}</span>`;right=`${e.speed.toFixed(0)}km/h ${e.g.toFixed(2)}G`;
+      }
+      return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text3)">${_lrClock(e.t)}</span><span><b style="color:${col}">${label}</b>${mid}</span><span style="color:var(--text3)">${right}</span></div>`;
+    }).join('');
+  }else{
+    logHtml='<div style="font-size:12px;color:var(--text3);padding:6px 0">アンダー・オーバー・ばたつきは検出されませんでした（限界付近でのみ反応）。</div>';
+  }
+  // 課題サマリ
+  let summary=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${_lrMaxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件</div>`;
+  // ばたつきサマリ
+  if(bounce.bunder>0||bounce.bover>0){
+    summary+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
+    if(bounce.bunder>0)summary+=`<b style="color:#f87171">減衰不足 ${bounce.bunder}回</b>`;
+    if(bounce.bunder>0&&bounce.bover>0)summary+=' / ';
+    if(bounce.bover>0)summary+=`<b style="color:#fbbf24">減衰過多 ${bounce.bover}回</b>`;
+    summary+=`</div>`;
+    if(bounce.bunder>=bounce.bover)summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰不足側。リバウンド減衰を強めて収まりを出す。固有振動数実測の「ばたつき限界エンジン」でバネ上限も確認できます。</div>`;
+    else summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰過多側。減衰を弱めて当たりを柔らかく（高周波チャタはエンジン振動の誤検出もあり得るので参考値）。</div>`;
+  }
+  if(best){
+    const d=(getCar()&&getCar().drive)||_yawSel.d||'FF';
+    const label=best.sym==='under'?'アンダー':'オーバー';
+    const col=best.sym==='under'?'#60a5fa':'#f87171';
+    _yawSel.s=best.sym;_yawSel.p=best.ph;_yawSave();_yawSyncSeg();renderYawAdvice();
+    summary+=`<div style="margin-top:8px;font-size:13px">本コースの主課題：<b style="color:${col}">${_LR_PN[best.ph]}・${label}</b>（${best.c}回で最多）</div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0 6px">お手軽度順の対策（🟢すぐ→🔴部品交換）。ヨー診断にも自動セット済み。</div>
+      ${_lrAdviceHtml(best.sym,best.ph,d)}`;
+  }else{
+    summary+='<div style="margin-top:8px;font-size:12px;color:var(--text2)">明確なアンダー/オーバー傾向は出ませんでした。もっと攻めると検出できます。</div>';
+  }
+  const hasMap=_lrTrack.length>=10;
+  _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:6px">🏁 限界走行 結果</div>
+    ${summary}
+    ${hasMap?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">コースマップ（イベント位置）</div>
+    <canvas id="lrMap" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">青=アンダー / 赤=オーバー / オレンジ=ばたつき。走行軌跡上に検出位置を表示。</div>`:''}
+    <div style="font-weight:700;font-size:13px;margin:12px 0 2px">イベントログ（時系列${ev.length>40?'・直近40件':''}）</div>
+    ${logHtml}
+  </div>`);
+  if(hasMap)_lrRenderMap();
+}
+// 走行軌跡＋イベント位置をcanvasに描画（Leaflet不要・オフライン）
+function _lrRenderMap(){
+  const cv=document.getElementById('lrMap');if(!cv)return;
+  const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null);if(pts.length<2)return;
+  let laMin=Infinity,laMax=-Infinity,loMin=Infinity,loMax=-Infinity;
+  pts.forEach(p=>{laMin=Math.min(laMin,p.lat);laMax=Math.max(laMax,p.lat);loMin=Math.min(loMin,p.lon);loMax=Math.max(loMax,p.lon);});
+  const latMid=(laMin+laMax)/2,kx=Math.cos(latMid*Math.PI/180); // 経度の距離圧縮
+  const W=cv.clientWidth||320,H=Math.max(160,Math.min(280,W*0.7));
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;
+  const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  const pad=14;
+  const spanX=Math.max(1e-9,(loMax-loMin)*kx),spanY=Math.max(1e-9,laMax-laMin);
+  const sc=Math.min((W-2*pad)/spanX,(H-2*pad)/spanY);
+  const ox=(W-spanX*sc)/2,oy=(H-spanY*sc)/2;
+  const X=p=>ox+((p.lon-loMin)*kx)*sc, Y=p=>H-(oy+((p.lat-laMin))*sc); // 北を上に
+  ctx.strokeStyle='#475569';ctx.lineWidth=2;ctx.beginPath();
+  pts.forEach((p,i)=>{const xx=X(p),yy=Y(p);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});
+  ctx.stroke();
+  _lrEvents.forEach(e=>{
+    if(e.la==null||e.lo==null)return;
+    const col=e.cat==='bounce'?'#fbbf24':(e.kind==='under'?'#60a5fa':'#f87171');
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);ctx.fill();
+  });
+}
+
+// ==== グループ タイムライン ====
+let _groupSettings=[];   // 表示中の全メンバーセッティング
+let _groupDetailCur=null; // 詳細表示中のセッティング
+async function refreshGroupTimeline(){
+  for(const g of state.groups){await getGroupSettings(g.code);}
+  renderGroupTimeline();
+}
+async function renderGroupTimeline(){
+  const el=document.getElementById('groupTimeline');
+  if(!el)return;
+  // キャッシュが空ならオンライン取得
+  let all=[];
+  for(const g of state.groups){
+    let settings=state.groupCache[g.code]?.settings;
+    if(!settings&&navigator.onLine){settings=await getGroupSettings(g.code);}
+    (settings||[]).forEach(s=>{
+      if(!all.find(a=>(a.fbId&&a.fbId===s.fbId)||(a.id&&a.id===s.id)))all.push({...s,_group:g.code});
+    });
+  }
+  renderGroupFreq();
+  all.sort((a,b)=>(b.ts||0)-(a.ts||0)||new Date(b.date||0)-new Date(a.date||0));
+  _groupSettings=all;
+  if(!all.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">まだセッティングがありません</div>';return;}
+  el.innerHTML=all.map((s,i)=>{
+    const mine=s.nick&&s.nick===state.nickname;
+    const sub=[s.date,s.temp?s.temp+'°C':'',s.tire,s.surface?SURFACE_LABELS[s.surface]:''].filter(Boolean).join(' · ');
+    return`<div class="part-item" onclick="openGroupSetting(${i})" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div style="font-size:14px;font-weight:600">${esc(s.nick)||'?'}${s.car?` <span style="font-size:11px;font-weight:500;color:var(--text3)">${esc(s.car)}</span>`:''} ${mine?'<span style="font-size:10px;color:#86efac">(自分)</span>':''}</div>
+        <div style="font-size:12px;flex-shrink:0">${'⭐'.repeat(s.eval||3)}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">📍 ${esc(s.course)||'?'}</div>
+      ${sub?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(sub)}</div>`:''}
+      ${(s.freqF||s.freqR)?`<div style="font-size:11px;color:#60a5fa;margin-top:2px">固有振動 F:${s.freqF?parseFloat(s.freqF).toFixed(2):'-'} R:${s.freqR?parseFloat(s.freqR).toFixed(2):'-'} Hz</div>`:''}
+    </div>`;
+  }).join('');
+}
+const GROUP_DETAIL_FIELDS=[
+  {label:'バネFL',fn:s=>s.springFL?s.springFL+' kgf/mm':null},
+  {label:'バネFR',fn:s=>s.springFR?s.springFR+' kgf/mm':null},
+  {label:'バネRL',fn:s=>s.springRL?s.springRL+' kgf/mm':null},
+  {label:'バネRR',fn:s=>s.springRR?s.springRR+' kgf/mm':null},
+  {label:'空気圧FL',fn:s=>s.pressFL?s.pressFL+' kg/cm²':null},
+  {label:'空気圧FR',fn:s=>s.pressFR?s.pressFR+' kg/cm²':null},
+  {label:'空気圧RL',fn:s=>s.pressRL?s.pressRL+' kg/cm²':null},
+  {label:'空気圧RR',fn:s=>s.pressRR?s.pressRR+' kg/cm²':null},
+  {label:'キャンFL',fn:s=>s.camberFL!=null?s.camberFL+'°':null},
+  {label:'キャンFR',fn:s=>s.camberFR!=null?s.camberFR+'°':null},
+  {label:'キャンRL',fn:s=>s.camberRL!=null?s.camberRL+'°':null},
+  {label:'キャンRR',fn:s=>s.camberRR!=null?s.camberRR+'°':null},
+  {label:'トーFL',fn:s=>s.toeFL!=null?s.toeFL+'mm':null},
+  {label:'トーFR',fn:s=>s.toeFR!=null?s.toeFR+'mm':null},
+  {label:'トーRL',fn:s=>s.toeRL!=null?s.toeRL+'mm':null},
+  {label:'トーRR',fn:s=>s.toeRR!=null?s.toeRR+'mm':null},
+  {label:'全長FL',fn:s=>s.shockLenFL!=null?s.shockLenFL+'mm':null},
+  {label:'全長FR',fn:s=>s.shockLenFR!=null?s.shockLenFR+'mm':null},
+  {label:'全長RL',fn:s=>s.shockLenRL!=null?s.shockLenRL+'mm':null},
+  {label:'全長RR',fn:s=>s.shockLenRR!=null?s.shockLenRR+'mm':null},
+  {label:'プリFL',fn:s=>s.preloadFL!=null?s.preloadFL+'周':null},
+  {label:'プリFR',fn:s=>s.preloadFR!=null?s.preloadFR+'周':null},
+  {label:'プリRL',fn:s=>s.preloadRL!=null?s.preloadRL+'周':null},
+  {label:'プリRR',fn:s=>s.preloadRR!=null?s.preloadRR+'周':null},
+  {label:'最低地上高前',fn:s=>s.minClearF!=null?s.minClearF+'mm':null},
+  {label:'最低地上高後',fn:s=>s.minClearR!=null?s.minClearR+'mm':null},
+  {label:'固有振動F',fn:s=>s.freqF?parseFloat(s.freqF).toFixed(2)+' Hz':null},
+  {label:'固有振動R',fn:s=>s.freqR?parseFloat(s.freqR).toFixed(2)+' Hz':null},
+  {label:'車重',fn:s=>s.weight?s.weight+' kg':null},
+];
+function openGroupSetting(i){
+  const s=_groupSettings[i];
+  if(!s)return;
+  _groupDetailCur=s;
+  document.getElementById('groupDetailTitle').textContent=`${s.nick||'?'} / ${s.course||'?'}`;
+  const rows=GROUP_DETAIL_FIELDS.map(f=>{const v=f.fn(s);return v?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px"><span style="color:var(--text3)">${f.label}</span><span style="color:var(--text2);font-weight:600">${esc(v)}</span></div>`:'';}).filter(Boolean).join('');
+  const head=[s.date,s.temp?s.temp+'°C':'',s.tire,s.surface?SURFACE_LABELS[s.surface]:'',s.car].filter(Boolean).join(' · ');
+  document.getElementById('groupDetailBody').innerHTML=`
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(head)} ${'⭐'.repeat(s.eval||3)}</div>
+    ${rows||'<div style="font-size:12px;color:var(--text3)">数値データなし</div>'}
+    ${s.note?`<div style="font-size:12px;color:var(--text2);margin-top:8px">💬 ${esc(s.note)}</div>`:''}`;
+  // 自分の車の選択肢（車両タブの選択車を参照・ここからも変更可）
+  const carSel=document.getElementById('groupDetailCarSel');
+  if(carSel)carSel.innerHTML=state.cars.map((c,j)=>`<option value="${j}"${j===state.selectedCar?' selected':''}>${esc(c.name)}</option>`).join('');
+  // 自分のセッティング選択肢
+  _fillGroupDetailMySel();
+  document.getElementById('groupDetailResult').innerHTML='';
+  document.getElementById('groupDetailModal').classList.add('show');
+}
+function _fillGroupDetailMySel(){
+  const mySel=document.getElementById('groupDetailMySel');
+  if(!mySel)return;
+  const mine=[...getCar().settings].sort((a,b)=>(b.ts||0)-(a.ts||0));
+  mySel.innerHTML=mine.length?mine.map((m,j)=>`<option value="${m.id}">${j===0?'最新: ':''}${m.date||'?'} ${m.course||'?'} ${'⭐'.repeat(m.eval||3)}</option>`).join(''):'<option value="">自分のセッティングなし</option>';
+}
+// グループ比較画面から自分の車を切り替え（車両タブの選択車にも反映）
+function groupDetailSwitchCar(idx){
+  idx=parseInt(idx);
+  if(isNaN(idx)||!state.cars[idx])return;
+  state.selectedCar=idx;state.viewAll=false;
+  save();renderCarTabs();
+  _fillGroupDetailMySel();
+  document.getElementById('groupDetailResult').innerHTML='';
+}
+function groupDetailCompare(){
+  const their=_groupDetailCur;if(!their)return;
+  const id=parseInt(document.getElementById('groupDetailMySel').value);
+  const mine=getCar().settings.find(x=>x.id===id);
+  const el=document.getElementById('groupDetailResult');
+  if(!mine){el.innerHTML='<div class="alert alert-info" style="font-size:12px">比較する自分のセッティングがありません</div>';return;}
+  const fmt=(v,u)=>v!=null&&v!==''?v+(u||''):'-';
+  const F=[
+    ['バネFL',s=>fmt(s.springFL,'')],['バネFR',s=>fmt(s.springFR,'')],['バネRL',s=>fmt(s.springRL,'')],['バネRR',s=>fmt(s.springRR,'')],
+    ['空気圧FL',s=>fmt(s.pressFL,'')],['空気圧FR',s=>fmt(s.pressFR,'')],['空気圧RL',s=>fmt(s.pressRL,'')],['空気圧RR',s=>fmt(s.pressRR,'')],
+    ['キャンFL',s=>fmt(s.camberFL,'°')],['キャンFR',s=>fmt(s.camberFR,'°')],['キャンRL',s=>fmt(s.camberRL,'°')],['キャンRR',s=>fmt(s.camberRR,'°')],
+    ['トーFL',s=>fmt(s.toeFL,'mm')],['トーFR',s=>fmt(s.toeFR,'mm')],['トーRL',s=>fmt(s.toeRL,'mm')],['トーRR',s=>fmt(s.toeRR,'mm')],
+    ['全長FL',s=>fmt(s.shockLenFL,'mm')],['全長FR',s=>fmt(s.shockLenFR,'mm')],['全長RL',s=>fmt(s.shockLenRL,'mm')],['全長RR',s=>fmt(s.shockLenRR,'mm')],
+    ['プリFL',s=>fmt(s.preloadFL,'周')],['プリFR',s=>fmt(s.preloadFR,'周')],['プリRL',s=>fmt(s.preloadRL,'周')],['プリRR',s=>fmt(s.preloadRR,'周')],
+    ['最低地上高前',s=>fmt(s.minClearF,'mm')],['最低地上高後',s=>fmt(s.minClearR,'mm')],
+    ['固有振動F',s=>s.freqF?parseFloat(s.freqF).toFixed(2):'-'],['固有振動R',s=>s.freqR?parseFloat(s.freqR).toFixed(2):'-'],
+  ];
+  const rows=F.map(([label,fn])=>{
+    const vA=fn(mine),vB=fn(their);if(vA==='-'&&vB==='-')return'';
+    const diff=vA!==vB;
+    return`<tr style="${diff?'background:rgba(59,130,246,.08)':''}"><td style="font-size:11px;color:var(--text3);padding:5px 8px;white-space:nowrap">${label}</td><td style="font-size:12px;padding:5px 8px;${diff?'color:#93c5fd;font-weight:600':''}">${vA}</td><td style="font-size:12px;padding:5px 8px;${diff?'color:#86efac;font-weight:600':''}">${vB}</td></tr>`;
+  }).filter(Boolean).join('');
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr><th></th><th style="font-size:12px;color:#60a5fa;padding:5px 8px">自分</th><th style="font-size:12px;color:#86efac;padding:5px 8px">${esc(their.nick)||'相手'}</th></tr></thead>
+    <tbody>${rows}</tbody></table></div><div style="font-size:11px;color:var(--text3);margin-top:6px">青/緑が差異あり</div>`;
+}
+function groupDetailConvert(){
+  const their=_groupDetailCur;if(!their)return;
+  calcGroupCompareFor(their,document.getElementById('groupDetailResult'));
+}
+// 相手セッティングを自分の車に換算（旧 calcGroupCompare の計算部）
+function calcGroupCompareFor(their,el){
   const myCar=getCar();
   const myLast=myCar.settings.length?[...myCar.settings].sort((a,b)=>(b.ts||0)-(a.ts||0))[0]:null;
-  const el=document.getElementById('groupCompareResult');
+  // 車重は相手と土俵を揃えるため「最新セッティングの車重」を優先（無ければ車両管理の車重）
+  const myW=(myLast&&myLast.weight)||myCar.weight||null;
   let html=`<div class="alert alert-info" style="font-size:12px;margin-bottom:12px">⚠️ 理論値・計算上の参考値です。実際の感覚は車両特性・路面・タイヤ等により異なります。</div>`;
 
   // バネレート推奨値（固有振動数を合わせる）
@@ -3008,13 +4631,13 @@ async function calcGroupCompare(){
   if(theirFreqF||theirFreqR){
     html+=`<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">🔧 固有振動数を合わせるためのバネレート</div>`;
     let recF=null,recR=null;
-    if(theirFreqF&&myCar.weight&&myCar.frontRatio&&myCar.leverF){
-      const mF=Math.max(1,myCar.weight*(myCar.frontRatio/100)/2-(myCar.unsprungF||0));
+    if(theirFreqF&&myW&&myCar.frontRatio&&myCar.leverF){
+      const mF=Math.max(1,myW*(myCar.frontRatio/100)/2-(myCar.unsprungF||0));
       recF=computeSpringFromFreq(theirFreqF,myCar.leverF,mF);
     }
-    if(theirFreqR&&myCar.weight&&myCar.rearRatio&&myCar.leverR){
+    if(theirFreqR&&myW&&myCar.rearRatio&&myCar.leverR){
       const effR=myCar.rearRatio||(100-myCar.frontRatio);
-      const mR=Math.max(1,myCar.weight*(effR/100)/2-(myCar.unsprungR||0));
+      const mR=Math.max(1,myW*(effR/100)/2-(myCar.unsprungR||0));
       recR=computeSpringFromFreq(theirFreqR,myCar.leverR,mR);
     }
     if(recF||recR){
@@ -3029,7 +4652,6 @@ async function calcGroupCompare(){
 
   // 空気圧（車重比で正規化）
   const theirW=their.weight||null;
-  const myW=myCar.weight||null;
   const PRESS_KEYS=[['pressFL','FL'],['pressFR','FR'],['pressRL','RL'],['pressRR','RR']];
   const pressRows=PRESS_KEYS.filter(([k])=>their[k]!=null).map(([k,label])=>{
     const theirVal=parseFloat(their[k]);
@@ -3151,11 +4773,8 @@ function renderComparison(){
 // ---- セッティング保存 ----
 function pfSafe(id){const v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;}
 async function saveSetting(){
-  const course=document.getElementById('stCourse').value.trim();
   const date=document.getElementById('stDate').value;
-  const genre=document.getElementById('stGenre').value;
-  const subGenre=document.getElementById('stSubGenre').value;
-  if(!course||!date){toast('コース名と日付は必須です');return;}
+  if(!date){toast('記録日を入力してください');return;}
   const springFL=parseFloat(document.getElementById('stSpringFL').value)||null;
   const springFR=parseFloat(document.getElementById('stSpringFR').value)||null;
   const springRL=parseFloat(document.getElementById('stSpringRL').value)||null;
@@ -3167,9 +4786,8 @@ async function saveSetting(){
     nick:document.getElementById('stNick').value.trim()||state.nickname||'',
     car:document.getElementById('stCar').value.trim()||getCar().name,
     weight:parseFloat(document.getElementById('stWeight').value)||null,
-    genre,subGenre,course,date,
-    temp:parseFloat(document.getElementById('stTemp').value)||null,
-    surface:document.getElementById('stSurface').value,
+    date, // 記録日
+    reviewed:false, // 走行レビュー未実施（コース/評価/所感は後でレビューで付与）
     tire:document.getElementById('stTire').value.trim(),
     // スプリング（4輪）
     springFL,springFR,springRL,springRR,springF,springR,
@@ -3196,7 +4814,12 @@ async function saveSetting(){
     toeRR:pfSafe('stToeRR'),
     casterFL:pfSafe('stCasterFL'),
     casterFR:pfSafe('stCasterFR'),
-    eval:parseInt(document.getElementById('stEval').value),
+    // 車高 / 車高調（全長mm・プリロード周・最低地上高mm）
+    shockLenFL:pfSafe('stShockLenFL'),shockLenFR:pfSafe('stShockLenFR'),
+    shockLenRL:pfSafe('stShockLenRL'),shockLenRR:pfSafe('stShockLenRR'),
+    preloadFL:pfSafe('stPreloadFL'),preloadFR:pfSafe('stPreloadFR'),
+    preloadRL:pfSafe('stPreloadRL'),preloadRR:pfSafe('stPreloadRR'),
+    minClearF:pfSafe('stMinClearF'),minClearR:pfSafe('stMinClearR'),
     // 実測固有振動数
     measFreqF:pfSafe('stMeasFreqF'),
     measFreqR:pfSafe('stMeasFreqR'),
@@ -3226,25 +4849,11 @@ async function saveSetting(){
     }
   }
 
-  // グループに共有
-  const targetGroups=state.groups.length>1
-    ?confirm(`参加中のグループ（${state.groups.length}個）すべてに反映しますか？`)
-      ?state.groups:[]
-    :state.groups;
-  for(const group of targetGroups){
-    const fbData={...data,nick:group.nick||data.nick};
-    if(navigator.onLine){
-      const fbId=await fbPush(`groups/${group.code}/settings`,fbData);
-      if(fbId){if(!data.fbIds)data.fbIds={};data.fbIds[group.code]=fbId;}
-    }else{
-      pendingUploads.push({code:group.code,data:fbData,localId:data.id});
-    }
-  }
-
+  // 未レビューはグループ共有しない（レビュー時に共有）
   save();
-  const groupMsg=targetGroups.length?(navigator.onLine?'（グループに共有済み）':'（オフライン：復帰後に同期）'):'';
-  toast(`記録しました ✓ ${groupMsg}`);
-  document.getElementById('stCourse').value='';
+  toast('記録しました ✓（未レビュー）走行後にホームの履歴からレビューしてください');
+  resetSettingForm();
+  showPage('dashboard');
 }
 
 // ---- コミュニティ検索 ----
@@ -3360,6 +4969,27 @@ async function uploadSelectedToGroup(){
 }
 
 // ---- 設定 ----
+// ==== 開発者モード（実測・データ収集をパスワードで解錠。milage_v1とは別キーで保持） ====
+const DEV_PW='analysisdev';
+const DEV_KEY='mileage_devmode';
+function isDevMode(){try{return localStorage.getItem(DEV_KEY)==='1';}catch(e){return false;}}
+function applyDevMode(){
+  const on=isDevMode();
+  document.querySelectorAll('.dev-only').forEach(el=>{el.style.display=on?'':'none';});
+  const locked=document.getElementById('devLockedBox'),unlocked=document.getElementById('devUnlockedBox');
+  if(locked&&unlocked){locked.style.display=on?'none':'';unlocked.style.display=on?'':'none';}
+}
+function unlockDevMode(){
+  const inp=document.getElementById('devPwInput'),msg=document.getElementById('devPwMsg');
+  if((inp.value||'').trim()!==DEV_PW){msg.style.color='#f87171';msg.textContent='パスワードが違います';return;}
+  try{localStorage.setItem(DEV_KEY,'1');}catch(e){}
+  inp.value='';msg.textContent='';
+  applyDevMode();toast('開発者モードを解錠しました');
+}
+function lockDevMode(){
+  try{localStorage.removeItem(DEV_KEY);}catch(e){}
+  applyDevMode();toast('ロックしました');
+}
 function renderSettings(){
   document.getElementById('s-notify').value=state.notifyDays||30;
   document.getElementById('s-nick').value=state.nickname||'';
@@ -3378,6 +5008,7 @@ function renderSettings(){
         <option value="interval2"${c.oilFilterMode==='interval2'?' selected':''}>オイル2回に1回</option>
       </select>
     </div>`).join('');
+  applyDevMode();
 }
 function setCarOilMode(i,mode){
   state.cars[i].oilFilterMode=mode||null;save();
@@ -3455,30 +5086,25 @@ function toggleAccordion(id){
   const arrow=document.getElementById('arrow'+id.replace('acc',''));
   if(!body)return;
   const isOpen=body.classList.contains('open');
-  body.classList.toggle('open',!isOpen);
+  if(isOpen){
+    // 閉じる: 現在の高さを固定してから0へアニメーション
+    body.style.maxHeight=body.scrollHeight+'px';
+    requestAnimationFrame(()=>{body.style.maxHeight='0';});
+    body.classList.remove('open');
+  }else{
+    // 開く: 中身の実高さまで開き、アニメ後はnone（内部展開で伸びても切れない）
+    body.classList.add('open');
+    body.style.maxHeight=body.scrollHeight+'px';
+    const done=()=>{if(body.classList.contains('open'))body.style.maxHeight='none';body.removeEventListener('transitionend',done);};
+    body.addEventListener('transitionend',done);
+    setTimeout(done,350); // transitionend保険
+  }
   if(arrow)arrow.classList.toggle('open',!isOpen);
 }
-
-// 走行場所ジャンル選択
-const SUBGENRES={
-  street:[{val:'highway',label:'🛣 高速コース'},{val:'technical',label:'🔀 テクニカルコース'}],
-  circuit:[{val:'short',label:'🏎 ショートサーキット'},{val:'international',label:'🏁 国際サーキット'}]
-};
-function selectGenre(genre){
-  document.getElementById('stGenre').value=genre;
-  document.getElementById('stSubGenre').value='';
-  ['genreStreet','genreCircuit'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  document.getElementById(genre==='street'?'genreStreet':'genreCircuit').classList.add('active');
-  const sub=SUBGENRES[genre];
-  const grid=document.getElementById('subGenreGrid');
-  grid.innerHTML=sub.map(s=>`<button class="course-type-btn" id="sub_${s.val}" onclick="selectSubGenre('${s.val}')">${s.label}</button>`).join('');
-  document.getElementById('subGenreArea').style.display='block';
-}
-function selectSubGenre(val){
-  document.getElementById('stSubGenre').value=val;
-  document.querySelectorAll('#subGenreGrid .course-type-btn').forEach(b=>b.classList.remove('active'));
-  const btn=document.getElementById('sub_'+val);
-  if(btn)btn.classList.add('active');
+// 開いているアコーディオン内で中身が伸びたとき(カード展開など)に高さ制限を外す
+function _accExpand(el){
+  const body=el.closest('.accordion-body');
+  if(body&&body.classList.contains('open'))body.style.maxHeight='none';
 }
 
 function toast(msg){
