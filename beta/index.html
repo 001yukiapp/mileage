@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.19.0</title>
+<title>Mileage 3.19.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -178,7 +178,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.19.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.19.1</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -770,7 +770,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.19.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.19.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1321,7 +1321,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="snackbar"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.19.0';
+const APP_VERSION = '3.19.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -4387,6 +4387,8 @@ function startLimitRun(){
       _lrLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
       if(_lrTrack.length<8000)_lrTrack.push({t:pos.timestamp,lat:pos.coords.latitude,lon:pos.coords.longitude,sp:_lrSpeed});
     },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    // ライブ表示はヨー検出ゲートと独立に更新（直進・低Gでも速度/経過が止まらないように）
+    _lrTimer=setInterval(_lrLiveStatus,500);_lrLiveStatus();
   };
   const gate=()=>_lrGate(go);
   const denied=()=>toast('センサーへのアクセスが拒否されました');
@@ -4399,7 +4401,7 @@ function stopLimitRun(){
   _lrActive=false;
   window.removeEventListener('devicemotion',_lrHandler);
   if(_lrGeo!=null){try{navigator.geolocation.clearWatch(_lrGeo);}catch(_){}_lrGeo=null;}
-  if(_lrTimer){clearTimeout(_lrTimer);_lrTimer=null;}
+  if(_lrTimer){clearInterval(_lrTimer);_lrTimer=null;}
   try{if(_lrWake){_lrWake.release();_lrWake=null;}}catch(_){}
   const b=document.getElementById('limitRunBtn'),s=document.getElementById('limitRunStopBtn');
   if(b)b.style.display='';if(s)s.style.display='none';
@@ -4473,10 +4475,14 @@ function _lrHandler(e){
   }else{
     _lrStreak={ph,sym:inst,c:inst?1:0};
   }
-  if(_lrCount%5===0){
-    const el=Math.floor((Date.now()-_lrStartTs)/1000);
-    _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${(V*3.6).toFixed(0)}km/h ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div></div>`);
-  }
+}
+// ライブ表示（0.5秒ごと・検出ゲートと無関係に動く）
+function _lrLiveStatus(){
+  if(!_lrActive)return;
+  const el=Math.floor((Date.now()-_lrStartTs)/1000);
+  const vTxt=(_lrSpeed!=null)?`${(_lrSpeed*3.6).toFixed(0)}km/h`:'測位中…';
+  const accTxt=(_lrAcc!=null)?`（GPS精度±${_lrAcc.toFixed(0)}m）`:'';
+  _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${vTxt} ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${accTxt}アンダー/オーバーは限界付近（しっかり攻めた時）のみ検出します</div></div>`);
 }
 function _lrFinish(){
   stopLimitRun();
