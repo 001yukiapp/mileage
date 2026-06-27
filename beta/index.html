@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.0</title>
+<title>Mileage 3.23.1</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.1</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.1</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.0';
+const APP_VERSION = '3.23.1';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -4742,13 +4742,13 @@ function _lrClusterYawEvents(events){
     return {...max,kind,ph,rawCount:g.length};
   });
 }
-function _lrConfidenceHtml(corners,ev){
+function _lrConfidenceHtml(corners,ev,maxG=_lrMaxG,acc=_lrAcc){
   let score=45;const reasons=[];
-  if(_lrMaxG>=0.8){score+=18;reasons.push('十分なG');}else if(_lrMaxG>=0.5){score+=8;reasons.push('中G');}else{score-=12;reasons.push('G不足');}
+  if(maxG>=0.8){score+=18;reasons.push('十分なG');}else if(maxG>=0.5){score+=8;reasons.push('中G');}else{score-=12;reasons.push('G不足');}
   if(corners.length>=6){score+=18;reasons.push(`コーナー${corners.length}`);}else if(corners.length>=3){score+=8;reasons.push(`コーナー${corners.length}`);}else{score-=10;reasons.push('判定数少なめ');}
   const yawRaw=ev.filter(e=>e.cat==='yaw').length;
   if(yawRaw>corners.length*8){score-=6;reasons.push('同一コーナー内の揺れ多め');}
-  if(_lrAcc!=null&&_lrAcc<=20){score+=8;reasons.push('GPS良好');}else if(_lrAcc!=null&&_lrAcc>35){score-=10;reasons.push('GPS精度低め');}
+  if(acc!=null&&acc<=20){score+=8;reasons.push('GPS良好');}else if(acc!=null&&acc>35){score-=10;reasons.push('GPS精度低め');}
   score=Math.max(5,Math.min(95,Math.round(score)));
   const color=score>=75?'#34d399':score>=55?'#fbbf24':'#f87171';
   const label=score>=75?'高め':score>=55?'中くらい':'低め';
@@ -5457,9 +5457,11 @@ async function loadCollectedData(){
       ${m.comment?`<div style="font-size:11px;color:var(--text2);margin:3px 0">${esc(m.comment)}</div>`:''}
       <div style="font-size:10px;color:var(--text3)">${esc(String(m.at||'').slice(0,16).replace('T',' '))}・${m.durationSec||'?'}秒・${(m.sampleCount||0).toLocaleString()}件</div>
       <div style="display:flex;gap:6px;margin-top:6px">
+        ${m.mode==='limitrun'?`<button class="btn btn-sm" style="flex:1;background:#16a34a;color:#fff" onclick="previewCollectedLimitRun('${m.mode}','${m.id}',this)">📊 サマリ</button>`:''}
         <button class="btn btn-sm" style="flex:1;background:var(--blue);color:#fff" onclick="downloadCollected('${m.mode}','${m.id}',this)">⬇ ダウンロード</button>
         <button class="btn btn-sm" style="flex:0 0 auto;padding:4px 12px;background:var(--bg2);color:#f87171" onclick="deleteCollected('${m.mode}','${m.id}')">削除</button>
       </div>
+      <div id="collectedPreview_${esc(m.id)}"></div>
     </div>`).join('');
 }
 async function downloadCollected(mode,id,btn){
@@ -5471,6 +5473,195 @@ async function downloadCollected(mode,id,btn){
   const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>{try{URL.revokeObjectURL(url);}catch(_){}},3000);
   if(btn){btn.disabled=false;btn.textContent='✓ DL済';}
+}
+const _collectedLimitViews={};
+async function previewCollectedLimitRun(mode,id,btn){
+  if(mode!=='limitrun'){toast('限界走行データだけサマリ表示できます');return;}
+  const host=document.getElementById(`collectedPreview_${id}`);if(!host)return;
+  if(host.dataset.open==='1'){host.innerHTML='';host.dataset.open='';if(btn)btn.textContent='📊 サマリ';return;}
+  if(btn){btn.disabled=true;btn.textContent='取得中…';}
+  const d=await fbGet(`datacollect/${mode}/${id}`);
+  if(btn){btn.disabled=false;btn.textContent='閉じる';}
+  if(!d){toast('取得できませんでした');return;}
+  const key=`col_${id.replace(/[^\w-]/g,'_')}`;
+  const ctx=_collectedLimitCtx(d);
+  _collectedLimitViews[key]=ctx;
+  host.dataset.open='1';
+  host.innerHTML=_collectedLimitHtml(d,ctx,key);
+  _collectedLimitScrub(key);
+}
+function _collectedLimitAbs(t,startTs){
+  const n=Number(t);
+  if(!isFinite(n))return null;
+  return n>1000000000000?n:startTs+n;
+}
+function _collectedLimitCtx(d){
+  const rawEvents=Array.isArray(d.events)?d.events:[];
+  const rawTrack=Array.isArray(d.track)?d.track:[];
+  const samples=Array.isArray(d.samples)?d.samples:[];
+  const absTimes=[];
+  rawEvents.forEach(e=>{if(Number(e.t)>1000000000000)absTimes.push(Number(e.t));});
+  rawTrack.forEach(p=>{if(Number(p.t)>1000000000000)absTimes.push(Number(p.t));});
+  const endTs=Date.parse(d.recordedAt||d.uploadedAt||'')||Date.now();
+  const durMs=Math.max(1000,Number(d.durationSec||0)*1000);
+  const startTs=absTimes.length?Math.min(...absTimes):(endTs-durMs);
+  const events=rawEvents.map(e=>({
+    ...e,t:_collectedLimitAbs(e.t,startTs),cat:e.cat||'yaw',
+    la:e.la!=null?Number(e.la):(e.lat!=null?Number(e.lat):null),
+    lo:e.lo!=null?Number(e.lo):(e.lon!=null?Number(e.lon):null),
+    g:e.g!=null?Number(e.g):null,speed:e.speed!=null?Number(e.speed):null
+  })).filter(e=>e.t!=null).sort((a,b)=>a.t-b.t);
+  let track=rawTrack.map(p=>({
+    t:_collectedLimitAbs(p.t,startTs),
+    lat:p.lat!=null?Number(p.lat):(p.la!=null?Number(p.la):null),
+    lon:p.lon!=null?Number(p.lon):(p.lo!=null?Number(p.lo):null),
+    sp:p.sp!=null?Number(p.sp):(p.speed!=null?Number(p.speed):null)
+  })).filter(p=>p.t!=null&&p.lat!=null&&p.lon!=null);
+  if(track.length<2&&samples.length){
+    const seen=new Set();
+    track=samples.map(s=>({
+      t:_collectedLimitAbs(s.t,startTs),
+      lat:s.la!=null?Number(s.la):null,
+      lon:s.lo!=null?Number(s.lo):null,
+      sp:s.sp!=null?Number(s.sp):null
+    })).filter(p=>{
+      if(p.t==null||p.lat==null||p.lon==null)return false;
+      const k=`${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
+      if(seen.has(k))return false;seen.add(k);return true;
+    });
+  }
+  const series=[];
+  let grav=null,lastT=-Infinity,maxG=0;
+  samples.forEach(s=>{
+    const t=_collectedLimitAbs(s.t,startTs);
+    const x=Number(s.ax),y=Number(s.ay),z=Number(s.az);
+    if(t==null||!isFinite(x)||!isFinite(y)||!isFinite(z))return;
+    if(!grav){grav={x,y,z};return;}
+    const al=Math.hypot(x-grav.x,y-grav.y,z-grav.z)<0.6?0.02:0.0005;
+    grav.x+=(x-grav.x)*al;grav.y+=(y-grav.y)*al;grav.z+=(z-grav.z)*al;
+    const dx=x-grav.x,dy=y-grav.y,dz=z-grav.z;
+    const g=Math.hypot(dx,dy,dz)/9.80665;
+    if(g>maxG)maxG=g;
+    if(t-lastT>=120){
+      series.push({t,g:+g.toFixed(3),speed:s.sp!=null?+(Number(s.sp)*3.6).toFixed(1):null});
+      lastT=t;
+    }
+  });
+  events.forEach(e=>{if(e.g!=null&&e.g>maxG)maxG=e.g;});
+  const acc=(track.find(p=>p.acc!=null)||{}).acc;
+  return {startTs,events,track,series,maxG,acc,car:d.car||{},durationSec:d.durationSec||0};
+}
+function _collectedLimitBounds(ctx){
+  const times=[ctx.startTs||Date.now()];
+  ctx.track.forEach(p=>{if(p.t)times.push(p.t);});
+  ctx.series.forEach(p=>{if(p.t)times.push(p.t);});
+  ctx.events.forEach(e=>{if(e.t)times.push(e.t);});
+  const t0=ctx.startTs||Math.min(...times),t1=Math.max(...times,t0+1000);
+  return {t0,t1};
+}
+function _collectedLimitSummary(ctx){
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const ev=ctx.events,yawCorners=_lrClusterYawEvents(ev);
+  const b=_collectedLimitBounds(ctx);
+  const elapsed=Math.round((b.t1-b.t0)/1000);
+  const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
+  yawCorners.forEach(e=>{if(agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
+  const rows=['entry','mid','exit'].map(ph=>{
+    const u=agg[ph].under,o=agg[ph].over;
+    return (u||o)?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--text3)">${_LR_PN[ph]}</span><span><span style="color:#60a5fa">アンダー ${u}</span> ／ <span style="color:#f87171">オーバー ${o}</span></span></div>`:'';
+  }).join('');
+  let html=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${ctx.maxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件 ／ コーナー判定 ${yawCorners.length}件</div>`;
+  html+=_lrConfidenceHtml(yawCorners,ev,ctx.maxG,ctx.acc);
+  if(rows)html+=`<div style="margin-top:8px;font-size:12px">${rows}</div>`;
+  const bounce={bunder:0,bover:0};
+  ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
+  if(bounce.bunder||bounce.bover){
+    html+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
+    if(bounce.bunder)html+=`<b style="color:#f87171">減衰不足 ${bounce.bunder}回</b>`;
+    if(bounce.bunder&&bounce.bover)html+=' / ';
+    if(bounce.bover)html+=`<b style="color:#fbbf24">減衰過多 ${bounce.bover}回</b>`;
+    html+='</div>';
+  }
+  let best=null;['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{const c=agg[ph][sym];if(c&&(!best||c>best.c))best={ph,sym,c};}));
+  if(best){
+    const label=best.sym==='under'?'アンダー':'オーバー';
+    const col=best.sym==='under'?'#60a5fa':'#f87171';
+    const drive=ctx.car.drive||((getCar()&&getCar().drive)||'FF');
+    html+=`<div style="margin-top:8px;font-size:13px">本コースの主課題：<b style="color:${col}">${_LR_PN[best.ph]}・${label}</b>（${best.c}回で最多）</div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0 6px">お手軽度順の対策（🟢すぐ→🔴部品交換）。収集データ表示なので車両側のヨー診断設定は変更しません。</div>
+      ${_lrAdviceHtml(best.sym,best.ph,drive)}`;
+  }else{
+    html+=`<div style="margin-top:8px;font-size:12px;color:var(--text2)">明確なアンダー/オーバー傾向は出ませんでした。</div>`;
+  }
+  return html;
+}
+function _collectedLimitHtml(d,ctx,key){
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const b=_collectedLimitBounds(ctx);
+  const hasMap=ctx.track.length>=10,hasTimeline=ctx.series.length>=2||ctx.events.length>0;
+  const sec=Math.max(1,Math.round((b.t1-b.t0)/1000));
+  return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 収集データ サマリ</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
+    ${_collectedLimitSummary(ctx)}
+    ${hasMap?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">コースマップ</div>
+    <canvas id="${key}_map" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰=全体軌跡 / 青=選択時刻まで / 緑=現在位置 / 青点=アンダー / 赤点=オーバー / オレンジ=ばたつき。</div>`:''}
+    ${hasTimeline?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">G・イベント時系列</div>
+    <canvas id="${key}_timeline" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
+    <input id="${key}_slider" type="range" min="0" max="${sec}" value="${sec}" oninput="_collectedLimitScrub('${key}')" style="width:100%;margin-top:8px">
+    <div id="${key}_label" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>`:''}
+    ${(!hasMap&&!hasTimeline)?'<div style="font-size:12px;color:var(--text3);padding:6px 0">表示できるGPS軌跡または時系列サンプルがありません。</div>':''}
+  </div>`;
+}
+function _collectedLimitScrub(key){
+  const ctx=_collectedLimitViews[key];if(!ctx)return;
+  const b=_collectedLimitBounds(ctx),sl=document.getElementById(`${key}_slider`);
+  const ts=b.t0+(sl?parseFloat(sl.value||'0')*1000:(b.t1-b.t0));
+  const lab=document.getElementById(`${key}_label`);
+  if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
+  _collectedLimitRenderMap(key,ctx,ts);
+  _collectedLimitRenderTimeline(key,ctx,ts);
+}
+function _collectedLimitPointAt(ctx,ts){
+  const pts=ctx.track.filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null);if(!pts.length)return null;
+  let best=pts[0];for(const p of pts){if(Math.abs(p.t-ts)<Math.abs(best.t-ts))best=p;}return best;
+}
+function _collectedLimitRenderMap(key,ctx,ts){
+  const cv=document.getElementById(`${key}_map`);if(!cv)return;
+  const pts=ctx.track.filter(p=>p.lat!=null&&p.lon!=null);if(pts.length<2)return;
+  let laMin=Infinity,laMax=-Infinity,loMin=Infinity,loMax=-Infinity;
+  pts.forEach(p=>{laMin=Math.min(laMin,p.lat);laMax=Math.max(laMax,p.lat);loMin=Math.min(loMin,p.lon);loMax=Math.max(loMax,p.lon);});
+  const latMid=(laMin+laMax)/2,kx=Math.cos(latMid*Math.PI/180);
+  const W=cv.clientWidth||320,H=Math.max(160,Math.min(280,W*0.7)),dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const c=cv.getContext('2d');c.scale(dpr,dpr);
+  const pad=14,spanX=Math.max(1e-9,(loMax-loMin)*kx),spanY=Math.max(1e-9,laMax-laMin);
+  const sc=Math.min((W-2*pad)/spanX,(H-2*pad)/spanY),ox=(W-spanX*sc)/2,oy=(H-spanY*sc)/2;
+  const X=p=>ox+((p.lon-loMin)*kx)*sc,Y=p=>H-(oy+((p.lat-laMin))*sc);
+  c.strokeStyle='#475569';c.lineWidth=2;c.beginPath();pts.forEach((p,i)=>{i?c.lineTo(X(p),Y(p)):c.moveTo(X(p),Y(p));});c.stroke();
+  const past=pts.filter(p=>p.t<=ts);
+  if(past.length>=2){c.strokeStyle='#60a5fa';c.lineWidth=3;c.beginPath();past.forEach((p,i)=>{i?c.lineTo(X(p),Y(p)):c.moveTo(X(p),Y(p));});c.stroke();}
+  ctx.events.forEach(e=>{if(e.la==null||e.lo==null)return;const col=e.cat==='bounce'?'#fbbf24':(e.kind==='under'?'#60a5fa':'#f87171');c.globalAlpha=e.t<=ts?1:.35;c.fillStyle=col;c.beginPath();c.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);c.fill();});
+  c.globalAlpha=1;
+  const cur=_collectedLimitPointAt(ctx,ts);
+  if(cur){c.fillStyle='#34d399';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=2;c.beginPath();c.arc(X(cur),Y(cur),6,0,Math.PI*2);c.fill();c.stroke();}
+}
+function _collectedLimitRenderTimeline(key,ctx,ts){
+  const cv=document.getElementById(`${key}_timeline`);if(!cv)return;
+  const b=_collectedLimitBounds(ctx),W=cv.clientWidth||320,H=150,dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const c=cv.getContext('2d');c.scale(dpr,dpr);c.clearRect(0,0,W,H);
+  const padL=24,padR=8,padT=12,padB=24;
+  const xOf=t=>padL+(Math.max(b.t0,Math.min(b.t1,t))-b.t0)/(b.t1-b.t0)*(W-padL-padR);
+  const gMax=Math.max(1.0,Math.min(2.5,Math.ceil((ctx.maxG||1)*2)/2));
+  const yOfG=g=>padT+(1-Math.max(0,Math.min(gMax,g))/gMax)*(H-padT-padB);
+  c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=1;
+  for(let g=0.5;g<=gMax+1e-9;g+=0.5){const y=yOfG(g);c.beginPath();c.moveTo(padL,y);c.lineTo(W-padR,y);c.stroke();c.fillStyle='rgba(148,163,184,.65)';c.font='10px sans-serif';c.textAlign='right';c.fillText(g.toFixed(1),padL-4,y+3);}
+  c.strokeStyle='#60a5fa';c.lineWidth=2;c.beginPath();ctx.series.forEach((p,i)=>{i?c.lineTo(xOf(p.t),yOfG(p.g)):c.moveTo(xOf(p.t),yOfG(p.g));});if(ctx.series.length)c.stroke();
+  ctx.events.forEach(e=>{const x=xOf(e.t);if(e.cat==='bounce'){const y=padT+8;c.fillStyle='#fbbf24';c.beginPath();c.moveTo(x,y-5);c.lineTo(x-5,y+5);c.lineTo(x+5,y+5);c.closePath();c.fill();}else{c.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';c.beginPath();c.arc(x,yOfG(e.g||0),4,0,Math.PI*2);c.fill();}});
+  const sx=xOf(ts);c.strokeStyle='#34d399';c.lineWidth=1.5;c.beginPath();c.moveTo(sx,padT);c.lineTo(sx,H-padB);c.stroke();
+  c.fillStyle='rgba(148,163,184,.75)';c.font='10px sans-serif';c.textAlign='left';c.fillText('0:00',padL,H-7);c.textAlign='right';c.fillText(_lrFmtElapsed(b.t1-b.t0),W-padR,H-7);
 }
 async function deleteCollected(mode,id){
   if(!confirm('このデータを削除しますか？（元に戻せません）'))return;
