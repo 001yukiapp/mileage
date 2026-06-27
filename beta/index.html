@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.21.0</title>
+<title>Mileage 3.22.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -172,13 +172,22 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .sheet-closebar{position:sticky;bottom:calc((env(safe-area-inset-bottom) + 20px) * -1);margin:14px -20px calc((env(safe-area-inset-bottom) + 20px) * -1);padding:10px 20px calc(env(safe-area-inset-bottom) + 12px);background:var(--bg2);border-top:1px solid rgba(255,255,255,.07);z-index:1}
 .sheet-closebar button{width:100%;background:var(--bg3);color:var(--text);border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer}
 .modal-title{font-size:1.14em;font-weight:600;margin-bottom:16px}
+.measure-overlay{position:fixed;inset:0;z-index:1500;background:var(--bg);display:none;flex-direction:column;overflow:hidden}
+.measure-overlay.show{display:flex}
+.measure-head{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;border-bottom:1px solid rgba(255,255,255,.08);background:var(--bg2)}
+.measure-back{width:auto;padding:8px 12px;background:var(--bg3);color:var(--text)}
+.measure-title{font-size:15px;font-weight:700;line-height:1.3}
+.measure-body{flex:1;overflow-y:auto;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}
+.measure-body .accordion-inner{padding:0}
+.measure-body .measure-panel{display:block}
+.measure-panel-placeholder{display:none}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.21.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.22.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -481,8 +490,8 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         </div>
         <button class="btn btn-primary" onclick="saveSetting()">記録する（未レビュー）</button>
       </div>
-      <!-- ===== 実測系（センサーで測る）：開発者モードで解錠 ===== -->
-      <div class="card dev-only" style="display:none">
+      <!-- ===== 実測系（センサーで測る） ===== -->
+      <div class="card">
         <p class="section-title">📡 実測（センサーで測る）</p>
         <div style="font-size:11px;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.7">🛠️ 測定精度の向上に取り組んでいます。表示される測定値は<b>参考値</b>としてご利用ください。</div>
 
@@ -491,9 +500,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <span class="accordion-arrow" id="arrowLimitRun">▼</span>
         </div>
         <div class="accordion-body" id="accLimitRun">
-          <div class="accordion-inner">
+          <div class="accordion-inner measure-panel" id="limitMeasurePanel">
             <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホを<b>固定し停車中に開始</b>。コースを攻めて走ると、<b>アンダー/オーバー・最大G</b>を時刻付きで記録し、走行後に<b>イベントログ＋本コースの課題と対策</b>を出します。GPS位置も記録します（地図は不要・オフライン可）。<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないでください。走行後に確認します。</span></p>
-            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRun()">限界走行 開始</button>
+            <button class="btn btn-primary" id="limitRunBtn" onclick="startLimitRunScreen()">限界走行 開始</button>
             <button class="btn" id="limitRunStopBtn" onclick="_lrFinish()" style="display:none;background:var(--bg3);color:var(--text)">停止して結果を見る</button>
             <button class="btn" id="yawCardBtn" onclick="toggleYawCard()" style="background:var(--bg3);color:var(--text);margin-top:8px">🧭 セッティングカード表示</button>
             <div id="limitRunResult" style="margin-top:12px"></div>
@@ -545,7 +554,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <span class="accordion-arrow" id="arrowFreqMeasure">▼</span>
         </div>
         <div class="accordion-body" id="accFreqMeasure">
-          <div class="accordion-inner">
+          <div class="accordion-inner measure-panel" id="freqMeasurePanel">
             <p style="font-size:11px;color:var(--text3);margin-bottom:10px">エンジンルームまたはトランク内など、<b>前軸／後軸にできるだけ近い硬い場所</b>にスマホを<b>しっかり固定</b>し、<b>いろいろな速度（30〜70km/h）</b>で走行してください（速度の幅があるほど路面の振動と区別でき精度が上がります）。一般道の舗装路が最適です。急加減速・カーブ・段差は避けてください。<br>走行を検知すると自動で測定が始まり、<b>良い走行区間の合計60秒</b>で完了します。信号待ちや停車中は自動で一時停止し、走り出すと続きから再開します。<br><span style="color:#fbbf24">⚠️ スマホの落下・固定に十分ご注意ください。GPS速度を使うので屋外で。</span></p>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
               <span style="font-size:12px;color:var(--text3)">どこに固定？</span>
@@ -554,7 +563,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                 <button type="button" class="btn btn-sm" data-ax="R" onclick="setFreqAxle('R')" style="flex:1">後軸寄り</button>
               </div>
             </div>
-            <button class="btn btn-primary" id="freqMeasureBtn" onclick="startFreqMeasure()">計測開始</button>
+            <button class="btn btn-primary" id="freqMeasureBtn" onclick="startFreqMeasureScreen()">計測開始</button>
             <button class="btn" id="freqMeasureStopBtn" onclick="stopFreqMeasure(false)" style="display:none;background:var(--bg3);color:var(--text)">中止</button>
             <div id="freqMeasureResult" style="margin-top:12px"></div>
           </div>
@@ -565,12 +574,18 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <span class="accordion-arrow" id="arrowGMeter">▼</span>
         </div>
         <div class="accordion-body" id="accGMeter">
-          <div class="accordion-inner">
+          <div class="accordion-inner measure-panel" id="gMeasurePanel">
             <p style="font-size:11px;color:var(--text3);margin-bottom:10px">スマホは<b>見やすい角度のまま固定でOK</b>（水平〜垂直・縦横どちらも対応。画面が運転席側を向くように）。<b>停車中に開始</b>すると自動でゼロ点校正します。マウントを動かしたら停車中に「ゼロ点校正」を押してください。<br><span style="color:#fbbf24">⚠️ 運転中は画面を注視せず、同乗者が確認するか走行後にピーク値を確認してください。</span></p>
-            <button class="btn btn-primary" id="gMeterBtn" onclick="startGMeter()">開始</button>
+            <button class="btn btn-primary" id="gMeterBtn" onclick="startGMeterScreen()">開始</button>
             <button class="btn" id="gMeterStopBtn" onclick="stopGMeter()" style="display:none;background:var(--bg3);color:var(--text)">停止</button>
             <div id="gMeterArea" style="display:none;margin-top:12px">
-              <canvas id="gCircleCanvas" style="width:100%;display:block"></canvas>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn btn-sm btn-primary" onclick="calibrateGMeter()" style="flex:1">📐 ゼロ点校正</button>
+                <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
+              </div>
+              <button class="btn btn-sm btn-primary" id="gTrailBtn" onclick="toggleGTrail()" style="width:100%;margin-top:8px">✏️ 軌跡を残す: ON</button>
+              <div id="gAttitude" style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center"></div>
+              <canvas id="gCircleCanvas" style="width:100%;display:block;margin-top:12px"></canvas>
               <div class="calc-grid" style="margin-top:10px">
                 <div class="calc-item"><div class="calc-item-label">現在</div><div class="calc-item-value" id="gNow">0.00 G</div></div>
                 <div class="calc-item"><div class="calc-item-label">最大合成</div><div class="calc-item-value" id="gMaxTotal" style="color:#f87171">0.00 G</div></div>
@@ -581,12 +596,6 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                 <span>左旋回 <b id="gMaxL" style="color:var(--text)">0.00</b></span>
                 <span>右旋回 <b id="gMaxR" style="color:var(--text)">0.00</b></span>
               </div>
-              <div style="display:flex;gap:8px;margin-top:10px">
-                <button class="btn btn-sm" onclick="calibrateGMeter()" style="background:var(--bg3);color:var(--text);flex:1">📐 ゼロ点校正</button>
-                <button class="btn btn-sm" onclick="resetGPeaks()" style="background:var(--bg3);color:var(--text);flex:1">ピークをリセット</button>
-              </div>
-              <button class="btn btn-sm" id="gTrailBtn" onclick="toggleGTrail()" style="background:var(--bg3);color:var(--text);width:100%;margin-top:8px">✏️ 軌跡を残す: OFF</button>
-              <div id="gAttitude" style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center"></div>
             </div>
             <div id="gMeterMsg" style="margin-top:8px"></div>
           </div>
@@ -753,7 +762,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       </div>
       <div class="card">
         <p class="section-title">開発者モード</p>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.7">実測（センサー）機能とデータ収集は<b>精度向上のため調整中</b>です。パスワードを入力すると利用できます。表示される値は<b>参考値</b>です。</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.7">データ収集と土居用ビューアはパスワードを入力すると利用できます。実測（センサー）機能はセッティングタブからそのまま使えます。</p>
         <div id="devLockedBox">
           <div class="form-group" style="margin-bottom:8px">
             <input type="password" class="form-input" id="devPwInput" placeholder="パスワード" autocomplete="off">
@@ -762,7 +771,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           <div id="devPwMsg" style="font-size:12px;margin-top:8px"></div>
         </div>
         <div id="devUnlockedBox" style="display:none">
-          <p style="font-size:13px;color:#34d399;margin-bottom:6px">✅ 解錠済み。セッティングタブに実測・データ収集が表示されます。</p>
+          <p style="font-size:13px;color:#34d399;margin-bottom:6px">✅ 解錠済み。セッティングタブにデータ収集が表示されます。</p>
           <p id="devOwnerNote" style="display:none;font-size:12px;color:#c4b5fd;margin-bottom:10px">🔑 土居用モード：「📥 集まったデータ」も表示されます。</p>
           <button class="btn" onclick="lockDevMode()" style="background:var(--bg3);color:var(--text)">ロックする</button>
         </div>
@@ -770,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.21.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.22.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -899,8 +908,8 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   <div class="modal">
     <p class="modal-title">グループに参加</p>
     <div class="form-group">
-      <label class="form-label">グループコード（6桁）</label>
-      <input type="text" class="form-input" id="joinCodeInput" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
+      <label class="form-label">グループコード（6桁または12桁）</label>
+      <input type="text" class="form-input" id="joinCodeInput" maxlength="12" style="text-transform:uppercase;letter-spacing:2px;font-size:18px;text-align:center">
     </div>
     <div class="form-group">
       <label class="form-label">このグループでの表示名（任意）</label>
@@ -1319,9 +1328,16 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 
 <div id="snackbar"></div>
+<div id="measureOverlay" class="measure-overlay" aria-hidden="true">
+  <div class="measure-head">
+    <button class="btn btn-sm measure-back" onclick="closeMeasureMode()">← 戻る</button>
+    <div class="measure-title" id="measureTitle">実測</div>
+  </div>
+  <div class="measure-body" id="measureBody"></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.21.0';
+const APP_VERSION = '3.22.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -2926,8 +2942,14 @@ function copyGroupCode(code){
 
 function generateCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code='';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];
+  let code='';for(let i=0;i<12;i++)code+=chars[Math.floor(Math.random()*chars.length)];
   return code;
+}
+function normalizeGroupCode(value){
+  return String(value||'').toUpperCase().replace(/[^A-Z2-9]/g,'');
+}
+function isValidGroupCode(code){
+  return /^[A-Z2-9]{6}$/.test(code)||/^[A-Z2-9]{12}$/.test(code);
 }
 function countUnsharedSettings(code){
   let n=0;
@@ -2964,9 +2986,9 @@ async function createGroup(){
   }
 }
 async function joinGroup(){
-  const code=document.getElementById('joinCodeInput').value.toUpperCase().trim();
+  const code=normalizeGroupCode(document.getElementById('joinCodeInput').value);
   const nick=document.getElementById('joinNickInput').value.trim();
-  if(code.length!==6){toast('6桁のコードを入力してください');return;}
+  if(!isValidGroupCode(code)){toast('6桁または12桁のグループコードを入力してください');return;}
   if(state.groups.find(g=>g.code===code)){toast('すでに参加中のグループです');hideModal('joinModal');return;}
   const data=await fbGet(`groups/${code}`);
   if(!data){toast('グループが見つかりません');return;}
@@ -3285,7 +3307,35 @@ function stopDataCollect(){
   _recShare('dcStatus',data,`${data.sampleCount.toLocaleString()}サンプル・約${fs.toFixed(0)}Hz`);
 }
 // ---- 共有ヘルパー（3モード共通） ----
-function _recCarMeta(car){car=car||{};return{name:car.name,weight:car.weight,frontRatio:car.frontRatio,rearRatio:car.rearRatio,leverF:car.leverF,leverR:car.leverR,springF:car.springF,springR:car.springR,unsprungF:car.unsprungF,unsprungR:car.unsprungR};}
+function _recEstimateUnsprung(car,axis){
+  const w=car&&car.weight?Number(car.weight):0;
+  if(w&&w<=1050)return axis==='F'?36:33;
+  if(w&&w<=1300)return axis==='F'?40:37;
+  if(w&&w<=1600)return axis==='F'?45:41;
+  if(w)return axis==='F'?50:46;
+  return axis==='F'?42:39;
+}
+function _recCarMeta(car){
+  car=car||{};
+  const ef=_recEstimateUnsprung(car,'F'),er=_recEstimateUnsprung(car,'R');
+  const hasUf=car.unsprungF!=null&&car.unsprungF!=='',hasUr=car.unsprungR!=null&&car.unsprungR!=='';
+  return {
+    name:car.name,weight:car.weight,frontRatio:car.frontRatio,rearRatio:car.rearRatio||(car.frontRatio!=null?100-car.frontRatio:null),
+    leverF:car.leverF,leverR:car.leverR,springF:car.springF,springR:car.springR,
+    unsprungF:hasUf?car.unsprungF:ef,unsprungR:hasUr?car.unsprungR:er,
+    unsprungFEstimated:!hasUf,unsprungREstimated:!hasUr
+  };
+}
+function _recNum(v){
+  const n=parseFloat(v);
+  return Number.isFinite(n)?n:null;
+}
+function _recEsc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function _recInput(label,id,value,unit,step){
+  return `<label style="font-size:11px;color:var(--text3);font-weight:600">${label}</label><div style="display:flex;align-items:center;gap:6px;margin-top:4px"><input id="${id}" class="form-input" inputmode="decimal" step="${step||'0.1'}" value="${_recEsc(value??'')}" style="min-width:0"><span style="font-size:11px;color:var(--text3);white-space:nowrap">${unit||''}</span></div>`;
+}
 function _recShare(statusId,data,summary){
   const el=document.getElementById(statusId);
   if(el)el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:6px">記録完了。送信ウィンドウを開きました。</div>';
@@ -3293,60 +3343,103 @@ function _recShare(statusId,data,summary){
 }
 // 停止して書き出し→全画面モーダルで「この車で合ってる？」を大きく出す（他操作は不可）。はいで「土居に送信」へ
 function _recOpenSendModal(data,summary){
-  const json=JSON.stringify(data);
   const stamp=new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
   const fname=`mileage-${data.mode||'raw'}-${((data.car&&data.car.name)||'car').replace(/[^\w]/g,'')}-${stamp}.json`;
-  const blob=new Blob([json],{type:'application/json'});
-  const sizeKB=(blob.size/1024).toFixed(0);
-  const url=URL.createObjectURL(blob);
-  const carName=(data.car&&data.car.name)||'';
-  const dlFile=()=>{const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();};
+  let url=null;
+  const freshBlob=()=>{
+    if(url)try{URL.revokeObjectURL(url);}catch(_){}
+    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    url=URL.createObjectURL(blob);
+    return blob;
+  };
+  const dlFile=()=>{freshBlob();const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();};
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:14px';
   const close=()=>{try{URL.revokeObjectURL(url);}catch(_){}ov.remove();};
-  const card=(inner)=>`<div style="background:var(--bg2);border-radius:18px;padding:26px 22px;max-width:420px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.6)">${inner}</div>`;
-  // ステージ1：車確認（でかく）
+  const card=(inner)=>`<div style="background:var(--bg2);border-radius:18px;padding:20px 18px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.6)">${inner}</div>`;
+  const mountDefault=data.mountLocation||'センターコンソール付近';
+  // ステージ1：車両情報確認・編集
   const stageConfirm=()=>{
+    const blob=freshBlob();
+    const sizeKB=(blob.size/1024).toFixed(0);
+    const c=data.car||{};
+    const estMsg=(c.unsprungFEstimated||c.unsprungREstimated)?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">バネ下重量は未入力だったため車重から概算を入れています。分かる場合は実測値へ直してください。</div>':'';
+    const isFreq=data.mode==='freq';
     ov.innerHTML=card(`
       <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:8px">記録完了：${data.durationSec}秒・${summary}・${sizeKB}KB</div>
-      <div style="font-size:24px;font-weight:800;color:var(--text);text-align:center;margin-bottom:20px">この車で合ってる？</div>
-      <div id="recCarArea"></div>
-      <div style="display:flex;gap:10px;margin-top:24px">
-        <button id="recNo" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">車を変える</button>
-        <button id="recYes" class="btn btn-primary" style="flex:1;font-weight:700">はい</button>
+      <div style="font-size:22px;font-weight:800;color:var(--text);text-align:center;margin-bottom:14px">この情報で合ってますか？</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">車名</label>
+        <input id="recCarName" class="form-input" value="${_recEsc(c.name||'')}" placeholder="例：S2000">
       </div>
+      <div class="two-col" style="margin-bottom:10px">
+        <div>${_recInput('車重','recWeight',c.weight,'kg')}</div>
+        <div>${_recInput('前軸荷重比','recFrontRatio',c.frontRatio,'%')}</div>
+      </div>
+      <div class="two-col" style="margin-bottom:10px">
+        <div>${_recInput('レバー比 前','recLeverF',c.leverF,'')}</div>
+        <div>${_recInput('レバー比 後','recLeverR',c.leverR,'')}</div>
+      </div>
+      <div class="two-col" style="margin-bottom:10px">
+        <div>${_recInput('バネ 前','recSpringF',c.springF,'kgf/mm')}</div>
+        <div>${_recInput('バネ 後','recSpringR',c.springR,'kgf/mm')}</div>
+      </div>
+      <div class="two-col" style="margin-bottom:4px">
+        <div>${_recInput('バネ下 前（1輪）','recUnsprungF',c.unsprungF,'kg')}</div>
+        <div>${_recInput('バネ下 後（1輪）','recUnsprungR',c.unsprungR,'kg')}</div>
+      </div>
+      ${estMsg}
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">スマホ固定場所</label>
+        <input id="recMount" class="form-input" value="${_recEsc(mountDefault)}" placeholder="例：センターコンソール付近">
+      </div>
+      ${isFreq?`
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">測定した軸（必須）</div>
+        <div id="recAxle" style="display:flex;gap:8px;margin-bottom:12px">
+          <button type="button" data-ax="F" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">前（フロント）</button>
+          <button type="button" data-ax="R" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">後（リア）</button>
+        </div>`:''}
+      <div id="recInfoMsg" style="font-size:12px;text-align:center;margin:8px 0;color:var(--text3)"></div>
+      <button id="recYes" class="btn btn-primary" style="width:100%;font-weight:700;padding:14px">この情報で送信へ</button>
+      <button id="recDl" class="btn" style="width:100%;margin-top:8px;background:var(--bg3);color:var(--text)">保存（ダウンロード）</button>
       <button id="recCancel" style="width:100%;margin-top:10px;background:none;border:none;color:var(--text3);font-size:12px;padding:6px;cursor:pointer">あとにする（閉じる）</button>`);
-    const area=ov.querySelector('#recCarArea');
-    const renderCar=(editing)=>{
-      if(carName&&!editing)area.innerHTML=`<div style="font-size:30px;font-weight:800;color:#60a5fa;text-align:center">${carName}</div>`;
-      else area.innerHTML=`<div style="font-size:12px;color:#fbbf24;text-align:center;margin-bottom:8px">車名を入力してください</div><input id="recCn" class="form-input" placeholder="例：ロードスター" value="${carName||''}" style="text-align:center;font-size:18px">`;
-    };
-    renderCar(false);
-    ov.querySelector('#recNo').onclick=()=>renderCar(true);
+    let axle=data.axle||null;
+    if(isFreq){
+      const seg=ov.querySelector('#recAxle');
+      const sync=()=>seg.querySelectorAll('button').forEach(x=>{const on=x.dataset.ax===axle;x.style.background=on?'var(--blue)':'var(--bg3)';x.style.color=on?'#fff':'var(--text)';});
+      seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{axle=b.dataset.ax;sync();});
+      sync();
+    }
+    ov.querySelector('#recDl').onclick=dlFile;
     ov.querySelector('#recCancel').onclick=close;
     ov.querySelector('#recYes').onclick=()=>{
-      let name=carName;
-      const cn=ov.querySelector('#recCn');
-      if(cn)name=(cn.value||'').trim();
-      if(!name){if(cn){cn.style.borderColor='#f87171';cn.focus();}else renderCar(true);return;}
-      data.car=data.car||{};data.car.name=name;
+      const msg=ov.querySelector('#recInfoMsg');
+      const name=(ov.querySelector('#recCarName').value||'').trim();
+      if(!name){ov.querySelector('#recCarName').focus();msg.style.color='#f87171';msg.textContent='車名を入力してください。';return;}
+      if(isFreq&&!axle){msg.style.color='#f87171';msg.textContent='測定した軸（前／後）を選んでください。';return;}
+      const mount=(ov.querySelector('#recMount').value||'').trim();
+      if(!mount){ov.querySelector('#recMount').focus();msg.style.color='#f87171';msg.textContent='スマホ固定場所を入力してください。';return;}
+      const fr=_recNum(ov.querySelector('#recFrontRatio').value);
+      data.car={
+        name,weight:_recNum(ov.querySelector('#recWeight').value),
+        frontRatio:fr,rearRatio:fr!=null?+(100-fr).toFixed(1):null,
+        leverF:_recNum(ov.querySelector('#recLeverF').value),leverR:_recNum(ov.querySelector('#recLeverR').value),
+        springF:_recNum(ov.querySelector('#recSpringF').value),springR:_recNum(ov.querySelector('#recSpringR').value),
+        unsprungF:_recNum(ov.querySelector('#recUnsprungF').value),unsprungR:_recNum(ov.querySelector('#recUnsprungR').value),
+        unsprungFEstimated:c.unsprungFEstimated&&_recNum(ov.querySelector('#recUnsprungF').value)===c.unsprungF,
+        unsprungREstimated:c.unsprungREstimated&&_recNum(ov.querySelector('#recUnsprungR').value)===c.unsprungR
+      };
+      data.mountLocation=mount;
+      if(isFreq)data.axle=axle;
       stageSend(name);
     };
   };
   // ステージ2：ニックネーム＋コメント（必須）→送信
   const stageSend=(name)=>{
-    const isFreq=(data.mode==='freq');
-    const axleHtml=isFreq?`
-      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">スマホを固定した位置（必須）</div>
-      <div id="recAxle" style="display:flex;gap:8px;margin-bottom:12px">
-        <button type="button" data-ax="F" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">前（フロント）</button>
-        <button type="button" data-ax="R" class="btn" style="flex:1;background:var(--bg3);color:var(--text)">後（リア）</button>
-      </div>`:'';
     ov.innerHTML=card(`
-      <div style="font-size:14px;color:var(--text2);text-align:center;margin-bottom:14px">車：<b style="color:var(--text)">${name}</b></div>
+      <div style="font-size:14px;color:var(--text2);text-align:center;margin-bottom:14px">車：<b style="color:var(--text)">${_recEsc(name)}</b> ／ 固定：<b style="color:var(--text)">${_recEsc(data.mountLocation||'')}</b>${data.axle?` ／ ${data.axle==='R'?'後':'前'}`:''}</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px">ニックネーム</div>
       <input id="recNick" class="form-input" placeholder="例：たろう" value="${(state.nickname||'').replace(/"/g,'&quot;')}" style="margin-bottom:12px">
-      ${axleHtml}
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px">どんな走行でしたか？（必須）</div>
       <textarea id="recComment" class="form-input" rows="3" placeholder="例：荒れた舗装路を40〜60km/h・少し跳ねる感じ／攻めたコーナーでオーバー気味 など" style="resize:none"></textarea>
       <div id="recMsg" style="font-size:12px;color:var(--text3);text-align:center;margin:10px 0"></div>
@@ -3354,24 +3447,20 @@ function _recOpenSendModal(data,summary){
       <button id="recDl" class="btn" style="width:100%;margin-top:8px;background:var(--bg3);color:var(--text)">保存（ダウンロード）</button>
       <button id="recBack" style="width:100%;margin-top:6px;background:none;border:none;color:var(--text3);font-size:12px;padding:6px;cursor:pointer">← 車を確認しなおす</button>`);
     const msg=(t,c)=>{const m=ov.querySelector('#recMsg');if(m){m.innerHTML=t;m.style.color=c||'var(--text3)';}};
-    let axle=null;
-    if(isFreq){const seg=ov.querySelector('#recAxle');seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{axle=b.dataset.ax;seg.querySelectorAll('button').forEach(x=>{const on=x.dataset.ax===axle;x.style.background=on?'var(--blue)':'var(--bg3)';x.style.color=on?'#fff':'var(--text)';});});}
     ov.querySelector('#recDl').onclick=dlFile;
     ov.querySelector('#recBack').onclick=stageConfirm;
     ov.querySelector('#recSend').onclick=async()=>{
       const nick=(ov.querySelector('#recNick').value||'').trim();
       const comment=(ov.querySelector('#recComment').value||'').trim();
       if(!nick){const n=ov.querySelector('#recNick');n.style.borderColor='#f87171';n.focus();msg('ニックネームを入力してください。','#f87171');return;}
-      if(isFreq&&!axle){msg('スマホを固定した位置（前／後）を選んでください。','#f87171');return;}
       if(!comment){const c=ov.querySelector('#recComment');c.style.borderColor='#f87171';c.focus();msg('「どんな走行でしたか？」を入力してください。','#f87171');return;}
       if(nick&&!state.nickname){state.nickname=nick;save();}
       data.sender=nick;data.comment=comment;data.uploadedAt=new Date().toISOString();
-      if(isFreq)data.axle=axle;
       const sbtn=ov.querySelector('#recSend');sbtn.disabled=true;msg('送信中…',null);
       const id=await fbPush(`datacollect/${data.mode||'raw'}`,data);
       if(id){
         // 軽量メタを別ノードに（土居用ビューアが生データを読まず一覧できるように）
-        try{fbSet(`datacollect_meta/${id}`,{mode:data.mode||'raw',sender:data.sender||'',car:(data.car&&data.car.name)||'',comment:data.comment||'',axle:data.axle||null,at:data.uploadedAt,durationSec:data.durationSec||0,sampleCount:data.sampleCount||((data.samples&&data.samples.length)||0)});}catch(_){}
+        try{fbSet(`datacollect_meta/${id}`,{mode:data.mode||'raw',sender:data.sender||'',car:(data.car&&data.car.name)||'',comment:data.comment||'',axle:data.axle||null,mountLocation:data.mountLocation||'',at:data.uploadedAt,durationSec:data.durationSec||0,sampleCount:data.sampleCount||((data.samples&&data.samples.length)||0)});}catch(_){}
         sbtn.style.display='none';ov.querySelector('#recBack').style.display='none';ov.querySelector('#recDl').style.display='none';
         msg('✅ 土居に送信しました。ありがとう！','#34d399');
         const done=document.createElement('button');done.className='btn btn-primary';done.textContent='閉じる';done.style.cssText='width:100%;margin-top:14px';done.onclick=close;ov.querySelector('#recMsg').after(done);
@@ -3403,6 +3492,38 @@ const COND_TXT={
   dcFreq:'<b>📱 なるべく前または後ろの<u>ストラットタワーに近い場所</u>にしっかり固定</b>してください。<br>・<b>一定速度でなくてOK</b>（GPSを記録するので、解析で一定速度の区間だけ拾います）<br>・荒れた舗装路を何本か走ってください<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外で。</span>',
   dcRun:'<b>📱 スマホをしっかり固定して、本気で走ってください。</b><br>・加速・減速・コーナー、思い切り攻めてOK<br>・走行後にデータを土居に送信します<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>'
 };
+let _measureMode=null,_measurePanel=null,_measurePlaceholder=null;
+const MEASURE_TITLES={limit:'🏁 限界走行実測',freq:'📱 固有振動数 実測',g:'🎯 Gサークル'};
+const MEASURE_PANEL_IDS={limit:'limitMeasurePanel',freq:'freqMeasurePanel',g:'gMeasurePanel'};
+function openMeasureMode(mode){
+  const panel=document.getElementById(MEASURE_PANEL_IDS[mode]);
+  const body=document.getElementById('measureBody');
+  const ov=document.getElementById('measureOverlay');
+  if(!panel||!body||!ov)return false;
+  if(_measureMode===mode)return true;
+  closeMeasureMode();
+  _measurePlaceholder=document.createElement('div');
+  _measurePlaceholder.className='measure-panel-placeholder';
+  panel.parentNode.insertBefore(_measurePlaceholder,panel);
+  body.appendChild(panel);
+  _measureMode=mode;_measurePanel=panel;
+  const title=document.getElementById('measureTitle');if(title)title.textContent=MEASURE_TITLES[mode]||'実測';
+  ov.classList.add('show');ov.setAttribute('aria-hidden','false');
+  body.scrollTop=0;
+  return true;
+}
+function closeMeasureMode(){
+  const ov=document.getElementById('measureOverlay');
+  if(_measurePanel&&_measurePlaceholder&&_measurePlaceholder.parentNode){
+    _measurePlaceholder.parentNode.insertBefore(_measurePanel,_measurePlaceholder);
+    _measurePlaceholder.remove();
+  }
+  _measureMode=null;_measurePanel=null;_measurePlaceholder=null;
+  if(ov){ov.classList.remove('show');ov.setAttribute('aria-hidden','true');}
+}
+function startLimitRunScreen(){openMeasureMode('limit');startLimitRun();}
+function startFreqMeasureScreen(){openMeasureMode('freq');startFreqMeasure();}
+function startGMeterScreen(){openMeasureMode('g');startGMeter();}
 // 動作センサーの許可を取り、granted で cb を呼ぶ（記録開始→承認→（呼び出し側で条件モーダル）の順）
 function _ensureMotionPerm(cb,onDeny){
   const deny=onDeny||(()=>toast('センサーへのアクセスが拒否されました'));
@@ -3747,6 +3868,18 @@ function _analyzeFreq(partial){
   // 有効な共振ピークか判定：探索帯の端に張り付いた/明確な山が無い場合はゴミとして弾く
   const _loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
   let _hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){_hiIdx=i;break;}}
+  // 補正データ対策: 高域の構造振動が最大でも、計算値近傍に十分な局所ピークがあればそちらを共振候補にする。
+  if(_fc&&freqs[pi]>3.0){
+    let near=null;
+    for(let i=Math.max(1,_loIdx);i<=Math.min(sel.length-2,_hiIdx);i++){
+      const f=freqs[i];
+      if(Math.abs(f-_fc)>0.7)continue;
+      if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&sel[i]>=pv*0.25){
+        if(!near||sel[i]>near.v)near={i,v:sel[i]};
+      }
+    }
+    if(near){pi=near.i;pv=near.v;}
+  }
   let _rmin=pv;for(let i=pi;i<=_hiIdx;i++){if(sel[i]<_rmin)_rmin=sel[i];} // ピークより高域側の谷
   const _prom=pv>0?(pv-_rmin)/pv:0; // 山のプロミネンス
   if(pi<=_loIdx||pi>=_hiIdx||_prom<FM_PROM_MIN){
@@ -3756,8 +3889,8 @@ function _analyzeFreq(partial){
   // ピークを含む山（半値以上の連続領域）の重心で読む。減衰で山が幅広くても安定
   const th=pv*0.5;
   let lo=pi,hi=pi;
-  while(lo>0&&sel[lo-1]>=th)lo--;
-  while(hi<sel.length-1&&sel[hi+1]>=th)hi++;
+  while(lo>_loIdx&&sel[lo-1]>=th)lo--;
+  while(hi<_hiIdx&&sel[hi+1]>=th)hi++;
   let sw=0,swf=0;
   for(let i=lo;i<=hi;i++){const w=sel[i]-th;sw+=w;swf+=w*freqs[i];}
   const freq=sw?swf/sw:freqs[pi];
@@ -3785,6 +3918,22 @@ function _analyzeFreq(partial){
     ?`<div style="font-size:10px;color:var(--text3);margin-top:4px">速度不変ピーク法：${inv.bandCount}つの速度帯で共通の山を共振として採用${_fc?'＋計算値で微調整':''}。</div>`
     :`<div style="font-size:10px;color:#fbbf24;margin-top:4px">⚠️ 速度の幅が足りず生スペクトルの最大ピークを採用${_fc?'（計算値で微調整）':''}。いろんな速度（30〜70km/h）で走ると精度が上がります。</div>`;
   const _mountNote=(freq>3.0)?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 高めの値です。設置がサスから遠い（ダッシュボード等）とエンジン/構造の振動を拾います。前後軸付近の硬い場所に固定してください。</div>`:'';
+  let _conf=55;
+  const _confReasons=[];
+  if(inv){_conf+=18;_confReasons.push(`速度帯${inv.bandCount}`);if(inv.bandCount>=3)_conf+=8;}else{_conf-=10;_confReasons.push('速度幅不足');}
+  if(_fmSegCount>=8){_conf+=8;_confReasons.push(`区間${_fmSegCount}`);}else _conf-=4;
+  if(_prom>=0.35){_conf+=10;_confReasons.push('山が明確');}else if(_prom<0.22){_conf-=10;_confReasons.push('山が弱い');}
+  if(_fc){
+    const diff=Math.abs(freq-_fc);
+    if(diff<=0.25){_conf+=10;_confReasons.push('計算値近傍');}
+    else if(diff<=0.6){_conf+=4;_confReasons.push('計算値と近い');}
+    else{_conf-=8;_confReasons.push('計算値から離れ気味');}
+  }else{_conf-=5;_confReasons.push('車両情報不足');}
+  if(freq>3.0){_conf-=18;_confReasons.push('高域注意');}
+  _conf=Math.max(5,Math.min(95,Math.round(_conf)));
+  const _confColor=_conf>=75?'#34d399':_conf>=55?'#fbbf24':'#f87171';
+  const _confLabel=_conf>=75?'高め':_conf>=55?'中くらい':'低め';
+  const _confNote=`<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">信頼度 <b style="color:${_confColor}">${_confLabel}（${_conf}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${_confReasons.join(' / ')}</div></div>`;
   const fsAvg=_fmFsSum/_fmSegCount;
   // 車両設定からの理論値を並記（実測との比較用）
   const _car=getCar();
@@ -3811,6 +3960,7 @@ function _analyzeFreq(partial){
     ${second?'<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピークは前後どちらかの軸の共振の可能性があります</div>':''}
     ${_methodNote}
     ${_mountNote}
+    ${_confNote}
     ${calcNote}
     ${dampNote}
     <div class="chart-wrap"><canvas id="fmChart"></canvas></div>
@@ -3907,7 +4057,7 @@ function applyMeasuredFreq(target){
 // ---- Gサークル（走行G・最大Gの円形表示）----
 let _gmActive=false,_gmWakeLock=null,_gmRaf=null,_gmFrame=0;
 let _gmGrav={x:0,y:0,z:9.81},_gmGravInit=false;
-let _gmLong=0,_gmLat=0,_gmTrail=[],_gmTrailHold=false;
+let _gmLong=0,_gmLat=0,_gmTrail=[],_gmTrailHold=true;
 let _gmPeaks={acc:0,brk:0,left:0,right:0,total:0,totalLong:0,totalLat:0};
 let _gmCalCount=-1,_gmCalBuf=[],_gmU={x:0,y:1}; // ゼロ点校正と「画面上方向」（縦横対応）
 const GM_BASE_RANGE=1.0; // 表示レンジ(G)。ピークに応じて自動拡大
@@ -3941,6 +4091,14 @@ function _gmRenderAtt(){
   const warn=Math.abs(roll)>=10?' <span style="color:#fbbf24">⚠️左右に傾いています。前後Gに横方向が混じる場合は左右傾きを0に近づけてください</span>':'';
   el.innerHTML=`ゼロ点姿勢　前後の起き ${pitch}° ／ 左右の傾き ${roll}°　<span style="color:var(--text3)">(0°=水平置き)</span>${warn}`;
 }
+function _gmSyncTrailButton(){
+  const b=document.getElementById('gTrailBtn');
+  if(!b)return;
+  b.textContent='✏️ 軌跡を残す: '+(_gmTrailHold?'ON':'OFF');
+  b.classList.toggle('btn-primary',_gmTrailHold);
+  if(_gmTrailHold){b.style.background='';b.style.color='';}
+  else{b.style.background='var(--bg3)';b.style.color='var(--text)';}
+}
 // ゼロ点校正: 約1秒分の静止サンプル平均で重力（＝取付姿勢）を確定
 function calibrateGMeter(silent){
   if(!_gmActive){toast('先にGサークルを開始してください');return;}
@@ -3951,6 +4109,7 @@ function calibrateGMeter(silent){
 function startGMeter(skipCond){
   const go=()=>{
     _gmActive=true;_gmGravInit=false;_gmLong=0;_gmLat=0;_gmTrail=[];
+    _gmSyncTrailButton();
     resetGPeaks(true);
     calibrateGMeter(true); // 開始時に自動校正（停車中推奨）
     _gmAcquireWake();
@@ -3984,8 +4143,7 @@ function resetGPeaks(silent){
 }
 function toggleGTrail(){
   _gmTrailHold=!_gmTrailHold;
-  const b=document.getElementById('gTrailBtn');
-  if(b){b.textContent='✏️ 軌跡を残す: '+(_gmTrailHold?'ON':'OFF');b.classList.toggle('btn-primary',_gmTrailHold);if(_gmTrailHold){b.style.background='';b.style.color='';}else{b.style.background='var(--bg3)';b.style.color='var(--text)';}}
+  _gmSyncTrailButton();
 }
 function _gmHandler(e){
   if(!_gmActive)return;
@@ -4056,8 +4214,7 @@ function _gmHandler(e){
   if(total>_gmPeaks.total){_gmPeaks.total=total;_gmPeaks.totalLong=_gmLong;_gmPeaks.totalLat=_gmLat;}
   while(_gmRange<2.5&&_gmPeaks.total>_gmRange*0.92)_gmRange+=0.5;
   _gmTrail.push({lon:_gmLong,lat:_gmLat});
-  const _cap=_gmTrailHold?4000:90;
-  if(_gmTrail.length>_cap)_gmTrail.splice(0,_gmTrailHold?500:30);
+  if(!_gmTrailHold&&_gmTrail.length>90)_gmTrail.splice(0,30);
 }
 function _gmDraw(){
   if(!_gmActive)return;
@@ -4090,10 +4247,11 @@ function _gmDraw(){
   // 軌跡（残像）
   if(_gmTrail.length>1){
     ctx.lineWidth=2*dpr;
-    for(let i=1;i<_gmTrail.length;i++){
-      const p0=toXY(_gmTrail[i-1].lon,_gmTrail[i-1].lat);
+    const step=_gmTrailHold?Math.max(1,Math.floor(_gmTrail.length/5000)):1;
+    for(let i=step;i<_gmTrail.length;i+=step){
+      const p0=toXY(_gmTrail[i-step].lon,_gmTrail[i-step].lat);
       const p1=toXY(_gmTrail[i].lon,_gmTrail[i].lat);
-      ctx.strokeStyle=`rgba(96,165,250,${_gmTrailHold?0.35:(i/_gmTrail.length)*0.5})`;
+      ctx.strokeStyle=`rgba(96,165,250,${_gmTrailHold?0.38:(i/_gmTrail.length)*0.5})`;
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
   }
@@ -4556,12 +4714,47 @@ function _lrLiveStatus(){
   const accTxt=(_lrAcc!=null)?`（GPS精度±${_lrAcc.toFixed(0)}m）`:'';
   _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${vTxt} ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${accTxt}アンダー/オーバーは限界付近（しっかり攻めた時）のみ検出します</div></div>`);
 }
+function _lrClusterYawEvents(events){
+  const src=events.filter(e=>e.cat==='yaw').slice().sort((a,b)=>a.t-b.t);
+  const groups=[];
+  src.forEach(e=>{
+    const g=groups[groups.length-1];
+    if(!g||e.t-g[g.length-1].t>1800)groups.push([e]);
+    else g.push(e);
+  });
+  return groups.map(g=>{
+    const score={under:{n:0,g:0},over:{n:0,g:0}};
+    const phase={entry:0,mid:0,exit:0};
+    let max=g[0];
+    g.forEach(e=>{
+      if(score[e.kind]){score[e.kind].n++;score[e.kind].g+=e.g||0;}
+      if(phase[e.ph]!=null)phase[e.ph]++;
+      if((e.g||0)>(max.g||0))max=e;
+    });
+    const kind=(score.over.n>score.under.n||score.over.g>score.under.g*1.25)?'over':'under';
+    const ph=Object.keys(phase).sort((a,b)=>phase[b]-phase[a])[0]||max.ph;
+    return {...max,kind,ph,rawCount:g.length};
+  });
+}
+function _lrConfidenceHtml(corners,ev){
+  let score=45;const reasons=[];
+  if(_lrMaxG>=0.8){score+=18;reasons.push('十分なG');}else if(_lrMaxG>=0.5){score+=8;reasons.push('中G');}else{score-=12;reasons.push('G不足');}
+  if(corners.length>=6){score+=18;reasons.push(`コーナー${corners.length}`);}else if(corners.length>=3){score+=8;reasons.push(`コーナー${corners.length}`);}else{score-=10;reasons.push('判定数少なめ');}
+  const yawRaw=ev.filter(e=>e.cat==='yaw').length;
+  if(yawRaw>corners.length*8){score-=6;reasons.push('同一コーナー内の揺れ多め');}
+  if(_lrAcc!=null&&_lrAcc<=20){score+=8;reasons.push('GPS良好');}else if(_lrAcc!=null&&_lrAcc>35){score-=10;reasons.push('GPS精度低め');}
+  score=Math.max(5,Math.min(95,Math.round(score)));
+  const color=score>=75?'#34d399':score>=55?'#fbbf24':'#f87171';
+  const label=score>=75?'高め':score>=55?'中くらい':'低め';
+  return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">限界走行 判定信頼度 <b style="color:${color}">${label}（${score}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${reasons.join(' / ')}</div></div>`;
+}
 function _lrFinish(){
   stopLimitRun();
   const ev=_lrEvents;
+  const yawCorners=_lrClusterYawEvents(ev);
   // 局面×症状の集計
   const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
-  ev.forEach(e=>{if(e.cat==='yaw'&&agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
+  yawCorners.forEach(e=>{if(agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
   const bounce={bunder:0,bover:0};
   ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
   let best=null;
@@ -4587,7 +4780,8 @@ function _lrFinish(){
     logHtml='<div style="font-size:12px;color:var(--text3);padding:6px 0">アンダー・オーバー・ばたつきは検出されませんでした（限界付近でのみ反応）。</div>';
   }
   // 課題サマリ
-  let summary=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${_lrMaxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件</div>`;
+  let summary=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${_lrMaxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件 ／ コーナー判定 ${yawCorners.length}件</div>`;
+  summary+=_lrConfidenceHtml(yawCorners,ev);
   // ばたつきサマリ
   if(bounce.bunder>0||bounce.bover>0){
     summary+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
@@ -5130,8 +5324,8 @@ async function uploadSelectedToGroup(){
 }
 
 // ---- 設定 ----
-// ==== 開発者モード（実測・データ収集をパスワードで解錠。milage_v1とは別キーで保持） ====
-const DEV_PW='analysisdev';        // 実測＋データ収集(記録)を解錠
+// ==== 開発者モード（データ収集をパスワードで解錠。milage_v1とは別キーで保持） ====
+const DEV_PW='analysisdev';        // データ収集(記録)を解錠
 const OWNER_PW='fullacces001only'; // 土居用：上記＋「📥集まったデータ」ビューアも解錠
 const DEV_KEY='mileage_devmode';
 const OWNER_KEY='mileage_owner';
@@ -5168,6 +5362,7 @@ async function loadCollectedData(){
   el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${items.length}件</div>`+items.map(m=>`
     <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:8px">
       <div style="font-size:13px;color:var(--text)"><b>${esc(m.sender)||'?'}</b> ／ ${esc(m.car)||'?'} <span style="color:var(--text3);font-size:11px">(${esc(m.mode)}${m.axle?'・'+(m.axle==='R'?'後':'前'):''})</span></div>
+      ${m.mountLocation?`<div style="font-size:10px;color:var(--text3);margin-top:2px">固定: ${esc(m.mountLocation)}</div>`:''}
       ${m.comment?`<div style="font-size:11px;color:var(--text2);margin:3px 0">${esc(m.comment)}</div>`:''}
       <div style="font-size:10px;color:var(--text3)">${esc(String(m.at||'').slice(0,16).replace('T',' '))}・${m.durationSec||'?'}秒・${(m.sampleCount||0).toLocaleString()}件</div>
       <div style="display:flex;gap:6px;margin-top:6px">
