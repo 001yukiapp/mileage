@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.22.0</title>
+<title>Mileage 3.23.0</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.22.0</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.0</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.22.0</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.0</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.22.0';
+const APP_VERSION = '3.23.0';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -4543,7 +4543,7 @@ function _ymFinish(){
 let _lrActive=false,_lrWake=null,_lrGeo=null,_lrTimer=null;
 let _lrGrav={x:0,y:0,z:9.81},_lrGravInit=false,_lrU={x:0,y:1};
 let _lrSpeed=null,_lrAcc=null,_lrLastPos=null;
-let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
+let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrSeries=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
 const LR_EVENT=6; // 連続サンプルでイベント確定（ヨー実測と同じ）
 // ばたつき検知（縦加速度の低周波リング=減衰不足 / 高周波チャタ=減衰過多）。閾値は実走で要調整
 let _lrVertLP=0,_lrLowE=0,_lrHighE=0,_lrBounceStreak=null,_lrBounceCool=0;
@@ -4601,7 +4601,7 @@ function startLimitRun(skipCond){
   const go=()=>{
     if(!navigator.geolocation){toast('この端末はGPSに対応していません');return;}
     _lrActive=true;_lrGravInit=false;_lrSpeed=null;_lrLastPos=null;_lrAcc=null;
-    _lrStartTs=Date.now();_lrEvents=[];_lrTrack=[];_lrStreak={ph:null,sym:null,c:0};_lrMaxG=0;_lrCount=0;
+    _lrStartTs=Date.now();_lrEvents=[];_lrTrack=[];_lrSeries=[];_lrStreak={ph:null,sym:null,c:0};_lrMaxG=0;_lrCount=0;
     _lrVertLP=0;_lrLowE=0;_lrHighE=0;_lrBounceStreak={kind:null,c:0};_lrBounceCool=0;
     _lrU=_gmOrientU();_lrWakeAcq();
     document.getElementById('limitRunBtn').style.display='none';
@@ -4685,6 +4685,12 @@ function _lrHandler(e){
   // 最大合成Gを記録
   const tot=Math.hypot(lon,lat);
   if(tot>_lrMaxG)_lrMaxG=tot;
+  const nowTs=Date.now();
+  const lastSer=_lrSeries[_lrSeries.length-1];
+  if(!lastSer||nowTs-lastSer.t>=120){
+    _lrSeries.push({t:nowTs,g:+tot.toFixed(3),lon:+lon.toFixed(3),lat:+lat.toFixed(3),speed:_lrSpeed!=null?+(_lrSpeed*3.6).toFixed(1):null});
+    if(_lrSeries.length>12000)_lrSeries.splice(0,1000);
+  }
   const rr=e.rotationRate;if(!rr)return;
   const yawRate=((rr.beta||0)*gx+(rr.gamma||0)*gy+(rr.alpha||0)*gz)*Math.PI/180;
   const V=_lrSpeed;
@@ -4804,19 +4810,59 @@ function _lrFinish(){
     summary+='<div style="margin-top:8px;font-size:12px;color:var(--text2)">明確なアンダー/オーバー傾向は出ませんでした。もっと攻めると検出できます。</div>';
   }
   const hasMap=_lrTrack.length>=10;
+  const hasTimeline=_lrSeries.length>=2||ev.length>0;
+  const bounds=_lrTimelineBounds();
   _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px">
     <div style="font-weight:700;font-size:14px;margin-bottom:6px">🏁 限界走行 結果</div>
     ${summary}
     ${hasMap?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">コースマップ（イベント位置）</div>
     <canvas id="lrMap" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">青=アンダー / 赤=オーバー / オレンジ=ばたつき。走行軌跡上に検出位置を表示。</div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰=全体軌跡 / 青=選択時刻までの軌跡 / 緑=現在位置 / 青点=アンダー / 赤点=オーバー / オレンジ=ばたつき。</div>`:''}
+    ${hasTimeline?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">G・イベント時系列</div>
+    <canvas id="lrTimeline" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
+    <input id="lrTimeSlider" type="range" min="0" max="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" value="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" oninput="_lrScrubTime()" style="width:100%;margin-top:8px">
+    <div id="lrTimeLabel" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">水色ライン=合成G / 青点=アンダー / 赤点=オーバー / オレンジ三角=ばたつき。スライダーで同じ時刻の位置へ移動します。</div>`:''}
     <div style="font-weight:700;font-size:13px;margin:12px 0 2px">イベントログ（時系列${ev.length>40?'・直近40件':''}）</div>
     ${logHtml}
   </div>`);
-  if(hasMap)_lrRenderMap();
+  if(hasMap||hasTimeline)_lrScrubTime();
 }
-// 走行軌跡＋イベント位置をcanvasに描画（Leaflet不要・オフライン）
-function _lrRenderMap(){
+function _lrTimelineBounds(){
+  const times=[_lrStartTs||Date.now()];
+  _lrTrack.forEach(p=>{if(p.t)times.push(p.t);});
+  _lrSeries.forEach(p=>{if(p.t)times.push(p.t);});
+  _lrEvents.forEach(e=>{if(e.t)times.push(e.t);});
+  const t0=_lrStartTs||Math.min(...times),t1=Math.max(...times,t0+1000);
+  return {t0,t1};
+}
+function _lrSliderTs(){
+  const b=_lrTimelineBounds();
+  const sl=document.getElementById('lrTimeSlider');
+  const sec=sl?parseFloat(sl.value||'0'):(b.t1-b.t0)/1000;
+  return b.t0+sec*1000;
+}
+function _lrFmtElapsed(ms){
+  const s=Math.max(0,Math.round(ms/1000));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+function _lrPointAt(ts){
+  const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null);
+  if(!pts.length)return null;
+  let best=pts[0];
+  for(const p of pts){if(Math.abs(p.t-ts)<Math.abs(best.t-ts))best=p;}
+  return best;
+}
+function _lrScrubTime(){
+  const ts=_lrSliderTs();
+  const b=_lrTimelineBounds();
+  const lab=document.getElementById('lrTimeLabel');
+  if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
+  _lrRenderMap(ts);
+  _lrRenderTimeline(ts);
+}
+// 走行軌跡＋イベント位置＋現在時刻位置をcanvasに描画（Leaflet不要・オフライン）
+function _lrRenderMap(ts){
   const cv=document.getElementById('lrMap');if(!cv)return;
   const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null);if(pts.length<2)return;
   let laMin=Infinity,laMax=-Infinity,loMin=Infinity,loMax=-Infinity;
@@ -4833,11 +4879,56 @@ function _lrRenderMap(){
   ctx.strokeStyle='#475569';ctx.lineWidth=2;ctx.beginPath();
   pts.forEach((p,i)=>{const xx=X(p),yy=Y(p);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});
   ctx.stroke();
+  const past=pts.filter(p=>p.t<=ts);
+  if(past.length>=2){
+    ctx.strokeStyle='#60a5fa';ctx.lineWidth=3;ctx.beginPath();
+    past.forEach((p,i)=>{const xx=X(p),yy=Y(p);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});
+    ctx.stroke();
+  }
   _lrEvents.forEach(e=>{
     if(e.la==null||e.lo==null)return;
     const col=e.cat==='bounce'?'#fbbf24':(e.kind==='under'?'#60a5fa':'#f87171');
+    ctx.globalAlpha=e.t<=ts?1:.35;
     ctx.fillStyle=col;ctx.beginPath();ctx.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);ctx.fill();
   });
+  ctx.globalAlpha=1;
+  const cur=_lrPointAt(ts);
+  if(cur){
+    ctx.fillStyle='#34d399';ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(X(cur),Y(cur),6,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+}
+function _lrRenderTimeline(ts){
+  const cv=document.getElementById('lrTimeline');if(!cv)return;
+  const b=_lrTimelineBounds();
+  const W=cv.clientWidth||320,H=150,dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  const padL=24,padR=8,padT=12,padB=24;
+  const xOf=t=>padL+(Math.max(b.t0,Math.min(b.t1,t))-b.t0)/(b.t1-b.t0)*(W-padL-padR);
+  const gMax=Math.max(1.0,Math.min(2.5,Math.ceil((_lrMaxG||1)*2)/2));
+  const yOfG=g=>padT+(1-Math.max(0,Math.min(gMax,g))/gMax)*(H-padT-padB);
+  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;
+  for(let g=0.5;g<=gMax+1e-9;g+=0.5){
+    const y=yOfG(g);ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();
+    ctx.fillStyle='rgba(148,163,184,.65)';ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(g.toFixed(1),padL-4,y+3);
+  }
+  ctx.strokeStyle='#60a5fa';ctx.lineWidth=2;ctx.beginPath();
+  _lrSeries.forEach((p,i)=>{const x=xOf(p.t),y=yOfG(p.g);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  if(_lrSeries.length)ctx.stroke();
+  _lrEvents.forEach(e=>{
+    const x=xOf(e.t);
+    if(e.cat==='bounce'){
+      const y=padT+8;ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x-5,y+5);ctx.lineTo(x+5,y+5);ctx.closePath();ctx.fill();
+    }else{
+      const y=yOfG(e.g||0);ctx.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+    }
+  });
+  const sx=xOf(ts);
+  ctx.strokeStyle='#34d399';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sx,padT);ctx.lineTo(sx,H-padB);ctx.stroke();
+  ctx.fillStyle='rgba(148,163,184,.75)';ctx.font='10px sans-serif';ctx.textAlign='left';
+  ctx.fillText('0:00',padL,H-7);ctx.textAlign='right';ctx.fillText(_lrFmtElapsed(b.t1-b.t0),W-padR,H-7);
 }
 
 // ==== グループ タイムライン ====
