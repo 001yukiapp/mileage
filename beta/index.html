@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.2</title>
+<title>Mileage 3.23.3</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.2</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.3</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.2</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.3</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.2';
+const APP_VERSION = '3.23.3';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3597,7 +3597,7 @@ function stopLimitRunCollect(){
   if(!_lrRecord)return;
   _lrRecord=false;
   if(_lrRecTimer){clearInterval(_lrRecTimer);_lrRecTimer=null;}
-  const events=_lrEvents.slice(),track=_lrTrack.slice();
+  const events=_lrEvents.slice(),track=_lrTrack.slice(),series=_lrSeries.slice();
   stopLimitRun();
   document.getElementById('lcStartBtn').style.display='';
   document.getElementById('lcStopBtn').style.display='none';
@@ -3608,8 +3608,8 @@ function stopLimitRunCollect(){
     app:'mileage-datacollect',mode:'limitrun',ver:APP_VERSION,car:_recCarMeta(getCar()),
     recordedAt:new Date().toISOString(),durationSec:+(durMs/1000).toFixed(1),sampleRateHz:+fs.toFixed(1),
     sampleCount:log.length,
-    note:'t=ms。ax/ay/az=生加速度(m/s²)、rx/ry/rz=角速度alpha/beta/gamma(deg/s)、sp=GPS速度(m/s)、la/lo=位置。events=アプリ検出イベント(yaw=under/over・bounce=減衰過多/不足)。track=GPS軌跡。',
-    events,track,samples:log
+    note:'t=ms。ax/ay/az=生加速度(m/s²)、rx/ry/rz=角速度alpha/beta/gamma(deg/s)、sp=GPS速度(m/s)、la/lo=位置。events=アプリ検出イベント(yaw=under/over・bounce=減衰過多/不足)。track=GPS軌跡。series=Gサークル用の縦横G時系列。',
+    events,track,series,samples:log
   };
   _recShare('lcStatus',data,`${log.length.toLocaleString()}サンプル・イベント${events.length}件・最大G ${_lrMaxG.toFixed(2)}`);
 }
@@ -4812,17 +4812,22 @@ function _lrFinish(){
   const hasMap=_lrTrack.length>=10;
   const hasTimeline=_lrSeries.length>=2||ev.length>0;
   const bounds=_lrTimelineBounds();
+  const lapHtml=_lrLapHtml(_lrDetectLaps(_lrTrack));
   _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px">
     <div style="font-weight:700;font-size:14px;margin-bottom:6px">🏁 限界走行 結果</div>
     ${summary}
+    ${lapHtml}
     ${hasMap?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">コースマップ（イベント位置）</div>
     <canvas id="lrMap" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰=全体軌跡 / 青=選択時刻までの軌跡 / 緑=現在位置 / 青点=アンダー / 赤点=オーバー / オレンジ=ばたつき。</div>`:''}
-    ${hasTimeline?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">G・イベント時系列</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>`:''}
+    ${hasTimeline?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px"><div style="font-weight:700;font-size:13px">Gサークル</div><label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px"><input id="lrGTrail" type="checkbox" onchange="_lrScrubTime()">軌跡を表示</label></div>
+    <canvas id="lrGCircle" style="width:100%;max-width:220px;display:block;background:var(--bg2);border-radius:8px;margin:0 auto 8px"></canvas>
+    <div style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:6px">緑=選択時刻のG。通常は軌跡を残さず、チェックONで選択時刻までのG軌跡を表示します。</div>
+    <div style="font-weight:700;font-size:13px;margin:10px 0 2px">イベント時系列</div>
     <canvas id="lrTimeline" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
     <input id="lrTimeSlider" type="range" min="0" max="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" value="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" oninput="_lrScrubTime()" style="width:100%;margin-top:8px">
     <div id="lrTimeLabel" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">水色ライン=合成G / 青点=アンダー / 赤点=オーバー / オレンジ三角=ばたつき。スライダーで同じ時刻の位置へ移動します。</div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">青点=アンダー / 赤点=オーバー / オレンジ三角=ばたつき。縦の緑線が選択時刻です。</div>`:''}
     <div style="font-weight:700;font-size:13px;margin:12px 0 2px">イベントログ（時系列${ev.length>40?'・直近40件':''}）</div>
     ${logHtml}
   </div>`);
@@ -4846,6 +4851,35 @@ function _lrFmtElapsed(ms){
   const s=Math.max(0,Math.round(ms/1000));
   return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
+function _lrFmtLap(ms){
+  const s=Math.max(0,ms/1000),m=Math.floor(s/60),r=s-m*60;
+  return `${m}:${r.toFixed(2).padStart(5,'0')}`;
+}
+function _lrDetectLaps(track){
+  const pts=(track||[]).filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null).sort((a,b)=>a.t-b.t);
+  if(pts.length<20)return [];
+  const start=pts[0],end=pts[pts.length-1],dur=end.t-start.t;
+  if(dur<45000)return [];
+  const finishNear=_haversine(start.lat,start.lon,end.lat,end.lon);
+  const radius=Math.max(18,Math.min(35,finishNear<80?finishNear/2+12:22));
+  const minLap=20000;
+  const laps=[];let lastCross=start.t,wasNear=true;
+  for(let i=1;i<pts.length;i++){
+    const p=pts[i],d=_haversine(start.lat,start.lon,p.lat,p.lon),near=d<=radius;
+    if(near&&!wasNear&&p.t-lastCross>=minLap){
+      laps.push({n:laps.length+1,start:lastCross,end:p.t,ms:p.t-lastCross});
+      lastCross=p.t;
+    }
+    wasNear=near;
+  }
+  return laps.filter(l=>l.ms>=minLap);
+}
+function _lrLapHtml(laps){
+  if(!laps||!laps.length)return '';
+  const best=Math.min(...laps.map(l=>l.ms));
+  const rows=laps.map(l=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid rgba(255,255,255,.05);font-size:12px"><span style="color:var(--text3)">Lap ${l.n}</span><b style="color:${l.ms===best?'#34d399':'var(--text)'}">${_lrFmtLap(l.ms)}</b></div>`).join('');
+  return `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><b>ラップタイム推定</b><span style="color:var(--text3)">Best ${_lrFmtLap(best)}</span></div>${rows}<div style="font-size:10px;color:var(--text3);margin-top:4px">GPS軌跡がスタート地点付近に戻ったタイミングから自動推定しています。</div></div>`;
+}
 function _lrPointAt(ts){
   const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null);
   if(!pts.length)return null;
@@ -4859,6 +4893,7 @@ function _lrScrubTime(){
   const lab=document.getElementById('lrTimeLabel');
   if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
   _lrRenderMap(ts);
+  _lrRenderGCircle(ts);
   _lrRenderTimeline(ts);
 }
 // 走行軌跡＋イベント位置＋現在時刻位置をcanvasに描画（Leaflet不要・オフライン）
@@ -4898,6 +4933,31 @@ function _lrRenderMap(ts){
     ctx.beginPath();ctx.arc(X(cur),Y(cur),6,0,Math.PI*2);ctx.fill();ctx.stroke();
   }
 }
+function _lrRenderGCircle(ts){
+  const cv=document.getElementById('lrGCircle');if(!cv)return;
+  _lrDrawGCircle(cv,_lrSeries,ts,(document.getElementById('lrGTrail')||{}).checked);
+}
+function _lrDrawGCircle(cv,series,ts,trail){
+  const pts=(series||[]).filter(p=>p.lon!=null&&p.lat!=null&&p.t!=null);
+  const W=Math.min(cv.clientWidth||220,220),H=W,dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const c=cv.getContext('2d');c.scale(dpr,dpr);c.clearRect(0,0,W,H);
+  const cx=W/2,cy=H/2,r=W*0.38;
+  c.strokeStyle='rgba(148,163,184,.45)';c.lineWidth=1;
+  [0.5,1.0].forEach(g=>{c.beginPath();c.arc(cx,cy,r*g,0,Math.PI*2);c.stroke();});
+  c.beginPath();c.moveTo(cx-r,cy);c.lineTo(cx+r,cy);c.moveTo(cx,cy-r);c.lineTo(cx,cy+r);c.stroke();
+  c.fillStyle='rgba(148,163,184,.75)';c.font='10px sans-serif';c.textAlign='center';c.fillText('加速',cx,14);c.fillText('減速',cx,H-7);c.textAlign='left';c.fillText('左',8,cy-4);c.textAlign='right';c.fillText('右',W-8,cy-4);
+  const cur=pts.reduce((best,p)=>!best||Math.abs(p.t-ts)<Math.abs(best.t-ts)?p:best,null);
+  if(trail){
+    c.fillStyle='rgba(96,165,250,.28)';
+    pts.filter(p=>p.t<=ts).forEach(p=>{c.beginPath();c.arc(cx+(p.lat||0)*r,cy-(p.lon||0)*r,2,0,Math.PI*2);c.fill();});
+  }
+  if(cur){
+    c.fillStyle='#34d399';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=2;
+    c.beginPath();c.arc(cx+(cur.lat||0)*r,cy-(cur.lon||0)*r,6,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='rgba(226,232,240,.9)';c.font='11px sans-serif';c.textAlign='center';c.fillText(`${(cur.g||Math.hypot(cur.lon||0,cur.lat||0)).toFixed(2)}G`,cx,cy+4);
+  }
+}
 function _lrRenderTimeline(ts){
   const cv=document.getElementById('lrTimeline');if(!cv)return;
   const b=_lrTimelineBounds();
@@ -4907,22 +4967,16 @@ function _lrRenderTimeline(ts){
   ctx.clearRect(0,0,W,H);
   const padL=24,padR=8,padT=12,padB=24;
   const xOf=t=>padL+(Math.max(b.t0,Math.min(b.t1,t))-b.t0)/(b.t1-b.t0)*(W-padL-padR);
-  const gMax=Math.max(1.0,Math.min(2.5,Math.ceil((_lrMaxG||1)*2)/2));
-  const yOfG=g=>padT+(1-Math.max(0,Math.min(gMax,g))/gMax)*(H-padT-padB);
+  const yYaw=padT+34,yBounce=padT+76;
   ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;
-  for(let g=0.5;g<=gMax+1e-9;g+=0.5){
-    const y=yOfG(g);ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();
-    ctx.fillStyle='rgba(148,163,184,.65)';ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(g.toFixed(1),padL-4,y+3);
-  }
-  ctx.strokeStyle='#60a5fa';ctx.lineWidth=2;ctx.beginPath();
-  _lrSeries.forEach((p,i)=>{const x=xOf(p.t),y=yOfG(p.g);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
-  if(_lrSeries.length)ctx.stroke();
+  [yYaw,yBounce].forEach(y=>{ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();});
+  ctx.fillStyle='rgba(148,163,184,.75)';ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText('ヨー',padL-4,yYaw+3);ctx.fillText('跳ね',padL-4,yBounce+3);
   _lrEvents.forEach(e=>{
     const x=xOf(e.t);
     if(e.cat==='bounce'){
-      const y=padT+8;ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x-5,y+5);ctx.lineTo(x+5,y+5);ctx.closePath();ctx.fill();
+      const y=yBounce;ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x-5,y+5);ctx.lineTo(x+5,y+5);ctx.closePath();ctx.fill();
     }else{
-      const y=yOfG(e.g||0);ctx.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+      const y=yYaw;ctx.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
     }
   });
   const sx=xOf(ts);
@@ -5503,6 +5557,7 @@ function _collectedLimitAbs(t,startTs){
 function _collectedLimitCtx(d){
   const rawEvents=Array.isArray(d.events)?d.events:[];
   const rawTrack=Array.isArray(d.track)?d.track:[];
+  const rawSeries=Array.isArray(d.series)?d.series:[];
   const samples=Array.isArray(d.samples)?d.samples:[];
   const absTimes=[];
   rawEvents.forEach(e=>{if(Number(e.t)>1000000000000)absTimes.push(Number(e.t));});
@@ -5535,23 +5590,33 @@ function _collectedLimitCtx(d){
       if(seen.has(k))return false;seen.add(k);return true;
     });
   }
-  const series=[];
+  let series=rawSeries.map(p=>({
+    t:_collectedLimitAbs(p.t,startTs),
+    g:p.g!=null?Number(p.g):null,
+    lon:p.lon!=null?Number(p.lon):null,
+    lat:p.lat!=null?Number(p.lat):null,
+    speed:p.speed!=null?Number(p.speed):null
+  })).filter(p=>p.t!=null&&p.g!=null);
   let grav=null,lastT=-Infinity,maxG=0;
-  samples.forEach(s=>{
-    const t=_collectedLimitAbs(s.t,startTs);
-    const x=Number(s.ax),y=Number(s.ay),z=Number(s.az);
-    if(t==null||!isFinite(x)||!isFinite(y)||!isFinite(z))return;
-    if(!grav){grav={x,y,z};return;}
-    const al=Math.hypot(x-grav.x,y-grav.y,z-grav.z)<0.6?0.02:0.0005;
-    grav.x+=(x-grav.x)*al;grav.y+=(y-grav.y)*al;grav.z+=(z-grav.z)*al;
-    const dx=x-grav.x,dy=y-grav.y,dz=z-grav.z;
-    const g=Math.hypot(dx,dy,dz)/9.80665;
-    if(g>maxG)maxG=g;
-    if(t-lastT>=120){
-      series.push({t,g:+g.toFixed(3),speed:s.sp!=null?+(Number(s.sp)*3.6).toFixed(1):null});
-      lastT=t;
-    }
-  });
+  if(series.length){
+    series.forEach(p=>{if(p.g>maxG)maxG=p.g;});
+  }else{
+    samples.forEach(s=>{
+      const t=_collectedLimitAbs(s.t,startTs);
+      const x=Number(s.ax),y=Number(s.ay),z=Number(s.az);
+      if(t==null||!isFinite(x)||!isFinite(y)||!isFinite(z))return;
+      if(!grav){grav={x,y,z};return;}
+      const al=Math.hypot(x-grav.x,y-grav.y,z-grav.z)<0.6?0.02:0.0005;
+      grav.x+=(x-grav.x)*al;grav.y+=(y-grav.y)*al;grav.z+=(z-grav.z)*al;
+      const dx=x-grav.x,dy=y-grav.y,dz=z-grav.z;
+      const g=Math.hypot(dx,dy,dz)/9.80665;
+      if(g>maxG)maxG=g;
+      if(t-lastT>=120){
+        series.push({t,g:+g.toFixed(3),lon:null,lat:null,speed:s.sp!=null?+(Number(s.sp)*3.6).toFixed(1):null});
+        lastT=t;
+      }
+    });
+  }
   events.forEach(e=>{if(e.g!=null&&e.g>maxG)maxG=e.g;});
   const acc=(track.find(p=>p.acc!=null)||{}).acc;
   return {startTs,events,track,series,maxG,acc,car:d.car||{},durationSec:d.durationSec||0};
@@ -5604,15 +5669,20 @@ function _collectedLimitHtml(d,ctx,key){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const b=_collectedLimitBounds(ctx);
   const hasMap=ctx.track.length>=10,hasTimeline=ctx.series.length>=2||ctx.events.length>0;
+  const hasGCircle=ctx.series.some(p=>p.lon!=null&&p.lat!=null);
+  const lapHtml=_lrLapHtml(_lrDetectLaps(ctx.track));
   const sec=Math.max(1,Math.round((b.t1-b.t0)/1000));
   return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 収集データ サマリ</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
     ${_collectedLimitSummary(ctx)}
+    ${lapHtml}
     ${hasMap?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">コースマップ</div>
     <canvas id="${key}_map" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰=全体軌跡 / 青=選択時刻まで / 緑=現在位置 / 青点=アンダー / 赤点=オーバー / オレンジ=ばたつき。</div>`:''}
-    ${hasTimeline?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">G・イベント時系列</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>`:''}
+    ${hasGCircle?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px"><div style="font-weight:700;font-size:12px">Gサークル</div><label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px"><input id="${key}_gtrail" type="checkbox" onchange="_collectedLimitScrub('${key}')">軌跡を表示</label></div>
+    <canvas id="${key}_gcircle" style="width:100%;max-width:220px;display:block;background:var(--bg3);border-radius:8px;margin:0 auto 8px"></canvas>`:''}
+    ${hasTimeline?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">イベント時系列</div>
     <canvas id="${key}_timeline" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
     <input id="${key}_slider" type="range" min="0" max="${sec}" value="${sec}" oninput="_collectedLimitScrub('${key}')" style="width:100%;margin-top:8px">
     <div id="${key}_label" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>`:''}
@@ -5626,6 +5696,7 @@ function _collectedLimitScrub(key){
   const lab=document.getElementById(`${key}_label`);
   if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
   _collectedLimitRenderMap(key,ctx,ts);
+  _collectedLimitRenderGCircle(key,ctx,ts);
   _collectedLimitRenderTimeline(key,ctx,ts);
 }
 function _collectedLimitPointAt(ctx,ts){
@@ -5652,6 +5723,11 @@ function _collectedLimitRenderMap(key,ctx,ts){
   const cur=_collectedLimitPointAt(ctx,ts);
   if(cur){c.fillStyle='#34d399';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=2;c.beginPath();c.arc(X(cur),Y(cur),6,0,Math.PI*2);c.fill();c.stroke();}
 }
+function _collectedLimitRenderGCircle(key,ctx,ts){
+  const cv=document.getElementById(`${key}_gcircle`);if(!cv)return;
+  const trail=(document.getElementById(`${key}_gtrail`)||{}).checked;
+  _lrDrawGCircle(cv,ctx.series,ts,trail);
+}
 function _collectedLimitRenderTimeline(key,ctx,ts){
   const cv=document.getElementById(`${key}_timeline`);if(!cv)return;
   const b=_collectedLimitBounds(ctx),W=cv.clientWidth||320,H=150,dpr=window.devicePixelRatio||1;
@@ -5659,12 +5735,11 @@ function _collectedLimitRenderTimeline(key,ctx,ts){
   const c=cv.getContext('2d');c.scale(dpr,dpr);c.clearRect(0,0,W,H);
   const padL=24,padR=8,padT=12,padB=24;
   const xOf=t=>padL+(Math.max(b.t0,Math.min(b.t1,t))-b.t0)/(b.t1-b.t0)*(W-padL-padR);
-  const gMax=Math.max(1.0,Math.min(2.5,Math.ceil((ctx.maxG||1)*2)/2));
-  const yOfG=g=>padT+(1-Math.max(0,Math.min(gMax,g))/gMax)*(H-padT-padB);
+  const yYaw=padT+34,yBounce=padT+76;
   c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=1;
-  for(let g=0.5;g<=gMax+1e-9;g+=0.5){const y=yOfG(g);c.beginPath();c.moveTo(padL,y);c.lineTo(W-padR,y);c.stroke();c.fillStyle='rgba(148,163,184,.65)';c.font='10px sans-serif';c.textAlign='right';c.fillText(g.toFixed(1),padL-4,y+3);}
-  c.strokeStyle='#60a5fa';c.lineWidth=2;c.beginPath();ctx.series.forEach((p,i)=>{i?c.lineTo(xOf(p.t),yOfG(p.g)):c.moveTo(xOf(p.t),yOfG(p.g));});if(ctx.series.length)c.stroke();
-  ctx.events.forEach(e=>{const x=xOf(e.t);if(e.cat==='bounce'){const y=padT+8;c.fillStyle='#fbbf24';c.beginPath();c.moveTo(x,y-5);c.lineTo(x-5,y+5);c.lineTo(x+5,y+5);c.closePath();c.fill();}else{c.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';c.beginPath();c.arc(x,yOfG(e.g||0),4,0,Math.PI*2);c.fill();}});
+  [yYaw,yBounce].forEach(y=>{c.beginPath();c.moveTo(padL,y);c.lineTo(W-padR,y);c.stroke();});
+  c.fillStyle='rgba(148,163,184,.75)';c.font='10px sans-serif';c.textAlign='right';c.fillText('ヨー',padL-4,yYaw+3);c.fillText('跳ね',padL-4,yBounce+3);
+  ctx.events.forEach(e=>{const x=xOf(e.t);if(e.cat==='bounce'){const y=yBounce;c.fillStyle='#fbbf24';c.beginPath();c.moveTo(x,y-5);c.lineTo(x-5,y+5);c.lineTo(x+5,y+5);c.closePath();c.fill();}else{c.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';c.beginPath();c.arc(x,yYaw,4,0,Math.PI*2);c.fill();}});
   const sx=xOf(ts);c.strokeStyle='#34d399';c.lineWidth=1.5;c.beginPath();c.moveTo(sx,padT);c.lineTo(sx,H-padB);c.stroke();
   c.fillStyle='rgba(148,163,184,.75)';c.font='10px sans-serif';c.textAlign='left';c.fillText('0:00',padL,H-7);c.textAlign='right';c.fillText(_lrFmtElapsed(b.t1-b.t0),W-padR,H-7);
 }
