@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.1</title>
+<title>Mileage 3.23.2</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.1</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.2</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.1</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.2</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.1';
+const APP_VERSION = '3.23.2';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -5457,7 +5457,7 @@ async function loadCollectedData(){
       ${m.comment?`<div style="font-size:11px;color:var(--text2);margin:3px 0">${esc(m.comment)}</div>`:''}
       <div style="font-size:10px;color:var(--text3)">${esc(String(m.at||'').slice(0,16).replace('T',' '))}・${m.durationSec||'?'}秒・${(m.sampleCount||0).toLocaleString()}件</div>
       <div style="display:flex;gap:6px;margin-top:6px">
-        ${m.mode==='limitrun'?`<button class="btn btn-sm" style="flex:1;background:#16a34a;color:#fff" onclick="previewCollectedLimitRun('${m.mode}','${m.id}',this)">📊 サマリ</button>`:''}
+        ${(m.mode==='limitrun'||m.mode==='freq')?`<button class="btn btn-sm" style="flex:1;background:#16a34a;color:#fff" onclick="previewCollectedSummary('${m.mode}','${m.id}',this)">📊 サマリ</button>`:''}
         <button class="btn btn-sm" style="flex:1;background:var(--blue);color:#fff" onclick="downloadCollected('${m.mode}','${m.id}',this)">⬇ ダウンロード</button>
         <button class="btn btn-sm" style="flex:0 0 auto;padding:4px 12px;background:var(--bg2);color:#f87171" onclick="deleteCollected('${m.mode}','${m.id}')">削除</button>
       </div>
@@ -5475,6 +5475,11 @@ async function downloadCollected(mode,id,btn){
   if(btn){btn.disabled=false;btn.textContent='✓ DL済';}
 }
 const _collectedLimitViews={};
+async function previewCollectedSummary(mode,id,btn){
+  if(mode==='limitrun')return previewCollectedLimitRun(mode,id,btn);
+  if(mode==='freq')return previewCollectedFreq(mode,id,btn);
+  toast('このデータ形式のサマリは未対応です');
+}
 async function previewCollectedLimitRun(mode,id,btn){
   if(mode!=='limitrun'){toast('限界走行データだけサマリ表示できます');return;}
   const host=document.getElementById(`collectedPreview_${id}`);if(!host)return;
@@ -5662,6 +5667,154 @@ function _collectedLimitRenderTimeline(key,ctx,ts){
   ctx.events.forEach(e=>{const x=xOf(e.t);if(e.cat==='bounce'){const y=padT+8;c.fillStyle='#fbbf24';c.beginPath();c.moveTo(x,y-5);c.lineTo(x-5,y+5);c.lineTo(x+5,y+5);c.closePath();c.fill();}else{c.fillStyle=e.kind==='under'?'#60a5fa':'#f87171';c.beginPath();c.arc(x,yOfG(e.g||0),4,0,Math.PI*2);c.fill();}});
   const sx=xOf(ts);c.strokeStyle='#34d399';c.lineWidth=1.5;c.beginPath();c.moveTo(sx,padT);c.lineTo(sx,H-padB);c.stroke();
   c.fillStyle='rgba(148,163,184,.75)';c.font='10px sans-serif';c.textAlign='left';c.fillText('0:00',padL,H-7);c.textAlign='right';c.fillText(_lrFmtElapsed(b.t1-b.t0),W-padR,H-7);
+}
+const _collectedFreqViews={};
+async function previewCollectedFreq(mode,id,btn){
+  const host=document.getElementById(`collectedPreview_${id}`);if(!host)return;
+  if(host.dataset.open==='1'){host.innerHTML='';host.dataset.open='';if(btn)btn.textContent='📊 サマリ';return;}
+  if(btn){btn.disabled=true;btn.textContent='取得中…';}
+  const d=await fbGet(`datacollect/${mode}/${id}`);
+  if(btn){btn.disabled=false;btn.textContent='閉じる';}
+  if(!d){toast('取得できませんでした');return;}
+  const key=`freq_${id.replace(/[^\w-]/g,'_')}`;
+  const ctx=_collectedFreqAnalyze(d);
+  _collectedFreqViews[key]=ctx;
+  host.dataset.open='1';
+  host.innerHTML=_collectedFreqHtml(d,ctx,key);
+  _collectedFreqRender(key);
+}
+function _collectedFreqGps(d){
+  const src=Array.isArray(d.gps)?d.gps:(Array.isArray(d.track)?d.track:[]);
+  return src.map(p=>({
+    t:Number(p.t)||0,
+    lat:p.lat!=null?Number(p.lat):(p.la!=null?Number(p.la):null),
+    lon:p.lon!=null?Number(p.lon):(p.lo!=null?Number(p.lo):null),
+    spd:p.spd!=null?Number(p.spd):(p.sp!=null?Number(p.sp):null)
+  })).filter(p=>p.lat!=null&&p.lon!=null);
+}
+function _collectedFreqSpeedAt(gps,t){
+  if(!gps.length)return null;
+  let best=gps[0];
+  for(const p of gps){if(Math.abs(p.t-t)<Math.abs(best.t-t))best=p;}
+  return best.spd!=null?best.spd*3.6:null;
+}
+function _collectedFreqAnalyze(d){
+  const samples=(Array.isArray(d.samples)?d.samples:[]).map(s=>({
+    t:Number(s.t)||0,x:Number(s.ax),y:Number(s.ay),z:Number(s.az)
+  })).filter(s=>isFinite(s.x)&&isFinite(s.y)&&isFinite(s.z)).sort((a,b)=>a.t-b.t);
+  const gps=_collectedFreqGps(d);
+  const freqs=_fmGrid();
+  const segs=[];
+  if(samples.length){
+    const start=samples[0].t,end=samples[samples.length-1].t;
+    for(let t0=start;t0+FM_SEG_S*1000<=end;t0+=FM_SEG_S*1000){
+      const seg=samples.filter(s=>s.t>=t0&&s.t<t0+FM_SEG_S*1000);
+      const r=_fmSegPsd(seg);
+      if(!r)continue;
+      segs.push({...r,t:t0+FM_SEG_S*500,speed:_collectedFreqSpeedAt(gps,t0+FM_SEG_S*500)});
+    }
+  }
+  if(segs.length<2)return {ok:false,reason:'有効な解析区間が足りません',samples,gps,segs,freqs};
+  const avg=freqs.map((_,i)=>segs.reduce((s,g)=>s+g.psd[i],0)/segs.length);
+  const sm=_fmSmooth(avg);
+  const car={...(d.car||{})};
+  if(car.weight&&!car.frontRatio)car.frontRatio=car.rearRatio?(100-car.rearRatio):50;
+  const axle=d.axle==='R'?'R':'F';
+  const calcF=(car.springF&&car.leverF&&car.weight)?computeNaturalFreq(car.springF,car.leverF,cornerMass(car,'F')):null;
+  const calcR=(car.springR&&car.leverR&&car.weight)?computeNaturalFreq(car.springR,car.leverR,cornerMass(car,'R')):null;
+  const fc=axle==='R'?calcR:calcF;
+  let sel=sm.slice();
+  if(fc)sel=sel.map((v,i)=>v*(0.6+0.4*Math.exp(-((freqs[i]-fc)**2)/(2*FM_PRIOR_SIGMA*FM_PRIOR_SIGMA))));
+  const loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
+  let hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){hiIdx=i;break;}}
+  let pi=-1,pv=-1;freqs.forEach((f,i)=>{if(f>=FM_PEAK_LO&&f<=FM_PEAK_HI&&sel[i]>pv){pi=i;pv=sel[i];}});
+  if(fc&&pi>=0&&freqs[pi]>3.0){
+    let near=null;
+    for(let i=Math.max(1,loIdx);i<=Math.min(sel.length-2,hiIdx);i++){
+      const f=freqs[i];
+      if(Math.abs(f-fc)>0.7)continue;
+      if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&sel[i]>=pv*0.25){if(!near||sel[i]>near.v)near={i,v:sel[i]};}
+    }
+    if(near){pi=near.i;pv=near.v;}
+  }
+  let rmin=pv;for(let i=pi;i<=hiIdx;i++){if(sel[i]<rmin)rmin=sel[i];}
+  const prom=pv>0?(pv-rmin)/pv:0;
+  const th=pv*0.5;let lo=pi,hi=pi;
+  while(lo>loIdx&&sel[lo-1]>=th)lo--;
+  while(hi<hiIdx&&sel[hi+1]>=th)hi++;
+  let sw=0,swf=0;for(let i=lo;i<=hi;i++){const w=sel[i]-th;sw+=w;swf+=w*freqs[i];}
+  const freq=sw?swf/sw:freqs[pi];
+  let second=null;
+  for(let i=1;i<freqs.length-1;i++){
+    const f=freqs[i];
+    if(f<FM_PEAK_LO||f>FM_PEAK_HI||(i>=lo&&i<=hi))continue;
+    if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&Math.abs(f-freq)>=0.4&&sel[i]>=pv*0.35){if(!second||sel[i]>second.v)second={f,v:sel[i]};}
+  }
+  const speeds=segs.map(s=>s.speed).filter(v=>v!=null&&isFinite(v));
+  const bands=new Set(speeds.map(v=>FM_SPEED_BANDS.findIndex(b=>v>=b[0]&&v<b[1])).filter(i=>i>=0));
+  let conf=55,reasons=[];
+  if(segs.length>=6){conf+=10;reasons.push(`区間${segs.length}`);}else{conf-=6;reasons.push(`区間${segs.length}`);}
+  if(bands.size>=2){conf+=12;reasons.push(`速度帯${bands.size}`);}else{conf-=10;reasons.push('速度幅不足');}
+  if(prom>=0.35){conf+=10;reasons.push('山が明確');}else if(prom<0.22){conf-=10;reasons.push('山が弱い');}
+  if(fc){const diff=Math.abs(freq-fc);if(diff<=0.25){conf+=10;reasons.push('計算値近傍');}else if(diff<=0.6){conf+=4;reasons.push('計算値と近い');}else{conf-=8;reasons.push('計算値から離れ気味');}}else{conf-=5;reasons.push('車両情報不足');}
+  if(freq>3.0){conf-=18;reasons.push('高域注意');}
+  conf=Math.max(5,Math.min(95,Math.round(conf)));
+  return {ok:true,samples,gps,segs,freqs,spec:sm,sel,freq,second,axle,calcF,calcR,fc,prom,conf,reasons,speeds,bands:bands.size};
+}
+function _collectedFreqHtml(d,ctx,key){
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if(!ctx.ok)return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)"><div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 固有振動数サマリ</div><div style="font-size:12px;color:#fbbf24">${esc(ctx.reason)}</div></div>`;
+  const color=ctx.conf>=75?'#34d399':ctx.conf>=55?'#fbbf24':'#f87171';
+  const label=ctx.conf>=75?'高め':ctx.conf>=55?'中くらい':'低め';
+  const speedTxt=ctx.speeds.length?`${Math.min(...ctx.speeds).toFixed(0)}〜${Math.max(...ctx.speeds).toFixed(0)}km/h`:'速度なし';
+  const warn=ctx.freq>3.0?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">高めの値です。エンジン/ボディ構造振動を拾っている可能性があります。サスに近い硬い場所で再測定すると切り分けできます。</div>':'';
+  return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 固有振動数サマリ</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ 測定軸=${ctx.axle==='R'?'後':'前'} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
+    <div class="calc-grid">
+      <div class="calc-item"><div class="calc-item-label">実測</div><div class="calc-item-value" style="color:${freqColor(ctx.freq)}">${ctx.freq.toFixed(2)} Hz</div></div>
+      <div class="calc-item"><div class="calc-item-label">信頼度</div><div class="calc-item-value" style="color:${color}">${label}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">計算値: F ${ctx.calcF?ctx.calcF.toFixed(2)+'Hz':'-'} / R ${ctx.calcR?ctx.calcR.toFixed(2)+'Hz':'-'} ／ 速度 ${speedTxt} ／ 有効区間 ${ctx.segs.length}</div>
+    <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">信頼度 <b style="color:${color}">${label}（${ctx.conf}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${ctx.reasons.join(' / ')}</div></div>
+    ${ctx.second?`<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピーク候補: ${ctx.second.f.toFixed(2)} Hz</div>`:''}
+    ${warn}
+    <div style="font-weight:700;font-size:12px;margin:12px 0 2px">振動スペクトル</div>
+    <canvas id="${key}_spec" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
+    ${ctx.gps.length>=2?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">GPS軌跡</div><canvas id="${key}_map" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>`:''}
+  </div>`;
+}
+function _collectedFreqRender(key){
+  const ctx=_collectedFreqViews[key];if(!ctx||!ctx.ok)return;
+  const cv=document.getElementById(`${key}_spec`);
+  if(cv){
+    const W=cv.clientWidth||320,H=150,dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;
+    const c=cv.getContext('2d');c.scale(dpr,dpr);c.clearRect(0,0,W,H);
+    const padL=26,padR=10,padT=12,padB=24,m=Math.max(...ctx.spec)||1;
+    const xOf=f=>padL+(f-FM_SCAN_LO)/(FM_SCAN_HI-FM_SCAN_LO)*(W-padL-padR);
+    const yOf=v=>padT+(1-v/m)*(H-padT-padB);
+    c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=1;
+    for(let f=1;f<=6;f++){const x=xOf(f);c.beginPath();c.moveTo(x,padT);c.lineTo(x,H-padB);c.stroke();c.fillStyle='rgba(148,163,184,.7)';c.font='10px sans-serif';c.textAlign='center';c.fillText(String(f),x,H-7);}
+    c.strokeStyle='#60a5fa';c.lineWidth=2;c.beginPath();ctx.freqs.forEach((f,i)=>{const x=xOf(f),y=yOf(ctx.spec[i]);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();
+    const px=xOf(ctx.freq);c.strokeStyle='#34d399';c.lineWidth=2;c.beginPath();c.moveTo(px,padT);c.lineTo(px,H-padB);c.stroke();
+    c.fillStyle='#34d399';c.font='11px sans-serif';c.textAlign='left';c.fillText(`${ctx.freq.toFixed(2)}Hz`,Math.min(px+4,W-62),padT+12);
+  }
+  _collectedFreqRenderMap(key,ctx);
+}
+function _collectedFreqRenderMap(key,ctx){
+  const cv=document.getElementById(`${key}_map`);if(!cv)return;
+  const pts=ctx.gps;if(pts.length<2)return;
+  let laMin=Infinity,laMax=-Infinity,loMin=Infinity,loMax=-Infinity;
+  pts.forEach(p=>{laMin=Math.min(laMin,p.lat);laMax=Math.max(laMax,p.lat);loMin=Math.min(loMin,p.lon);loMax=Math.max(loMax,p.lon);});
+  const latMid=(laMin+laMax)/2,kx=Math.cos(latMid*Math.PI/180);
+  const W=cv.clientWidth||320,H=Math.max(150,Math.min(240,W*0.6)),dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;
+  const c=cv.getContext('2d');c.scale(dpr,dpr);
+  const pad=14,spanX=Math.max(1e-9,(loMax-loMin)*kx),spanY=Math.max(1e-9,laMax-laMin);
+  const sc=Math.min((W-2*pad)/spanX,(H-2*pad)/spanY),ox=(W-spanX*sc)/2,oy=(H-spanY*sc)/2;
+  const X=p=>ox+((p.lon-loMin)*kx)*sc,Y=p=>H-(oy+((p.lat-laMin))*sc);
+  c.strokeStyle='#60a5fa';c.lineWidth=2;c.beginPath();pts.forEach((p,i)=>{i?c.lineTo(X(p),Y(p)):c.moveTo(X(p),Y(p));});c.stroke();
+  c.fillStyle='#34d399';c.beginPath();c.arc(X(pts[0]),Y(pts[0]),4,0,Math.PI*2);c.fill();
+  c.fillStyle='#f87171';c.beginPath();c.arc(X(pts[pts.length-1]),Y(pts[pts.length-1]),4,0,Math.PI*2);c.fill();
 }
 async function deleteCollected(mode,id){
   if(!confirm('このデータを削除しますか？（元に戻せません）'))return;
