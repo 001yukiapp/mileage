@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.3</title>
+<title>Mileage 3.23.4</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.3</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.4</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.3</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.4</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.3';
+const APP_VERSION = '3.23.4';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3363,13 +3363,23 @@ function _recOpenSendModal(data,summary){
     const blob=freshBlob();
     const sizeKB=(blob.size/1024).toFixed(0);
     const c=data.car||{};
-    const estMsg=(c.unsprungFEstimated||c.unsprungREstimated)?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">バネ下重量は未入力だったため車重から概算を入れています。分かる場合は実測値へ直してください。</div>':'';
+    const cars=state.cars||[];
+    const matchIdx=cars.findIndex(x=>x&&x.name===c.name);
+    const useOther=matchIdx<0;
+    const carOptions=cars.map((x,i)=>`<option value="${i}"${!useOther&&i===matchIdx?' selected':''}>${_recEsc(x.name||('車両 '+(i+1)))}</option>`).join('');
     const isFreq=data.mode==='freq';
     ov.innerHTML=card(`
       <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:8px">記録完了：${data.durationSec}秒・${summary}・${sizeKB}KB</div>
       <div style="font-size:22px;font-weight:800;color:var(--text);text-align:center;margin-bottom:14px">この情報で合ってますか？</div>
       <div class="form-group" style="margin-bottom:10px">
-        <label class="form-label">車名</label>
+        <label class="form-label">車両</label>
+        <select id="recCarSelect" class="form-input">
+          ${carOptions}
+          <option value="__other__"${useOther?' selected':''}>その他（手入力）</option>
+        </select>
+      </div>
+      <div class="form-group" id="recCarNameBox" style="display:${useOther?'block':'none'};margin-bottom:10px">
+        <label class="form-label">車名（その他）</label>
         <input id="recCarName" class="form-input" value="${_recEsc(c.name||'')}" placeholder="例：S2000">
       </div>
       <div class="two-col" style="margin-bottom:10px">
@@ -3388,7 +3398,7 @@ function _recOpenSendModal(data,summary){
         <div>${_recInput('バネ下 前（1輪）','recUnsprungF',c.unsprungF,'kg')}</div>
         <div>${_recInput('バネ下 後（1輪）','recUnsprungR',c.unsprungR,'kg')}</div>
       </div>
-      ${estMsg}
+      <div id="recEstMsg" style="font-size:11px;color:#fbbf24;margin-top:6px;display:none">バネ下重量は未入力だったため車重から概算を入れています。分かる場合は実測値へ直してください。</div>
       <div class="form-group" style="margin-top:12px">
         <label class="form-label">スマホ固定場所</label>
         <input id="recMount" class="form-input" value="${_recEsc(mountDefault)}" placeholder="例：センターコンソール付近">
@@ -3403,6 +3413,36 @@ function _recOpenSendModal(data,summary){
       <button id="recYes" class="btn btn-primary" style="width:100%;font-weight:700;padding:14px">この情報で送信へ</button>
       <button id="recDl" class="btn" style="width:100%;margin-top:8px;background:var(--bg3);color:var(--text)">保存（ダウンロード）</button>
       <button id="recCancel" style="width:100%;margin-top:10px;background:none;border:none;color:var(--text3);font-size:12px;padding:6px;cursor:pointer">あとにする（閉じる）</button>`);
+    let estFlags={F:!!c.unsprungFEstimated,R:!!c.unsprungREstimated};
+    const setVal=(id,v)=>{const e=ov.querySelector('#'+id);if(e)e.value=v??'';};
+    const fillCar=(car,forceName)=>{
+      const meta=_recCarMeta(car||{});
+      if(forceName)setVal('recCarName',meta.name||'');
+      setVal('recWeight',meta.weight);
+      setVal('recFrontRatio',meta.frontRatio);
+      setVal('recLeverF',meta.leverF);
+      setVal('recLeverR',meta.leverR);
+      setVal('recSpringF',meta.springF);
+      setVal('recSpringR',meta.springR);
+      setVal('recUnsprungF',meta.unsprungF);
+      setVal('recUnsprungR',meta.unsprungR);
+      estFlags={F:!!meta.unsprungFEstimated,R:!!meta.unsprungREstimated};
+      const est=ov.querySelector('#recEstMsg');if(est)est.style.display=(estFlags.F||estFlags.R)?'block':'none';
+    };
+    const sel=ov.querySelector('#recCarSelect');
+    sel.onchange=()=>{
+      const other=sel.value==='__other__';
+      ov.querySelector('#recCarNameBox').style.display=other?'block':'none';
+      if(other){
+        const base=data.car||{};
+        fillCar(base,false);
+        if(!ov.querySelector('#recCarName').value)setVal('recCarName',base.name||'');
+      }else{
+        fillCar(cars[parseInt(sel.value,10)],true);
+      }
+    };
+    if(!useOther&&cars[matchIdx])fillCar(cars[matchIdx],true);
+    else fillCar(c,false);
     let axle=data.axle||null;
     if(isFreq){
       const seg=ov.querySelector('#recAxle');
@@ -3414,7 +3454,9 @@ function _recOpenSendModal(data,summary){
     ov.querySelector('#recCancel').onclick=close;
     ov.querySelector('#recYes').onclick=()=>{
       const msg=ov.querySelector('#recInfoMsg');
-      const name=(ov.querySelector('#recCarName').value||'').trim();
+      const selected=ov.querySelector('#recCarSelect').value;
+      const chosen=selected==='__other__'?null:cars[parseInt(selected,10)];
+      const name=(chosen?(chosen.name||''):(ov.querySelector('#recCarName').value||'')).trim();
       if(!name){ov.querySelector('#recCarName').focus();msg.style.color='#f87171';msg.textContent='車名を入力してください。';return;}
       if(isFreq&&!axle){msg.style.color='#f87171';msg.textContent='測定した軸（前／後）を選んでください。';return;}
       const mount=(ov.querySelector('#recMount').value||'').trim();
@@ -3426,8 +3468,8 @@ function _recOpenSendModal(data,summary){
         leverF:_recNum(ov.querySelector('#recLeverF').value),leverR:_recNum(ov.querySelector('#recLeverR').value),
         springF:_recNum(ov.querySelector('#recSpringF').value),springR:_recNum(ov.querySelector('#recSpringR').value),
         unsprungF:_recNum(ov.querySelector('#recUnsprungF').value),unsprungR:_recNum(ov.querySelector('#recUnsprungR').value),
-        unsprungFEstimated:c.unsprungFEstimated&&_recNum(ov.querySelector('#recUnsprungF').value)===c.unsprungF,
-        unsprungREstimated:c.unsprungREstimated&&_recNum(ov.querySelector('#recUnsprungR').value)===c.unsprungR
+        unsprungFEstimated:estFlags.F&&_recNum(ov.querySelector('#recUnsprungF').value)===_recEstimateUnsprung({weight:_recNum(ov.querySelector('#recWeight').value)},'F'),
+        unsprungREstimated:estFlags.R&&_recNum(ov.querySelector('#recUnsprungR').value)===_recEstimateUnsprung({weight:_recNum(ov.querySelector('#recWeight').value)},'R')
       };
       data.mountLocation=mount;
       if(isFreq)data.axle=axle;
@@ -3486,10 +3528,10 @@ function _condModal(title,condHtml,onOk){
 }
 // 収録条件テキスト（用途別）
 const COND_TXT={
-  fmMeasure:'<b>📱 スマホを、なるべく<u>前または後ろのストラットタワーに近い硬い場所</u>にしっかり固定</b>してください。<br>・いろんな速度（30〜70km/h）で走るほど精度が上がります<br>・荒れた舗装路がおすすめ。急加減速・カーブ・段差は避けて<br>・上で<b>前軸寄り／後軸寄り</b>を選んでね<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>',
+  fmMeasure:'<b>📱 スマホを、なるべく<u>前または後ろのストラットタワーに近い硬い場所</u>に動かないよう固定</b>してください。<br>・スマホアームや柔らかいホルダーは共振/ズレを拾うので避けてください<br>・いろんな速度（30〜70km/h）で走るほど精度が上がります<br>・荒れた舗装路がおすすめ。急加減速・カーブ・段差は避けて<br>・上で<b>前軸寄り／後軸寄り</b>を選んでね<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>',
   gMeter:'<b>📱 スマホをしっかり固定</b>（角度は自由・縦横OK、画面が運転席を向くように）。<br>・<b>停車中に開始</b>すると自動でゼロ点校正します<br><span style="color:#fbbf24">⚠️ 運転中は画面を注視しないで。落下注意。</span>',
   limitRun:'<b>📱 スマホをしっかり固定し、停車中に開始</b>してください。<br>・<b>本気でコースを攻めて</b>走ると、アンダー/オーバー・最大Gを記録します<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。走行後に確認。屋外（GPS）で。</span>',
-  dcFreq:'<b>📱 なるべく前または後ろの<u>ストラットタワーに近い場所</u>にしっかり固定</b>してください。<br>・<b>一定速度でなくてOK</b>（GPSを記録するので、解析で一定速度の区間だけ拾います）<br>・荒れた舗装路を何本か走ってください<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外で。</span>',
+  dcFreq:'<b>📱 なるべく前または後ろの<u>ストラットタワーに近い硬い場所</u>に動かないよう固定</b>してください。<br>・スマホアームや柔らかいホルダーは共振/ズレを拾うので避けてください<br>・<b>一定速度でなくてOK</b>（GPSを記録するので、解析で一定速度の区間だけ拾います）<br>・荒れた舗装路を何本か走ってください<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外で。</span>',
   dcRun:'<b>📱 スマホをしっかり固定して、本気で走ってください。</b><br>・加速・減速・コーナー、思い切り攻めてOK<br>・走行後にデータを土居に送信します<br><span style="color:#fbbf24">⚠️ 運転中は画面を見ないで。落下注意。屋外（GPS）で。</span>'
 };
 let _measureMode=null,_measurePanel=null,_measurePlaceholder=null;
@@ -4448,7 +4490,7 @@ function startYawMeasure(){
         if(dt>0)_ymSpeed=_haversine(_ymLastPos.lat,_ymLastPos.lon,pos.coords.latitude,pos.coords.longitude)/dt;
       }
       _ymLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
-    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
     // 走行データが全く取れないまま2分なら案内（取れていれば停止ボタンまで継続）
     _ymTimer=setTimeout(()=>{
       if(!_ymActive)return;
@@ -4544,14 +4586,15 @@ let _lrActive=false,_lrWake=null,_lrGeo=null,_lrTimer=null;
 let _lrGrav={x:0,y:0,z:9.81},_lrGravInit=false,_lrU={x:0,y:1};
 let _lrSpeed=null,_lrAcc=null,_lrLastPos=null;
 let _lrStartTs=0,_lrEvents=[],_lrTrack=[],_lrSeries=[],_lrStreak=null,_lrMaxG=0,_lrCount=0;
-const LR_EVENT=6; // 連続サンプルでイベント確定（ヨー実測と同じ）
+const LR_EVENT=10; // 連続サンプルでイベント確定。サーキット良路では旧値だと弱い揺れを拾いすぎるため厳しめ
+const LR_LATMIN=0.25,LR_UNDER_RATIO=0.72,LR_OVER_RATIO=1.35;
 // ばたつき検知（縦加速度の低周波リング=減衰不足 / 高周波チャタ=減衰過多）。閾値は実走で要調整
 let _lrVertLP=0,_lrLowE=0,_lrHighE=0,_lrBounceStreak=null,_lrBounceCool=0;
 // 縦G実効値(RMS)の閾値。RMSはサイン波振幅の約0.6倍に出る点を考慮。合成データ検証で調整(2026-06-14)
-const LR_BOUNCE_TH_LOW=0.15;  // 減衰不足(低周波リング)＝信頼できるので敏感に
-const LR_BOUNCE_TH_HIGH=0.30; // 減衰過多(高周波チャタ)＝エンジン/駆動系振動の誤検出リスクで保守的に
-const LR_BOUNCE_HOLD=8;      // 連続サンプルで確定（単発バンプを除外）
-const LR_BOUNCE_COOL=1500;   // 同種イベントの最小間隔(ms)・二重計上防止
+const LR_BOUNCE_TH_LOW=0.25;  // 減衰不足(低周波リング)。良路サーキットの誤検出を避けるため保守的
+const LR_BOUNCE_TH_HIGH=0.45; // 減衰過多/縁石チャタ。エンジン/駆動系振動の誤検出を避ける
+const LR_BOUNCE_HOLD=10;      // 連続サンプルで確定（単発バンプを除外）
+const LR_BOUNCE_COOL=2200;   // 同種イベントの最小間隔(ms)・二重計上防止
 const _LR_PN={entry:'進入',mid:'中立',exit:'立上り'};
 async function _lrWakeAcq(){try{if('wakeLock' in navigator)_lrWake=await navigator.wakeLock.request('screen');}catch(_){}}
 function _lrSetResult(html){const el=document.getElementById('limitRunResult');if(el)el.innerHTML=html;}
@@ -4617,7 +4660,7 @@ function startLimitRun(skipCond){
       }
       _lrLastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,t:pos.timestamp};
       if(_lrTrack.length<8000)_lrTrack.push({t:pos.timestamp,lat:pos.coords.latitude,lon:pos.coords.longitude,sp:_lrSpeed});
-    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    },err=>{toast('GPSが取得できません: '+err.message);},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
     // ライブ表示はヨー検出ゲートと独立に更新（直進・低Gでも速度/経過が止まらないように）
     _lrTimer=setInterval(_lrLiveStatus,500);_lrLiveStatus();
   };
@@ -4670,7 +4713,7 @@ function _lrHandler(e){
     if(bk&&_lrBounceStreak.kind===bk){
       _lrBounceStreak.c++;
       if(_lrBounceStreak.c===LR_BOUNCE_HOLD&&Date.now()-_lrBounceCool>LR_BOUNCE_COOL){
-        _lrEvents.push({t:Date.now(),cat:'bounce',kind:bk,speed:Vb*3.6,la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});_lrBounceCool=Date.now();
+        _lrEvents.push({t:Date.now(),cat:'bounce',kind:bk,g:+Math.max(lowRMS,highRMS).toFixed(3),speed:Vb*3.6,la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});_lrBounceCool=Date.now();
       }
     }else{_lrBounceStreak={kind:bk,c:bk?1:0};}
   }
@@ -4696,7 +4739,7 @@ function _lrHandler(e){
   const V=_lrSpeed;
   if(V==null||V<YM_VMIN)return;
   if(_lrAcc!=null&&_lrAcc>YM_ACCMAX)return;
-  if(Math.abs(lat)<YM_LATMIN)return;
+  if(Math.abs(lat)<LR_LATMIN)return;
   const rTh=(lat*G)/V;
   if(Math.abs(rTh)<0.02)return;
   const ratio=Math.abs(yawRate)/Math.abs(rTh);
@@ -4704,7 +4747,7 @@ function _lrHandler(e){
   _lrCount++;
   // 局面と瞬間症状を判定。同症状がLR_EVENT連続したら1イベントとして時刻付きで記録
   const ph=lon<-0.1?'entry':lon>0.1?'exit':'mid';
-  const inst=ratio<0.85?'under':ratio>1.18?'over':null;
+  const inst=ratio<LR_UNDER_RATIO?'under':ratio>LR_OVER_RATIO?'over':null;
   if(inst&&_lrStreak.ph===ph&&_lrStreak.sym===inst){
     _lrStreak.c++;
     if(_lrStreak.c===LR_EVENT)_lrEvents.push({t:Date.now(),cat:'yaw',kind:inst,ph,speed:V*3.6,g:Math.abs(lat),la:_lrLastPos?_lrLastPos.lat:null,lo:_lrLastPos?_lrLastPos.lon:null});
@@ -4720,15 +4763,15 @@ function _lrLiveStatus(){
   const accTxt=(_lrAcc!=null)?`（GPS精度±${_lrAcc.toFixed(0)}m）`:'';
   _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 限界走行 計測中（「停止」で結果）</div><div style="font-size:12px;color:var(--text2)">経過 ${Math.floor(el/60)}分${el%60}秒 ／ 速度 ${vTxt} ／ 検出イベント ${_lrEvents.length}件 ／ 最大G ${_lrMaxG.toFixed(2)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${accTxt}アンダー/オーバーは限界付近（しっかり攻めた時）のみ検出します</div></div>`);
 }
-function _lrClusterYawEvents(events){
-  const src=events.filter(e=>e.cat==='yaw').slice().sort((a,b)=>a.t-b.t);
+function _lrClusterYawEvents(events,biasCorrect=false){
+  const src=events.filter(e=>e.cat==='yaw'&&(e.g==null||e.g>=0.28)).slice().sort((a,b)=>a.t-b.t);
   const groups=[];
   src.forEach(e=>{
     const g=groups[groups.length-1];
-    if(!g||e.t-g[g.length-1].t>1800)groups.push([e]);
+    if(!g||e.t-g[g.length-1].t>3000)groups.push([e]);
     else g.push(e);
   });
-  return groups.map(g=>{
+  let out=groups.map(g=>{
     const score={under:{n:0,g:0},over:{n:0,g:0}};
     const phase={entry:0,mid:0,exit:0};
     let max=g[0];
@@ -4737,32 +4780,61 @@ function _lrClusterYawEvents(events){
       if(phase[e.ph]!=null)phase[e.ph]++;
       if((e.g||0)>(max.g||0))max=e;
     });
-    const kind=(score.over.n>score.under.n||score.over.g>score.under.g*1.25)?'over':'under';
+    const totalN=score.under.n+score.over.n;
+    const overPower=score.over.g,underPower=score.under.g;
+    const kind=(score.over.n>score.under.n||overPower>underPower*1.25)?'over':'under';
+    const dominant=score[kind]||{n:0,g:0};
+    const dominance=totalN?dominant.n/totalN:0;
     const ph=Object.keys(phase).sort((a,b)=>phase[b]-phase[a])[0]||max.ph;
-    return {...max,kind,ph,rawCount:g.length};
-  });
+    return {...max,kind,ph,rawCount:g.length,duration:g[g.length-1].t-g[0].t,dominance};
+  }).filter(e=>e.rawCount>=2&&(e.g||0)>=0.35&&e.dominance>=0.62);
+  if(biasCorrect&&src.length>100){
+    const u=out.filter(e=>e.kind==='under').length,o=out.filter(e=>e.kind==='over').length;
+    if(u>=Math.max(8,o*3))out=out.filter(e=>e.kind!=='under');
+    else if(o>=Math.max(8,u*3))out=out.filter(e=>e.kind!=='over');
+  }
+  return out;
 }
 function _lrConfidenceHtml(corners,ev,maxG=_lrMaxG,acc=_lrAcc){
   let score=45;const reasons=[];
   if(maxG>=0.8){score+=18;reasons.push('十分なG');}else if(maxG>=0.5){score+=8;reasons.push('中G');}else{score-=12;reasons.push('G不足');}
   if(corners.length>=6){score+=18;reasons.push(`コーナー${corners.length}`);}else if(corners.length>=3){score+=8;reasons.push(`コーナー${corners.length}`);}else{score-=10;reasons.push('判定数少なめ');}
   const yawRaw=ev.filter(e=>e.cat==='yaw').length;
-  if(yawRaw>corners.length*8){score-=6;reasons.push('同一コーナー内の揺れ多め');}
+  if(yawRaw>Math.max(20,corners.length*10)){score-=16;reasons.push('細かい判定が多すぎ');}
+  else if(yawRaw>corners.length*6){score-=8;reasons.push('同一コーナー内の揺れ多め');}
+  const under=corners.filter(e=>e.kind==='under').length,over=corners.filter(e=>e.kind==='over').length;
+  if(Math.max(under,over)>=Math.max(6,Math.min(under,over)*4+4)){score-=10;reasons.push('片側判定に偏り');}
   if(acc!=null&&acc<=20){score+=8;reasons.push('GPS良好');}else if(acc!=null&&acc>35){score-=10;reasons.push('GPS精度低め');}
   score=Math.max(5,Math.min(95,Math.round(score)));
   const color=score>=75?'#34d399':score>=55?'#fbbf24':'#f87171';
   const label=score>=75?'高め':score>=55?'中くらい':'低め';
   return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">限界走行 判定信頼度 <b style="color:${color}">${label}（${score}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${reasons.join(' / ')}</div></div>`;
 }
+function _lrBounceSummaryHtml(ev){
+  const raw=ev.filter(e=>e.cat==='bounce');
+  if(!raw.length)return '';
+  const strong=raw.filter(e=>e.g!=null&&e.g>=0.35);
+  if(!strong.length){
+    return `<div style="margin-top:8px;font-size:12px;color:var(--text3)">跳ね候補：${raw.length}件（旧データまたは低強度のため参考。縁石・段差・固定ブレの可能性を分けて見てください）</div>`;
+  }
+  const bounce={bunder:0,bover:0};
+  strong.forEach(e=>{if(bounce[e.kind]!=null)bounce[e.kind]++;});
+  let html=`<div style="margin-top:8px;font-size:13px">跳ね/縁石候補：`;
+  if(bounce.bunder>0)html+=`<b style="color:#f87171">低周波 ${bounce.bunder}回</b>`;
+  if(bounce.bunder>0&&bounce.bover>0)html+=' / ';
+  if(bounce.bover>0)html+=`<b style="color:#fbbf24">高周波 ${bounce.bover}回</b>`;
+  html+=`</div><div style="font-size:11px;color:var(--text3);margin-top:2px">良路サーキットでは、減衰不足/過多の断定ではなく縁石・段差・固定ブレも含む跳ねイベントとして見てください。</div>`;
+  return html;
+}
+let _lrSummaryGate={start:null,finish:null};
 function _lrFinish(){
   stopLimitRun();
+  _lrSummaryGate={start:null,finish:null};
   const ev=_lrEvents;
   const yawCorners=_lrClusterYawEvents(ev);
   // 局面×症状の集計
   const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
   yawCorners.forEach(e=>{if(agg[e.ph]&&(e.kind==='under'||e.kind==='over'))agg[e.ph][e.kind]++;});
-  const bounce={bunder:0,bover:0};
-  ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
   let best=null;
   ['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{
     const c=agg[ph][sym];if(c>0&&(!best||c>best.c))best={ph,sym,c};
@@ -4788,16 +4860,7 @@ function _lrFinish(){
   // 課題サマリ
   let summary=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${_lrMaxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件 ／ コーナー判定 ${yawCorners.length}件</div>`;
   summary+=_lrConfidenceHtml(yawCorners,ev);
-  // ばたつきサマリ
-  if(bounce.bunder>0||bounce.bover>0){
-    summary+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
-    if(bounce.bunder>0)summary+=`<b style="color:#f87171">減衰不足 ${bounce.bunder}回</b>`;
-    if(bounce.bunder>0&&bounce.bover>0)summary+=' / ';
-    if(bounce.bover>0)summary+=`<b style="color:#fbbf24">減衰過多 ${bounce.bover}回</b>`;
-    summary+=`</div>`;
-    if(bounce.bunder>=bounce.bover)summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰不足側。リバウンド減衰を強めて収まりを出す。固有振動数実測の「ばたつき限界エンジン」でバネ上限も確認できます。</div>`;
-    else summary+=`<div style="font-size:11px;color:var(--text3);margin-top:2px">→ 減衰過多側。減衰を弱めて当たりを柔らかく（高周波チャタはエンジン振動の誤検出もあり得るので参考値）。</div>`;
-  }
+  summary+=_lrBounceSummaryHtml(ev);
   if(best){
     const d=(getCar()&&getCar().drive)||_yawSel.d||'FF';
     const label=best.sym==='under'?'アンダー':'オーバー';
@@ -4812,20 +4875,27 @@ function _lrFinish(){
   const hasMap=_lrTrack.length>=10;
   const hasTimeline=_lrSeries.length>=2||ev.length>0;
   const bounds=_lrTimelineBounds();
+  const sliderMax=Math.max(1,Math.round((bounds.t1-bounds.t0)/10));
   const lapHtml=_lrLapHtml(_lrDetectLaps(_lrTrack));
   _lrSetResult(`<div style="background:var(--bg3);border-radius:10px;padding:12px">
     <div style="font-weight:700;font-size:14px;margin-bottom:6px">🏁 限界走行 結果</div>
     ${summary}
-    ${lapHtml}
+    <div id="lrLapBox">${lapHtml}</div>
     ${hasMap?`<div style="font-weight:700;font-size:13px;margin:12px 0 2px">コースマップ（イベント位置）</div>
     <canvas id="lrMap" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+      <button class="btn btn-sm" style="background:var(--bg2);color:var(--text)" onclick="_lrSetSummaryGate('start')">ここをスタート</button>
+      <button class="btn btn-sm" style="background:var(--bg2);color:var(--text)" onclick="_lrSetSummaryGate('finish')">ここをゴール</button>
+      <button class="btn btn-sm" style="background:transparent;color:var(--text3);border:1px solid rgba(255,255,255,.12)" onclick="_lrClearSummaryGate()">リセット</button>
+    </div>
+    <div id="lrGateLabel" style="font-size:10px;color:var(--text3);margin-top:4px">スライダーで緑点を動かしてスタート/ゴールを設定できます。サーキットはスタートだけでも周回計測します。</div>`:''}
     ${hasTimeline?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px"><div style="font-weight:700;font-size:13px">Gサークル</div><label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px"><input id="lrGTrail" type="checkbox" onchange="_lrScrubTime()">軌跡を表示</label></div>
     <canvas id="lrGCircle" style="width:100%;max-width:220px;display:block;background:var(--bg2);border-radius:8px;margin:0 auto 8px"></canvas>
     <div style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:6px">緑=選択時刻のG。通常は軌跡を残さず、チェックONで選択時刻までのG軌跡を表示します。</div>
     <div style="font-weight:700;font-size:13px;margin:10px 0 2px">イベント時系列</div>
     <canvas id="lrTimeline" style="width:100%;display:block;background:var(--bg2);border-radius:8px"></canvas>
-    <input id="lrTimeSlider" type="range" min="0" max="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" value="${Math.max(1,Math.round((bounds.t1-bounds.t0)/1000))}" oninput="_lrScrubTime()" style="width:100%;margin-top:8px">
+    <input id="lrTimeSlider" type="range" min="0" max="${sliderMax}" value="${sliderMax}" step="1" oninput="_lrScrubTime()" style="width:100%;margin-top:8px">
     <div id="lrTimeLabel" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>
     <div style="font-size:10px;color:var(--text3);margin-top:3px">青点=アンダー / 赤点=オーバー / オレンジ三角=ばたつき。縦の緑線が選択時刻です。</div>`:''}
     <div style="font-weight:700;font-size:13px;margin:12px 0 2px">イベントログ（時系列${ev.length>40?'・直近40件':''}）</div>
@@ -4844,8 +4914,8 @@ function _lrTimelineBounds(){
 function _lrSliderTs(){
   const b=_lrTimelineBounds();
   const sl=document.getElementById('lrTimeSlider');
-  const sec=sl?parseFloat(sl.value||'0'):(b.t1-b.t0)/1000;
-  return b.t0+sec*1000;
+  const tick=sl?parseFloat(sl.value||'0'):(b.t1-b.t0)/10;
+  return b.t0+tick*10;
 }
 function _lrFmtElapsed(ms){
   const s=Math.max(0,Math.round(ms/1000));
@@ -4855,43 +4925,83 @@ function _lrFmtLap(ms){
   const s=Math.max(0,ms/1000),m=Math.floor(s/60),r=s-m*60;
   return `${m}:${r.toFixed(2).padStart(5,'0')}`;
 }
-function _lrDetectLaps(track){
+function _lrDetectLaps(track,startGate=null,finishGate=null){
   const pts=(track||[]).filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null).sort((a,b)=>a.t-b.t);
   if(pts.length<20)return [];
-  const start=pts[0],end=pts[pts.length-1],dur=end.t-start.t;
+  const start=startGate||pts[0],finish=finishGate||start,end=pts[pts.length-1],dur=end.t-pts[0].t;
   if(dur<45000)return [];
+  const separate=_haversine(start.lat,start.lon,finish.lat,finish.lon)>25;
   const finishNear=_haversine(start.lat,start.lon,end.lat,end.lon);
-  const radius=Math.max(18,Math.min(35,finishNear<80?finishNear/2+12:22));
+  const radius=Math.max(18,Math.min(35,(!separate&&finishNear<80)?finishNear/2+12:22));
   const minLap=20000;
-  const laps=[];let lastCross=start.t,wasNear=true;
+  const laps=[];let lastCross=startGate?null:pts[0].t;
+  let wasNearStart=_haversine(start.lat,start.lon,pts[0].lat,pts[0].lon)<=radius;
+  let wasNearFinish=_haversine(finish.lat,finish.lon,pts[0].lat,pts[0].lon)<=radius;
   for(let i=1;i<pts.length;i++){
-    const p=pts[i],d=_haversine(start.lat,start.lon,p.lat,p.lon),near=d<=radius;
-    if(near&&!wasNear&&p.t-lastCross>=minLap){
+    const p=pts[i],nearStart=_haversine(start.lat,start.lon,p.lat,p.lon)<=radius,nearFinish=_haversine(finish.lat,finish.lon,p.lat,p.lon)<=radius;
+    if(separate){
+      if(nearStart&&!wasNearStart)lastCross=p.t;
+      if(lastCross&&nearFinish&&!wasNearFinish&&p.t-lastCross>=5000){
+        laps.push({n:laps.length+1,start:lastCross,end:p.t,ms:p.t-lastCross});
+        lastCross=null;
+      }
+    }else if(nearStart&&!wasNearStart&&lastCross&&p.t-lastCross>=minLap){
       laps.push({n:laps.length+1,start:lastCross,end:p.t,ms:p.t-lastCross});
       lastCross=p.t;
     }
-    wasNear=near;
+    wasNearStart=nearStart;wasNearFinish=nearFinish;
   }
   return laps.filter(l=>l.ms>=minLap);
 }
-function _lrLapHtml(laps){
-  if(!laps||!laps.length)return '';
+function _lrLapHtml(laps,gate=null){
+  if(!laps||!laps.length){
+    if(gate&&(gate.start||gate.finish))return '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12px;color:var(--text3)">指定したスタート/ゴールではまだラップを検出できません。緑点を別の位置へ動かして再設定してください。</div>';
+    return '';
+  }
   const best=Math.min(...laps.map(l=>l.ms));
   const rows=laps.map(l=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid rgba(255,255,255,.05);font-size:12px"><span style="color:var(--text3)">Lap ${l.n}</span><b style="color:${l.ms===best?'#34d399':'var(--text)'}">${_lrFmtLap(l.ms)}</b></div>`).join('');
-  return `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><b>ラップタイム推定</b><span style="color:var(--text3)">Best ${_lrFmtLap(best)}</span></div>${rows}<div style="font-size:10px;color:var(--text3);margin-top:4px">GPS軌跡がスタート地点付近に戻ったタイミングから自動推定しています。</div></div>`;
+  return `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><b>ラップタイム推定</b><span style="color:var(--text3)">Best ${_lrFmtLap(best)}</span></div>${rows}<div style="font-size:10px;color:var(--text3);margin-top:4px">${gate&&gate.finish?'指定したスタート/ゴール':'GPS軌跡がスタート地点付近に戻ったタイミング'}から推定しています。</div></div>`;
 }
-function _lrPointAt(ts){
-  const pts=_lrTrack.filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null);
+function _lrPointAt(ts,track=_lrTrack){
+  const pts=(track||[]).filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null).sort((a,b)=>a.t-b.t);
   if(!pts.length)return null;
-  let best=pts[0];
-  for(const p of pts){if(Math.abs(p.t-ts)<Math.abs(best.t-ts))best=p;}
-  return best;
+  if(ts<=pts[0].t)return pts[0];
+  if(ts>=pts[pts.length-1].t)return pts[pts.length-1];
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1],b=pts[i];
+    if(ts>=a.t&&ts<=b.t){
+      const r=(ts-a.t)/Math.max(1,b.t-a.t);
+      return {t:ts,lat:a.lat+(b.lat-a.lat)*r,lon:a.lon+(b.lon-a.lon)*r,sp:a.sp!=null&&b.sp!=null?a.sp+(b.sp-a.sp)*r:null};
+    }
+  }
+  return pts[0];
+}
+function _lrSetSummaryGate(kind){
+  const p=_lrPointAt(_lrSliderTs());
+  if(!p){toast('GPS位置がありません');return;}
+  _lrSummaryGate[kind]={t:p.t,lat:p.lat,lon:p.lon};
+  _lrRefreshSummaryLaps();
+  _lrScrubTime();
+}
+function _lrClearSummaryGate(){
+  _lrSummaryGate={start:null,finish:null};
+  _lrRefreshSummaryLaps();
+  _lrScrubTime();
+}
+function _lrRefreshSummaryLaps(){
+  const box=document.getElementById('lrLapBox');if(box)box.innerHTML=_lrLapHtml(_lrDetectLaps(_lrTrack,_lrSummaryGate.start,_lrSummaryGate.finish),_lrSummaryGate);
+  const lab=document.getElementById('lrGateLabel');
+  if(lab){
+    const s=_lrSummaryGate.start?'スタート設定済み':'スタート未設定';
+    const f=_lrSummaryGate.finish?'ゴール設定済み':'ゴール未設定';
+    lab.textContent=`${s} / ${f}。サーキットはスタートだけ、片道はスタートとゴールを別々に設定してください。`;
+  }
 }
 function _lrScrubTime(){
   const ts=_lrSliderTs();
   const b=_lrTimelineBounds();
   const lab=document.getElementById('lrTimeLabel');
-  if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
+  if(lab)lab.textContent=`${_lrFmtLap(ts-b.t0)} / ${_lrFmtLap(b.t1-b.t0)}`;
   _lrRenderMap(ts);
   _lrRenderGCircle(ts);
   _lrRenderTimeline(ts);
@@ -4927,11 +5037,24 @@ function _lrRenderMap(ts){
     ctx.fillStyle=col;ctx.beginPath();ctx.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);ctx.fill();
   });
   ctx.globalAlpha=1;
+  _lrDrawGateMarkers(ctx,X,Y,_lrSummaryGate);
   const cur=_lrPointAt(ts);
   if(cur){
     ctx.fillStyle='#34d399';ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(X(cur),Y(cur),6,0,Math.PI*2);ctx.fill();ctx.stroke();
   }
+}
+function _lrDrawGateMarkers(ctx,X,Y,gate){
+  if(!gate)return;
+  const draw=(p,label,col)=>{
+    if(!p||p.lat==null||p.lon==null)return;
+    const x=X(p),y=Y(p);
+    ctx.fillStyle=col;ctx.strokeStyle='rgba(0,0,0,.7)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.rect(x-6,y-6,12,12);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(label,x,y+3);
+  };
+  draw(gate.start,'S','#22c55e');
+  draw(gate.finish,'G','#f97316');
 }
 function _lrRenderGCircle(ts){
   const cv=document.getElementById('lrGCircle');if(!cv)return;
@@ -5619,7 +5742,7 @@ function _collectedLimitCtx(d){
   }
   events.forEach(e=>{if(e.g!=null&&e.g>maxG)maxG=e.g;});
   const acc=(track.find(p=>p.acc!=null)||{}).acc;
-  return {startTs,events,track,series,maxG,acc,car:d.car||{},durationSec:d.durationSec||0};
+  return {startTs,events,track,series,maxG,acc,car:d.car||{},durationSec:d.durationSec||0,gate:{start:null,finish:null}};
 }
 function _collectedLimitBounds(ctx){
   const times=[ctx.startTs||Date.now()];
@@ -5631,7 +5754,7 @@ function _collectedLimitBounds(ctx){
 }
 function _collectedLimitSummary(ctx){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const ev=ctx.events,yawCorners=_lrClusterYawEvents(ev);
+  const ev=ctx.events,yawCorners=_lrClusterYawEvents(ev,true);
   const b=_collectedLimitBounds(ctx);
   const elapsed=Math.round((b.t1-b.t0)/1000);
   const agg={entry:{under:0,over:0},mid:{under:0,over:0},exit:{under:0,over:0}};
@@ -5642,16 +5765,10 @@ function _collectedLimitSummary(ctx){
   }).join('');
   let html=`<div style="font-size:12px;color:var(--text2)">走行時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒 ／ 最大合成G <b>${ctx.maxG.toFixed(2)}G</b> ／ 検出イベント ${ev.length}件 ／ コーナー判定 ${yawCorners.length}件</div>`;
   html+=_lrConfidenceHtml(yawCorners,ev,ctx.maxG,ctx.acc);
+  const rawYaw=ev.filter(e=>e.cat==='yaw').length;
+  if(rawYaw>100&&yawCorners.length<rawYaw/20)html+=`<div style="font-size:11px;color:#fbbf24;margin-top:6px">旧ロジックの片側過検出を補正しました。アンダー/オーバーの連続判定は参考値として、ドライバーコメントと併せて見てください。</div>`;
   if(rows)html+=`<div style="margin-top:8px;font-size:12px">${rows}</div>`;
-  const bounce={bunder:0,bover:0};
-  ev.forEach(e=>{if(e.cat==='bounce'&&bounce[e.kind]!=null)bounce[e.kind]++;});
-  if(bounce.bunder||bounce.bover){
-    html+=`<div style="margin-top:8px;font-size:13px">ばたつき検知：`;
-    if(bounce.bunder)html+=`<b style="color:#f87171">減衰不足 ${bounce.bunder}回</b>`;
-    if(bounce.bunder&&bounce.bover)html+=' / ';
-    if(bounce.bover)html+=`<b style="color:#fbbf24">減衰過多 ${bounce.bover}回</b>`;
-    html+='</div>';
-  }
+  html+=_lrBounceSummaryHtml(ev);
   let best=null;['entry','mid','exit'].forEach(ph=>['under','over'].forEach(sym=>{const c=agg[ph][sym];if(c&&(!best||c>best.c))best={ph,sym,c};}));
   if(best){
     const label=best.sym==='under'?'アンダー':'オーバー';
@@ -5670,21 +5787,27 @@ function _collectedLimitHtml(d,ctx,key){
   const b=_collectedLimitBounds(ctx);
   const hasMap=ctx.track.length>=10,hasTimeline=ctx.series.length>=2||ctx.events.length>0;
   const hasGCircle=ctx.series.some(p=>p.lon!=null&&p.lat!=null);
-  const lapHtml=_lrLapHtml(_lrDetectLaps(ctx.track));
-  const sec=Math.max(1,Math.round((b.t1-b.t0)/1000));
+  const lapHtml=_lrLapHtml(_lrDetectLaps(ctx.track,ctx.gate&&ctx.gate.start,ctx.gate&&ctx.gate.finish),ctx.gate);
+  const tickMax=Math.max(1,Math.round((b.t1-b.t0)/10));
   return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 収集データ サマリ</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
     ${_collectedLimitSummary(ctx)}
-    ${lapHtml}
+    <div id="${key}_lapbox">${lapHtml}</div>
     ${hasMap?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">コースマップ</div>
     <canvas id="${key}_map" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">灰線=全体軌跡 / 青線=選択時刻まで / 緑点=現在位置。カラフルな点は検出イベント（青=アンダー / 赤=オーバー / オレンジ=ばたつき）です。</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="_collectedLimitSetGate('${key}','start')">ここをスタート</button>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text)" onclick="_collectedLimitSetGate('${key}','finish')">ここをゴール</button>
+      <button class="btn btn-sm" style="background:transparent;color:var(--text3);border:1px solid rgba(255,255,255,.12)" onclick="_collectedLimitClearGate('${key}')">リセット</button>
+    </div>
+    <div id="${key}_gatelabel" style="font-size:10px;color:var(--text3);margin-top:4px">スライダーで緑点を動かしてスタート/ゴールを設定できます。</div>`:''}
     ${hasGCircle?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px"><div style="font-weight:700;font-size:12px">Gサークル</div><label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px"><input id="${key}_gtrail" type="checkbox" onchange="_collectedLimitScrub('${key}')">軌跡を表示</label></div>
     <canvas id="${key}_gcircle" style="width:100%;max-width:220px;display:block;background:var(--bg3);border-radius:8px;margin:0 auto 8px"></canvas>`:''}
     ${hasTimeline?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">イベント時系列</div>
     <canvas id="${key}_timeline" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
-    <input id="${key}_slider" type="range" min="0" max="${sec}" value="${sec}" oninput="_collectedLimitScrub('${key}')" style="width:100%;margin-top:8px">
+    <input id="${key}_slider" type="range" min="0" max="${tickMax}" value="${tickMax}" step="1" oninput="_collectedLimitScrub('${key}')" style="width:100%;margin-top:8px">
     <div id="${key}_label" style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px"></div>`:''}
     ${(!hasMap&&!hasTimeline)?'<div style="font-size:12px;color:var(--text3);padding:6px 0">表示できるGPS軌跡または時系列サンプルがありません。</div>':''}
   </div>`;
@@ -5692,16 +5815,43 @@ function _collectedLimitHtml(d,ctx,key){
 function _collectedLimitScrub(key){
   const ctx=_collectedLimitViews[key];if(!ctx)return;
   const b=_collectedLimitBounds(ctx),sl=document.getElementById(`${key}_slider`);
-  const ts=b.t0+(sl?parseFloat(sl.value||'0')*1000:(b.t1-b.t0));
+  const ts=b.t0+(sl?parseFloat(sl.value||'0')*10:(b.t1-b.t0));
   const lab=document.getElementById(`${key}_label`);
-  if(lab)lab.textContent=`${_lrFmtElapsed(ts-b.t0)} / ${_lrFmtElapsed(b.t1-b.t0)}`;
+  if(lab)lab.textContent=`${_lrFmtLap(ts-b.t0)} / ${_lrFmtLap(b.t1-b.t0)}`;
   _collectedLimitRenderMap(key,ctx,ts);
   _collectedLimitRenderGCircle(key,ctx,ts);
   _collectedLimitRenderTimeline(key,ctx,ts);
 }
 function _collectedLimitPointAt(ctx,ts){
-  const pts=ctx.track.filter(p=>p.lat!=null&&p.lon!=null&&p.t!=null);if(!pts.length)return null;
-  let best=pts[0];for(const p of pts){if(Math.abs(p.t-ts)<Math.abs(best.t-ts))best=p;}return best;
+  return _lrPointAt(ts,ctx.track);
+}
+function _collectedLimitSetGate(key,kind){
+  const ctx=_collectedLimitViews[key];if(!ctx)return;
+  const b=_collectedLimitBounds(ctx),sl=document.getElementById(`${key}_slider`);
+  const ts=b.t0+(sl?parseFloat(sl.value||'0')*10:(b.t1-b.t0));
+  const p=_collectedLimitPointAt(ctx,ts);
+  if(!p){toast('GPS位置がありません');return;}
+  if(!ctx.gate)ctx.gate={start:null,finish:null};
+  ctx.gate[kind]={t:p.t,lat:p.lat,lon:p.lon};
+  _collectedLimitRefreshLaps(key);
+  _collectedLimitScrub(key);
+}
+function _collectedLimitClearGate(key){
+  const ctx=_collectedLimitViews[key];if(!ctx)return;
+  ctx.gate={start:null,finish:null};
+  _collectedLimitRefreshLaps(key);
+  _collectedLimitScrub(key);
+}
+function _collectedLimitRefreshLaps(key){
+  const ctx=_collectedLimitViews[key];if(!ctx)return;
+  const box=document.getElementById(`${key}_lapbox`);
+  if(box)box.innerHTML=_lrLapHtml(_lrDetectLaps(ctx.track,ctx.gate&&ctx.gate.start,ctx.gate&&ctx.gate.finish),ctx.gate);
+  const lab=document.getElementById(`${key}_gatelabel`);
+  if(lab){
+    const s=ctx.gate&&ctx.gate.start?'スタート設定済み':'スタート未設定';
+    const f=ctx.gate&&ctx.gate.finish?'ゴール設定済み':'ゴール未設定';
+    lab.textContent=`${s} / ${f}。サーキットはスタートだけ、片道はスタートとゴールを別々に設定してください。`;
+  }
 }
 function _collectedLimitRenderMap(key,ctx,ts){
   const cv=document.getElementById(`${key}_map`);if(!cv)return;
@@ -5720,6 +5870,7 @@ function _collectedLimitRenderMap(key,ctx,ts){
   if(past.length>=2){c.strokeStyle='#60a5fa';c.lineWidth=3;c.beginPath();past.forEach((p,i)=>{i?c.lineTo(X(p),Y(p)):c.moveTo(X(p),Y(p));});c.stroke();}
   ctx.events.forEach(e=>{if(e.la==null||e.lo==null)return;const col=e.cat==='bounce'?'#fbbf24':(e.kind==='under'?'#60a5fa':'#f87171');c.globalAlpha=e.t<=ts?1:.35;c.fillStyle=col;c.beginPath();c.arc(X({lon:e.lo}),Y({lat:e.la}),4,0,Math.PI*2);c.fill();});
   c.globalAlpha=1;
+  _lrDrawGateMarkers(c,X,Y,ctx.gate);
   const cur=_collectedLimitPointAt(ctx,ts);
   if(cur){c.fillStyle='#34d399';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=2;c.beginPath();c.arc(X(cur),Y(cur),6,0,Math.PI*2);c.fill();c.stroke();}
 }
@@ -5793,7 +5944,8 @@ function _collectedFreqAnalyze(d){
   const avg=freqs.map((_,i)=>segs.reduce((s,g)=>s+g.psd[i],0)/segs.length);
   const sm=_fmSmooth(avg);
   const car={...(d.car||{})};
-  if(car.weight&&!car.frontRatio)car.frontRatio=car.rearRatio?(100-car.rearRatio):50;
+  const assumedFront=!!(car.weight&&!car.frontRatio);
+  if(assumedFront)car.frontRatio=car.rearRatio?(100-car.rearRatio):50;
   const axle=d.axle==='R'?'R':'F';
   const calcF=(car.springF&&car.leverF&&car.weight)?computeNaturalFreq(car.springF,car.leverF,cornerMass(car,'F')):null;
   const calcR=(car.springR&&car.leverR&&car.weight)?computeNaturalFreq(car.springR,car.leverR,cornerMass(car,'R')):null;
@@ -5827,14 +5979,28 @@ function _collectedFreqAnalyze(d){
   }
   const speeds=segs.map(s=>s.speed).filter(v=>v!=null&&isFinite(v));
   const bands=new Set(speeds.map(v=>FM_SPEED_BANDS.findIndex(b=>v>=b[0]&&v<b[1])).filter(i=>i>=0));
+  const speedRange=speeds.length?Math.max(...speeds)-Math.min(...speeds):0;
+  const mount=String(d.mountLocation||'');
+  const mountRisk=!mount||/アーム|吸盤|ホルダ|ダッシュ|柔|揺|仮|手持|マグネット/i.test(mount);
   let conf=55,reasons=[];
   if(segs.length>=6){conf+=10;reasons.push(`区間${segs.length}`);}else{conf-=6;reasons.push(`区間${segs.length}`);}
   if(bands.size>=2){conf+=12;reasons.push(`速度帯${bands.size}`);}else{conf-=10;reasons.push('速度幅不足');}
+  if(speedRange<8){conf-=16;reasons.push('速度変化が狭い');}
+  else if(speedRange<18){conf-=8;reasons.push('速度幅やや狭い');}
   if(prom>=0.35){conf+=10;reasons.push('山が明確');}else if(prom<0.22){conf-=10;reasons.push('山が弱い');}
-  if(fc){const diff=Math.abs(freq-fc);if(diff<=0.25){conf+=10;reasons.push('計算値近傍');}else if(diff<=0.6){conf+=4;reasons.push('計算値と近い');}else{conf-=8;reasons.push('計算値から離れ気味');}}else{conf-=5;reasons.push('車両情報不足');}
+  let calcDiff=null;
+  if(fc){
+    calcDiff=Math.abs(freq-fc);
+    if(calcDiff<=0.25){conf+=10;reasons.push('計算値近傍');}
+    else if(calcDiff<=0.4){reasons.push('計算値と少し差');}
+    else if(calcDiff<=0.65){conf-=14;reasons.push('計算値から差あり');}
+    else{conf-=24;reasons.push('計算値から大きく乖離');}
+  }else{conf-=8;reasons.push('車両情報不足');}
+  if(assumedFront){conf-=5;reasons.push('荷重比50:50仮定');}
+  if(mountRisk){conf-=15;reasons.push(mount?'固定場所リスク':'固定場所不明');}
   if(freq>3.0){conf-=18;reasons.push('高域注意');}
   conf=Math.max(5,Math.min(95,Math.round(conf)));
-  return {ok:true,samples,gps,segs,freqs,spec:sm,sel,freq,second,axle,calcF,calcR,fc,prom,conf,reasons,speeds,bands:bands.size};
+  return {ok:true,samples,gps,segs,freqs,spec:sm,sel,freq,second,axle,calcF,calcR,fc,calcDiff,prom,conf,reasons,speeds,bands:bands.size,assumedFront,mount,mountRisk};
 }
 function _collectedFreqHtml(d,ctx,key){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5842,7 +6008,8 @@ function _collectedFreqHtml(d,ctx,key){
   const color=ctx.conf>=75?'#34d399':ctx.conf>=55?'#fbbf24':'#f87171';
   const label=ctx.conf>=75?'高め':ctx.conf>=55?'中くらい':'低め';
   const speedTxt=ctx.speeds.length?`${Math.min(...ctx.speeds).toFixed(0)}〜${Math.max(...ctx.speeds).toFixed(0)}km/h`:'速度なし';
-  const warn=ctx.freq>3.0?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">高めの値です。エンジン/ボディ構造振動を拾っている可能性があります。サスに近い硬い場所で再測定すると切り分けできます。</div>':'';
+  const mountWarn=(ctx.mountRisk||ctx.calcDiff>0.4||ctx.freq>3.0)?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">⚠️ 固有振動数実測は、スマホをストラットタワー付近などの硬い場所に動かないよう固定してください。スマホアーム、柔らかいホルダー、ダッシュボード固定は共振やズレを拾って計算値と大きく外れることがあります。</div>':'';
+  const warn=ctx.freq>3.0?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">高めの値です。エンジン/ボディ構造振動を拾っている可能性があります。</div>':'';
   return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 固有振動数サマリ</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ 測定軸=${ctx.axle==='R'?'後':'前'} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
@@ -5851,9 +6018,11 @@ function _collectedFreqHtml(d,ctx,key){
       <div class="calc-item"><div class="calc-item-label">信頼度</div><div class="calc-item-value" style="color:${color}">${label}</div></div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:6px">計算値: F ${ctx.calcF?ctx.calcF.toFixed(2)+'Hz':'-'} / R ${ctx.calcR?ctx.calcR.toFixed(2)+'Hz':'-'} ／ 速度 ${speedTxt} ／ 有効区間 ${ctx.segs.length}</div>
+    ${ctx.assumedFront?'<div style="font-size:10px;color:#fbbf24;margin-top:3px">前後荷重比が未入力のため、計算値だけ50:50仮定で表示しています。</div>':''}
     <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">信頼度 <b style="color:${color}">${label}（${ctx.conf}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${ctx.reasons.join(' / ')}</div></div>
     ${ctx.second?`<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピーク候補: ${ctx.second.f.toFixed(2)} Hz</div>`:''}
     ${warn}
+    ${mountWarn}
     <div style="font-weight:700;font-size:12px;margin:12px 0 2px">振動スペクトル</div>
     <canvas id="${key}_spec" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
     ${ctx.gps.length>=2?`<div style="font-weight:700;font-size:12px;margin:12px 0 2px">GPS軌跡</div><canvas id="${key}_map" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>`:''}
