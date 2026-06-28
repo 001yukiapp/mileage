@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.4</title>
+<title>Mileage 3.23.5</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.4</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.5</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.4</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.5</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.4';
+const APP_VERSION = '3.23.5';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3865,11 +3865,53 @@ function stopFreqMeasure(completed,reason){
 let _fmLastFreq=0,_fmLastZeta=null;
 // ±0.15Hzの周波数平滑化（ノイズスパイク除去）
 function _fmSmooth(arr){return arr.map((_,i)=>{let s=0,c=0;for(let j=Math.max(0,i-3);j<=Math.min(arr.length-1,i+3);j++){s+=arr[j];c++;}return s/c;});}
+function _fmPeakBounds(freqs){
+  const loIdx=Math.max(0,freqs.findIndex(f=>f>=FM_PEAK_LO));
+  let hiIdx=freqs.length-1;
+  for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){hiIdx=i;break;}}
+  return {loIdx,hiIdx};
+}
+function _fmLocalProminence(spec,i,loIdx,hiIdx){
+  let left=spec[i],right=spec[i];
+  for(let j=i;j>=loIdx;j--)left=Math.min(left,spec[j]);
+  for(let j=i;j<=hiIdx;j++)right=Math.min(right,spec[j]);
+  const base=Math.max(left,right);
+  return spec[i]>0?(spec[i]-base)/spec[i]:0;
+}
+function _fmPickMeasuredPeak(freqs,spec,opts){
+  const {loIdx,hiIdx}=_fmPeakBounds(freqs);
+  if(loIdx<0||hiIdx<=loIdx)return null;
+  const calcFreq=opts&&opts.calcFreq;
+  const assist=opts&&opts.assist;
+  let maxV=0,assistMax=0;
+  for(let i=loIdx;i<=hiIdx;i++){
+    if(spec[i]>maxV)maxV=spec[i];
+    if(assist&&assist[i]>assistMax)assistMax=assist[i];
+  }
+  if(maxV<=0)return null;
+  const candidates=[];
+  for(let i=Math.max(1,loIdx);i<=Math.min(spec.length-2,hiIdx);i++){
+    if(!(spec[i]>spec[i-1]&&spec[i]>=spec[i+1]))continue;
+    const norm=spec[i]/maxV;
+    if(norm<0.18)continue;
+    const prom=_fmLocalProminence(spec,i,loIdx,hiIdx);
+    const nearCalc=calcFreq&&Math.abs(freqs[i]-calcFreq)<=0.75;
+    if(prom<0.06&&norm<0.45&&!(nearCalc&&norm>=0.25))continue;
+    const calcBoost=calcFreq?1+0.08*Math.exp(-Math.pow(freqs[i]-calcFreq,2)/(2*FM_PRIOR_SIGMA*FM_PRIOR_SIGMA)):1;
+    const assistBoost=(assist&&assistMax>0)?0.75+0.35*(assist[i]/assistMax):1;
+    const shapeBoost=0.9+0.25*Math.min(1,prom/0.25);
+    candidates.push({i,f:freqs[i],v:spec[i],norm,prom,rank:norm*shapeBoost*assistBoost*calcBoost});
+  }
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>b.rank-a.rank);
+  const top=candidates[0];
+  return {pi:top.i,pv:top.v,prom:top.prom,candidates};
+}
 // ★B-1 速度不変ピーク選択：速度帯ごとに正規化スペクトルを作り、全帯で高い周波数だけ残す幾何平均スコアを返す。
 // 路面/エンジン由来の山は速度で動くので1帯でしか高くならず落ちる。ボディ共振だけが全帯で居座る。計算値は不要。
-function _fmInvarianceScore(freqs){
+function _fmInvarianceScoreFromSegments(freqs,segs){
   const bins=FM_SPEED_BANDS.map(()=>({sum:null,cnt:0}));
-  for(const seg of _fmSegList){
+  for(const seg of segs){
     if(seg.speed==null)continue;
     const bi=FM_SPEED_BANDS.findIndex(b=>seg.speed>=b[0]&&seg.speed<b[1]);
     if(bi<0)continue;
@@ -3889,6 +3931,7 @@ function _fmInvarianceScore(freqs){
   const score=freqs.map((_,i)=>{let prod=1;for(const bd of bands)prod*=Math.max(bd[i],1e-4);return Math.pow(prod,1/bands.length);});
   return {score,bandCount:bands.length};
 }
+function _fmInvarianceScore(freqs){return _fmInvarianceScoreFromSegments(freqs,_fmSegList);}
 function _analyzeFreq(partial){
   const el=document.getElementById('freqMeasureResult');
   if(!_fmPsdSum||_fmSegCount<2){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">データが不十分でした。もう一度お試しください。</div>';return;}
@@ -3896,55 +3939,29 @@ function _analyzeFreq(partial){
   const avg=_fmPsdSum.map(p=>p/_fmSegCount);
   const sm=_fmSmooth(avg);                 // 全体の生PSD（★1/f重みは撤廃＝低域へのピンどめを解消）
   const inv=_fmInvarianceScore(freqs);      // 速度不変スコア（速度の幅が足りれば）
-  // 選択用スペクトル sel：速度不変スコアがあればそれ、無ければ生PSD
-  let sel=inv?inv.score.slice():sm.slice();
-  // 計算値ソフト事前分布（バネ/レバー比があれば、選んだ軸の計算値近傍を緩く後押し＝同点決勝のみ。無くても動く）
+  // 実測値は表示している物理スペクトル(sm)上の局所ピークだけから選ぶ。
+  // 速度不変スコアと計算値は、ピーク候補の順位付けと信頼度にだけ使い、山ではない位置へ縦線を動かさない。
   const _carP=getCar();
   const _fc=_fmAxle==='R'
     ?((_carP&&_carP.springR&&_carP.leverR)?computeNaturalFreq(_carP.springR,_carP.leverR,cornerMass(_carP,'R')):null)
     :((_carP&&_carP.springF&&_carP.leverF)?computeNaturalFreq(_carP.springF,_carP.leverF,cornerMass(_carP,'F')):null);
-  if(_fc)sel=sel.map((v,i)=>v*(0.6+0.4*Math.exp(-((freqs[i]-_fc)**2)/(2*FM_PRIOR_SIGMA*FM_PRIOR_SIGMA))));
-  let pi=-1,pv=-1;
-  freqs.forEach((f,i)=>{if(f>=FM_PEAK_LO&&f<=FM_PEAK_HI&&sel[i]>pv){pv=sel[i];pi=i;}});
-  if(pi<0||pv<=0){if(el)el.innerHTML='<div style="color:var(--text3);font-size:13px">振動が検出できませんでした。設置・固定を確認してください。</div>';return;}
-  // 有効な共振ピークか判定：探索帯の端に張り付いた/明確な山が無い場合はゴミとして弾く
-  const _loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
-  let _hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){_hiIdx=i;break;}}
-  // 補正データ対策: 高域の構造振動が最大でも、計算値近傍に十分な局所ピークがあればそちらを共振候補にする。
-  if(_fc&&freqs[pi]>3.0){
-    let near=null;
-    for(let i=Math.max(1,_loIdx);i<=Math.min(sel.length-2,_hiIdx);i++){
-      const f=freqs[i];
-      if(Math.abs(f-_fc)>0.7)continue;
-      if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&sel[i]>=pv*0.25){
-        if(!near||sel[i]>near.v)near={i,v:sel[i]};
-      }
-    }
-    if(near){pi=near.i;pv=near.v;}
-  }
-  let _rmin=pv;for(let i=pi;i<=_hiIdx;i++){if(sel[i]<_rmin)_rmin=sel[i];} // ピークより高域側の谷
-  const _prom=pv>0?(pv-_rmin)/pv:0; // 山のプロミネンス
-  if(pi<=_loIdx||pi>=_hiIdx||_prom<FM_PROM_MIN){
+  const _pick=_fmPickMeasuredPeak(freqs,sm,{calcFreq:_fc,assist:inv?inv.score:null});
+  if(!_pick){
     if(el)el.innerHTML='<div style="color:#fbbf24;font-size:13px;line-height:1.7">⚠️ 有効な共振ピークを検出できませんでした。<br><span style="color:var(--text3);font-size:12px">スペクトルに明確な山が立っていません（路面が滑らか／速度が一定でない等）。<b>荒れた舗装路を40〜60km/hの一定速度</b>で、急加減速・カーブ・段差を避けて再測定してください。</span></div>';
     return;
   }
-  // ピークを含む山（半値以上の連続領域）の重心で読む。減衰で山が幅広くても安定
+  const pi=_pick.pi,pv=_pick.pv,_prom=_pick.prom;
+  const {loIdx:_loIdx,hiIdx:_hiIdx}=_fmPeakBounds(freqs);
+  // 表示値はピーク周波数そのものを読む。半値幅の重心で山の肩へズレるのを避ける
+  const freq=freqs[pi];
+  // ピークを含む山（半値以上の連続領域）はζ参考値と第2ピーク除外にだけ使う
   const th=pv*0.5;
   let lo=pi,hi=pi;
-  while(lo>_loIdx&&sel[lo-1]>=th)lo--;
-  while(hi<_hiIdx&&sel[hi+1]>=th)hi++;
-  let sw=0,swf=0;
-  for(let i=lo;i<=hi;i++){const w=sel[i]-th;sw+=w;swf+=w*freqs[i];}
-  const freq=sw?swf/sw:freqs[pi];
+  while(lo>_loIdx&&sm[lo-1]>=th)lo--;
+  while(hi<_hiIdx&&sm[hi+1]>=th)hi++;
   // 第2ピーク（前後どちらかの軸の共振が分離して見える場合・主の山の外側）
-  let second=null;
-  for(let i=1;i<freqs.length-1;i++){
-    const f=freqs[i];
-    if(f<FM_PEAK_LO||f>FM_PEAK_HI||(i>=lo&&i<=hi))continue;
-    if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&Math.abs(f-freq)>=0.4&&sel[i]>=pv*0.35){
-      if(!second||sel[i]>second.v)second={f,v:sel[i]};
-    }
-  }
+  const _secondCand=_pick.candidates.find(c=>Math.abs(c.f-freq)>=0.4&&c.v>=pv*0.25);
+  const second=_secondCand?{f:_secondCand.f,v:_secondCand.v}:null;
   _fmLastFreq=freq;
   // ζ は物理スペクトル(sm)の山の幅から推定（選択スコアではなく実際のPSD形状で）。単発は当てにならず参考のみ
   const _pIdx=freqs.reduce((bi,f,i)=>Math.abs(f-freq)<Math.abs(freqs[bi]-freq)?i:bi,0);
@@ -3957,9 +3974,11 @@ function _analyzeFreq(partial){
   _fmLastZeta=_zeta;
   // 測定方法ノート（速度不変が効いたか／設置の注意）
   const _methodNote=inv
-    ?`<div style="font-size:10px;color:var(--text3);margin-top:4px">速度不変ピーク法：${inv.bandCount}つの速度帯で共通の山を共振として採用${_fc?'＋計算値で微調整':''}。</div>`
-    :`<div style="font-size:10px;color:#fbbf24;margin-top:4px">⚠️ 速度の幅が足りず生スペクトルの最大ピークを採用${_fc?'（計算値で微調整）':''}。いろんな速度（30〜70km/h）で走ると精度が上がります。</div>`;
-  const _mountNote=(freq>3.0)?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 高めの値です。設置がサスから遠い（ダッシュボード等）とエンジン/構造の振動を拾います。前後軸付近の硬い場所に固定してください。</div>`:'';
+    ?`<div style="font-size:10px;color:var(--text3);margin-top:4px">速度不変ピーク法：${inv.bandCount}つの速度帯で共通しやすい、実スペクトル上の山を採用。計算値は参考と信頼度にのみ使用。</div>`
+    :`<div style="font-size:10px;color:#fbbf24;margin-top:4px">⚠️ 速度の幅が足りず、生スペクトルの局所ピークを採用。いろんな速度（30〜70km/h）で走ると精度が上がります。計算値は参考と信頼度にのみ使用。</div>`;
+  const _calcDiffForWarn=_fc?Math.abs(freq-_fc):null;
+  const _mountNote=(freq>3.0||(_calcDiffForWarn!=null&&_calcDiffForWarn>0.4))?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 実測ピークと計算値の差が大きい/高めの値です。スマホがサスから遠い（コンソール・ダッシュボード等）とエンジン/ボディ構造の振動を拾います。前後軸付近の硬い場所に動かないよう固定してください。</div>`:'';
+  const _weakPeakNote=(_prom<FM_PROM_MIN)?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 山の立ち上がりが弱いため、値は参考扱いです。縦線は補正値ではなく、実スペクトル上の山に合わせています。</div>`:'';
   let _conf=55;
   const _confReasons=[];
   if(inv){_conf+=18;_confReasons.push(`速度帯${inv.bandCount}`);if(inv.bandCount>=3)_conf+=8;}else{_conf-=10;_confReasons.push('速度幅不足');}
@@ -3968,8 +3987,9 @@ function _analyzeFreq(partial){
   if(_fc){
     const diff=Math.abs(freq-_fc);
     if(diff<=0.25){_conf+=10;_confReasons.push('計算値近傍');}
-    else if(diff<=0.6){_conf+=4;_confReasons.push('計算値と近い');}
-    else{_conf-=8;_confReasons.push('計算値から離れ気味');}
+    else if(diff<=0.4){_confReasons.push('計算値と少し差');}
+    else if(diff<=0.65){_conf-=14;_confReasons.push('計算値から差あり');}
+    else{_conf-=24;_confReasons.push('計算値から大きく乖離');}
   }else{_conf-=5;_confReasons.push('車両情報不足');}
   if(freq>3.0){_conf-=18;_confReasons.push('高域注意');}
   _conf=Math.max(5,Math.min(95,Math.round(_conf)));
@@ -3981,7 +4001,7 @@ function _analyzeFreq(partial){
   const _car=getCar();
   const calcF=(_car.springF&&_car.leverF)?computeNaturalFreq(_car.springF,_car.leverF,cornerMass(_car,'F')):null;
   const calcR=(_car.springR&&_car.leverR)?computeNaturalFreq(_car.springR,_car.leverR,cornerMass(_car,'R')):null;
-  const calcNote=(calcF||calcR)?`<div style="font-size:11px;color:var(--text3);margin-top:6px">計算値（バネレートから）: F ${calcF?calcF.toFixed(2)+'Hz':'-'} / R ${calcR?calcR.toFixed(2)+'Hz':'-'}　<span style="color:#a8c">測定軸=${_fmAxle==='R'?'後':'前'}</span></div>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">設定で車重・レバー比・バネレートを入れると、計算値で自動選択を微調整できます。</div>';
+  const calcNote=(calcF||calcR)?`<div style="font-size:11px;color:var(--text3);margin-top:6px">計算値（バネレートから）: F ${calcF?calcF.toFixed(2)+'Hz':'-'} / R ${calcR?calcR.toFixed(2)+'Hz':'-'}　<span style="color:#a8c">測定軸=${_fmAxle==='R'?'後':'前'}</span></div>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">設定で車重・レバー比・バネレートを入れると、計算値との差で信頼度を見られます。</div>';
   const warn=(freq<=FM_PEAK_LO+0.05||freq>=FM_PEAK_HI-0.05)?'<div style="font-size:11px;color:#fbbf24;margin-top:8px">⚠️ 探索範囲の端の値です。エンジン振動や設置・固定の影響の可能性があります。位置を見直して再計測してください。</div>':'';
   const partialNote=partial?`<div style="font-size:11px;color:#fbbf24;margin-bottom:6px">⚠️ 5分経過のため有効${_fmValidS}秒分で解析しました</div>`:'';
   // 減衰ζ：単発の半値幅は平滑化や山の重なりで暴れて当てにならない。参考のグレー表示に格下げ（判断は限界走行のばたつき検知で）
@@ -4002,11 +4022,12 @@ function _analyzeFreq(partial){
     ${second?'<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピークは前後どちらかの軸の共振の可能性があります</div>':''}
     ${_methodNote}
     ${_mountNote}
+    ${_weakPeakNote}
     ${_confNote}
     ${calcNote}
     ${dampNote}
     <div class="chart-wrap"><canvas id="fmChart"></canvas></div>
-    <div style="font-size:10px;color:var(--text3);margin-top:4px">縦軸＝揺れの強さ／横軸＝周波数。山が立つ周波数ほど揺れやすく、<b>赤い点が固有振動数</b>。</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">縦軸＝揺れの強さ／横軸＝周波数。山が立つ周波数ほど揺れやすく、<b>赤い点が実測ピーク</b>、黄色い破線が計算値（ある場合）。</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('F')">フロントに反映</button>
       <button class="btn btn-sm" style="background:var(--bg3);color:var(--text);flex:1" onclick="applyMeasuredFreq('R')">リアに反映</button>
@@ -4022,7 +4043,7 @@ function _analyzeFreq(partial){
   </div>`;
   // チャートは物理スペクトル(sm)で表示。ピーク/第2ピークもsmスケールに合わせる
   const _chartSecond=second?{f:second.f,v:sm[freqs.reduce((bi,f,i)=>Math.abs(f-second.f)<Math.abs(freqs[bi]-second.f)?i:bi,0)]}:null;
-  _fmRenderChart(freqs,sm,freq,sm[_pIdx],_chartSecond);
+  _fmRenderChart(freqs,sm,freq,sm[_pIdx],_chartSecond,_fc);
   renderBounceEngine();
 }
 // ==== ばたつき限界エンジン（ζ帯）：k_max=k0×(ζ0/ζ_min)² で「ばたつかない限界の硬さ」を逆算 ====
@@ -4065,7 +4086,7 @@ function renderBounceEngine(){
   h+=`</div>`;
   el.innerHTML=h;
 }
-function _fmRenderChart(freqs,spec,peakF,peakV,second){
+function _fmRenderChart(freqs,spec,peakF,peakV,second,calcF){
   const canvas=document.getElementById('fmChart');
   if(!canvas||typeof Chart==='undefined')return;
   if(_fmChart){_fmChart.destroy();_fmChart=null;}
@@ -4075,6 +4096,7 @@ function _fmRenderChart(freqs,spec,peakF,peakV,second){
     {label:'ピーク',data:[{x:peakF,y:peakV/m}],pointRadius:5,pointBackgroundColor:'#f87171',borderColor:'#f87171',showLine:false}
   ];
   if(second)datasets.push({label:'第2ピーク',data:[{x:second.f,y:second.v/m}],pointRadius:4,pointBackgroundColor:'#fbbf24',borderColor:'#fbbf24',showLine:false});
+  if(calcF&&calcF>=FM_SCAN_LO&&calcF<=FM_SCAN_HI)datasets.push({label:'計算値',data:[{x:calcF,y:0},{x:calcF,y:1}],borderColor:'#fbbf24',borderDash:[5,4],borderWidth:1.5,pointRadius:0,fill:false});
   _fmChart=new Chart(canvas,{type:'line',data:{datasets},options:{
     responsive:true,maintainAspectRatio:false,animation:false,
     plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>items[0].parsed.x.toFixed(2)+' Hz',label:item=>item.dataset.label}}},
@@ -5950,38 +5972,17 @@ function _collectedFreqAnalyze(d){
   const calcF=(car.springF&&car.leverF&&car.weight)?computeNaturalFreq(car.springF,car.leverF,cornerMass(car,'F')):null;
   const calcR=(car.springR&&car.leverR&&car.weight)?computeNaturalFreq(car.springR,car.leverR,cornerMass(car,'R')):null;
   const fc=axle==='R'?calcR:calcF;
-  let sel=sm.slice();
-  if(fc)sel=sel.map((v,i)=>v*(0.6+0.4*Math.exp(-((freqs[i]-fc)**2)/(2*FM_PRIOR_SIGMA*FM_PRIOR_SIGMA))));
-  const loIdx=freqs.findIndex(f=>f>=FM_PEAK_LO);
-  let hiIdx=freqs.length-1;for(let i=freqs.length-1;i>=0;i--){if(freqs[i]<=FM_PEAK_HI){hiIdx=i;break;}}
-  let pi=-1,pv=-1;freqs.forEach((f,i)=>{if(f>=FM_PEAK_LO&&f<=FM_PEAK_HI&&sel[i]>pv){pi=i;pv=sel[i];}});
-  if(fc&&pi>=0&&freqs[pi]>3.0){
-    let near=null;
-    for(let i=Math.max(1,loIdx);i<=Math.min(sel.length-2,hiIdx);i++){
-      const f=freqs[i];
-      if(Math.abs(f-fc)>0.7)continue;
-      if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&sel[i]>=pv*0.25){if(!near||sel[i]>near.v)near={i,v:sel[i]};}
-    }
-    if(near){pi=near.i;pv=near.v;}
-  }
-  let rmin=pv;for(let i=pi;i<=hiIdx;i++){if(sel[i]<rmin)rmin=sel[i];}
-  const prom=pv>0?(pv-rmin)/pv:0;
-  const th=pv*0.5;let lo=pi,hi=pi;
-  while(lo>loIdx&&sel[lo-1]>=th)lo--;
-  while(hi<hiIdx&&sel[hi+1]>=th)hi++;
-  let sw=0,swf=0;for(let i=lo;i<=hi;i++){const w=sel[i]-th;sw+=w;swf+=w*freqs[i];}
-  const freq=sw?swf/sw:freqs[pi];
-  let second=null;
-  for(let i=1;i<freqs.length-1;i++){
-    const f=freqs[i];
-    if(f<FM_PEAK_LO||f>FM_PEAK_HI||(i>=lo&&i<=hi))continue;
-    if(sel[i]>sel[i-1]&&sel[i]>=sel[i+1]&&Math.abs(f-freq)>=0.4&&sel[i]>=pv*0.35){if(!second||sel[i]>second.v)second={f,v:sel[i]};}
-  }
+  const inv=_fmInvarianceScoreFromSegments(freqs,segs);
+  const pick=_fmPickMeasuredPeak(freqs,sm,{calcFreq:fc,assist:inv?inv.score:null});
+  if(!pick)return {ok:false,reason:'有効な共振ピークを検出できません。固定場所・路面条件を変えて再測定してください',samples,gps,segs,freqs};
+  const pi=pick.pi,pv=pick.pv,prom=pick.prom,freq=freqs[pi];
+  const secondCand=pick.candidates.find(c=>Math.abs(c.f-freq)>=0.4&&c.v>=pv*0.25);
+  const second=secondCand?{f:secondCand.f,v:secondCand.v}:null;
   const speeds=segs.map(s=>s.speed).filter(v=>v!=null&&isFinite(v));
   const bands=new Set(speeds.map(v=>FM_SPEED_BANDS.findIndex(b=>v>=b[0]&&v<b[1])).filter(i=>i>=0));
   const speedRange=speeds.length?Math.max(...speeds)-Math.min(...speeds):0;
   const mount=String(d.mountLocation||'');
-  const mountRisk=!mount||/アーム|吸盤|ホルダ|ダッシュ|柔|揺|仮|手持|マグネット/i.test(mount);
+  const mountRisk=!mount||/アーム|吸盤|ホルダ|ダッシュ|コンソール|センター|内装|柔|揺|仮|手持|マグネット/i.test(mount);
   let conf=55,reasons=[];
   if(segs.length>=6){conf+=10;reasons.push(`区間${segs.length}`);}else{conf-=6;reasons.push(`区間${segs.length}`);}
   if(bands.size>=2){conf+=12;reasons.push(`速度帯${bands.size}`);}else{conf-=10;reasons.push('速度幅不足');}
@@ -6000,7 +6001,7 @@ function _collectedFreqAnalyze(d){
   if(mountRisk){conf-=15;reasons.push(mount?'固定場所リスク':'固定場所不明');}
   if(freq>3.0){conf-=18;reasons.push('高域注意');}
   conf=Math.max(5,Math.min(95,Math.round(conf)));
-  return {ok:true,samples,gps,segs,freqs,spec:sm,sel,freq,second,axle,calcF,calcR,fc,calcDiff,prom,conf,reasons,speeds,bands:bands.size,assumedFront,mount,mountRisk};
+  return {ok:true,samples,gps,segs,freqs,spec:sm,sel:sm,freq,second,axle,calcF,calcR,fc,calcDiff,prom,conf,reasons,speeds,bands:bands.size,invBands:inv?inv.bandCount:0,assumedFront,mount,mountRisk};
 }
 function _collectedFreqHtml(d,ctx,key){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -6010,6 +6011,9 @@ function _collectedFreqHtml(d,ctx,key){
   const speedTxt=ctx.speeds.length?`${Math.min(...ctx.speeds).toFixed(0)}〜${Math.max(...ctx.speeds).toFixed(0)}km/h`:'速度なし';
   const mountWarn=(ctx.mountRisk||ctx.calcDiff>0.4||ctx.freq>3.0)?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">⚠️ 固有振動数実測は、スマホをストラットタワー付近などの硬い場所に動かないよう固定してください。スマホアーム、柔らかいホルダー、ダッシュボード固定は共振やズレを拾って計算値と大きく外れることがあります。</div>':'';
   const warn=ctx.freq>3.0?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">高めの値です。エンジン/ボディ構造振動を拾っている可能性があります。</div>':'';
+  const diffWarn=ctx.calcDiff>0.4?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">実測ピークと計算値の差が大きいです。縦線は補正値ではなく実スペクトル上の山に合わせています。計算値は黄色い破線で確認できます。</div>':'';
+  const weakWarn=ctx.prom<FM_PROM_MIN?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">山の立ち上がりが弱いため、この値は参考扱いです。</div>':'';
+  const methodNote=`<div style="font-size:10px;color:var(--text3);margin-top:6px">ピーク選択: 実スペクトル上の局所ピークを採用。速度帯${ctx.invBands||ctx.bands||0}の共通性と計算値は信頼度評価に使用。</div>`;
   return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 固有振動数サマリ</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc((d.car&&d.car.name)||'車両不明')} ／ ${esc(d.sender||'送信者不明')} ／ 測定軸=${ctx.axle==='R'?'後':'前'} ／ ${esc(String(d.recordedAt||d.uploadedAt||'').slice(0,16).replace('T',' '))}</div>
@@ -6021,7 +6025,10 @@ function _collectedFreqHtml(d,ctx,key){
     ${ctx.assumedFront?'<div style="font-size:10px;color:#fbbf24;margin-top:3px">前後荷重比が未入力のため、計算値だけ50:50仮定で表示しています。</div>':''}
     <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:var(--text2)">信頼度 <b style="color:${color}">${label}（${ctx.conf}/100）</b><div style="font-size:10px;color:var(--text3);margin-top:2px">${ctx.reasons.join(' / ')}</div></div>
     ${ctx.second?`<div style="font-size:11px;color:var(--text3);margin-top:6px">第2ピーク候補: ${ctx.second.f.toFixed(2)} Hz</div>`:''}
+    ${methodNote}
     ${warn}
+    ${diffWarn}
+    ${weakWarn}
     ${mountWarn}
     <div style="font-weight:700;font-size:12px;margin:12px 0 2px">振動スペクトル</div>
     <canvas id="${key}_spec" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
@@ -6040,6 +6047,10 @@ function _collectedFreqRender(key){
     c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=1;
     for(let f=1;f<=6;f++){const x=xOf(f);c.beginPath();c.moveTo(x,padT);c.lineTo(x,H-padB);c.stroke();c.fillStyle='rgba(148,163,184,.7)';c.font='10px sans-serif';c.textAlign='center';c.fillText(String(f),x,H-7);}
     c.strokeStyle='#60a5fa';c.lineWidth=2;c.beginPath();ctx.freqs.forEach((f,i)=>{const x=xOf(f),y=yOf(ctx.spec[i]);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();
+    if(ctx.fc&&ctx.fc>=FM_SCAN_LO&&ctx.fc<=FM_SCAN_HI){
+      const cx=xOf(ctx.fc);c.save();c.setLineDash([5,4]);c.strokeStyle='#fbbf24';c.lineWidth=1.5;c.beginPath();c.moveTo(cx,padT);c.lineTo(cx,H-padB);c.stroke();c.restore();
+      c.fillStyle='#fbbf24';c.font='10px sans-serif';c.textAlign='left';c.fillText(`計算 ${ctx.fc.toFixed(2)}Hz`,Math.min(cx+4,W-78),padT+28);
+    }
     const px=xOf(ctx.freq);c.strokeStyle='#34d399';c.lineWidth=2;c.beginPath();c.moveTo(px,padT);c.lineTo(px,H-padB);c.stroke();
     c.fillStyle='#34d399';c.font='11px sans-serif';c.textAlign='left';c.fillText(`${ctx.freq.toFixed(2)}Hz`,Math.min(px+4,W-62),padT+12);
   }
