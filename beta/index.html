@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mileage 3.23.5</title>
+<title>Mileage 3.23.6</title>
 <style>
 :root{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
@@ -187,7 +187,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 <div id="app">
   <div class="header">
     <div class="header-top">
-      <span class="header-title">Mileage <span class="header-version">3.23.5</span></span>
+      <span class="header-title">Mileage <span class="header-version">3.23.6</span></span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="updateBadge" style="display:none">
           <a id="updateLink" href="#" style="font-size:11px;background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:20px;text-decoration:none;cursor:pointer" onclick="showUpdateModal(event)">🆕 アップデートあり</a>
@@ -779,7 +779,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
       <div class="card">
         <p class="section-title">バージョン情報</p>
         <div style="font-size:13px;color:var(--text2);line-height:2">
-          <p>現在のバージョン: <strong style="color:var(--text)">3.23.5</strong></p>
+          <p>現在のバージョン: <strong style="color:var(--text)">3.23.6</strong></p>
           <p id="versionNote" style="color:var(--text3);font-size:12px"></p>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const APP_VERSION = '3.23.5';
+const APP_VERSION = '3.23.6';
 const FB_URL = 'https://milage-8fb82-default-rtdb.firebaseio.com';
 const VERSION_URL = 'https://001yukiapp.github.io/mileage/beta/version.json';
 
@@ -3904,8 +3904,20 @@ function _fmPickMeasuredPeak(freqs,spec,opts){
   }
   if(!candidates.length)return null;
   candidates.sort((a,b)=>b.rank-a.rank);
-  const top=candidates[0];
-  return {pi:top.i,pv:top.v,prom:top.prom,candidates};
+  let top=candidates[0];
+  let structuralSkipped=null;
+  // 4Hz前後はコンソール/ダッシュ/ボディ構造の振動が出やすい。
+  // 計算値から大きく離れ、山の独立性も弱い高域最大ピークは、下側に実ピークがあれば避ける。
+  if(calcFreq&&top.f>3.2&&(top.f-calcFreq)>0.7&&top.prom<0.14){
+    const cap=Math.min(FM_PEAK_HI,Math.max(3.05,calcFreq+1.05));
+    const lower=candidates.filter(c=>c.f<top.f-0.35&&c.f<=cap&&c.norm>=top.norm*0.25&&c.prom>=0.06);
+    if(lower.length){
+      lower.sort((a,b)=>b.rank-a.rank);
+      structuralSkipped={f:top.f,v:top.v,prom:top.prom};
+      top=lower[0];
+    }
+  }
+  return {pi:top.i,pv:top.v,prom:top.prom,candidates,structuralSkipped};
 }
 // ★B-1 速度不変ピーク選択：速度帯ごとに正規化スペクトルを作り、全帯で高い周波数だけ残す幾何平均スコアを返す。
 // 路面/エンジン由来の山は速度で動くので1帯でしか高くならず落ちる。ボディ共振だけが全帯で居座る。計算値は不要。
@@ -3979,6 +3991,7 @@ function _analyzeFreq(partial){
   const _calcDiffForWarn=_fc?Math.abs(freq-_fc):null;
   const _mountNote=(freq>3.0||(_calcDiffForWarn!=null&&_calcDiffForWarn>0.4))?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 実測ピークと計算値の差が大きい/高めの値です。スマホがサスから遠い（コンソール・ダッシュボード等）とエンジン/ボディ構造の振動を拾います。前後軸付近の硬い場所に動かないよう固定してください。</div>`:'';
   const _weakPeakNote=(_prom<FM_PROM_MIN)?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ 山の立ち上がりが弱いため、値は参考扱いです。縦線は補正値ではなく、実スペクトル上の山に合わせています。</div>`:'';
+  const _structNote=_pick.structuralSkipped?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">⚠️ ${_pick.structuralSkipped.f.toFixed(2)}Hzの高域ピークは構造振動候補として除外しました。</div>`:'';
   let _conf=55;
   const _confReasons=[];
   if(inv){_conf+=18;_confReasons.push(`速度帯${inv.bandCount}`);if(inv.bandCount>=3)_conf+=8;}else{_conf-=10;_confReasons.push('速度幅不足');}
@@ -4023,6 +4036,7 @@ function _analyzeFreq(partial){
     ${_methodNote}
     ${_mountNote}
     ${_weakPeakNote}
+    ${_structNote}
     ${_confNote}
     ${calcNote}
     ${dampNote}
@@ -6001,7 +6015,7 @@ function _collectedFreqAnalyze(d){
   if(mountRisk){conf-=15;reasons.push(mount?'固定場所リスク':'固定場所不明');}
   if(freq>3.0){conf-=18;reasons.push('高域注意');}
   conf=Math.max(5,Math.min(95,Math.round(conf)));
-  return {ok:true,samples,gps,segs,freqs,spec:sm,sel:sm,freq,second,axle,calcF,calcR,fc,calcDiff,prom,conf,reasons,speeds,bands:bands.size,invBands:inv?inv.bandCount:0,assumedFront,mount,mountRisk};
+  return {ok:true,samples,gps,segs,freqs,spec:sm,sel:sm,freq,second,axle,calcF,calcR,fc,calcDiff,prom,conf,reasons,speeds,bands:bands.size,invBands:inv?inv.bandCount:0,assumedFront,mount,mountRisk,structuralSkipped:pick.structuralSkipped};
 }
 function _collectedFreqHtml(d,ctx,key){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -6013,6 +6027,7 @@ function _collectedFreqHtml(d,ctx,key){
   const warn=ctx.freq>3.0?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">高めの値です。エンジン/ボディ構造振動を拾っている可能性があります。</div>':'';
   const diffWarn=ctx.calcDiff>0.4?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">実測ピークと計算値の差が大きいです。縦線は補正値ではなく実スペクトル上の山に合わせています。計算値は黄色い破線で確認できます。</div>':'';
   const weakWarn=ctx.prom<FM_PROM_MIN?'<div style="font-size:11px;color:#fbbf24;margin-top:6px">山の立ち上がりが弱いため、この値は参考扱いです。</div>':'';
+  const structWarn=ctx.structuralSkipped?`<div style="font-size:11px;color:#fbbf24;margin-top:6px">${ctx.structuralSkipped.f.toFixed(2)}Hzの高域ピークは、計算値から大きく離れた構造振動候補として除外しました。</div>`:'';
   const methodNote=`<div style="font-size:10px;color:var(--text3);margin-top:6px">ピーク選択: 実スペクトル上の局所ピークを採用。速度帯${ctx.invBands||ctx.bands||0}の共通性と計算値は信頼度評価に使用。</div>`;
   return `<div style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.06)">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">📊 固有振動数サマリ</div>
@@ -6029,6 +6044,7 @@ function _collectedFreqHtml(d,ctx,key){
     ${warn}
     ${diffWarn}
     ${weakWarn}
+    ${structWarn}
     ${mountWarn}
     <div style="font-weight:700;font-size:12px;margin:12px 0 2px">振動スペクトル</div>
     <canvas id="${key}_spec" style="width:100%;display:block;background:var(--bg3);border-radius:8px"></canvas>
